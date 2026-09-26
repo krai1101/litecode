@@ -1,0 +1,110 @@
+add_library(litecode_ui STATIC
+    resources/resources.qrc
+    components/Controls.cpp
+    components/Controls.h
+    components/ActionBar.cpp
+    components/ActionBar.h
+    components/ComponentStyle.cpp
+    components/ComponentStyle.h
+    components/ComponentTokens.cpp
+    components/ComponentTokens.h
+    ConfirmationDialog.cpp
+    ConfirmationDialog.h
+    components/DialogChrome.cpp
+    components/DialogChrome.h
+    components/DialogHeader.cpp
+    components/DialogHeader.h
+    components/EditorBreadcrumb.cpp
+    components/EditorBreadcrumb.h
+    components/EditorFindReplaceController.cpp
+    components/EditorFindReplaceController.h
+    components/FindTextInput.h
+    commands/CommandRegistry.cpp
+    commands/CommandRegistry.h
+    controllers/ExplorerController.cpp
+    controllers/ExplorerController.h
+    controllers/EditorSessionController.cpp
+    controllers/EditorSessionController.h
+    controllers/WorkbenchController.cpp
+    controllers/WorkbenchController.h
+    explorer/ExplorerTreeView.cpp
+    explorer/ExplorerTreeView.h
+    explorer/ExplorerFileSystemModel.cpp
+    explorer/ExplorerFileSystemModel.h
+    EditorArea.cpp
+    EditorArea.h
+    EditorFontDialog.cpp
+    EditorFontDialog.h
+    SettingsDialog.cpp
+    SettingsDialog.h
+    settings/SettingsModel.cpp
+    settings/SettingsModel.h
+    FileIconTheme.cpp
+    FileIconTheme.h
+    KeyboardShortcutsDialog.cpp
+    KeyboardShortcutsDialog.h
+    MainWindow.cpp
+    MainWindow.h
+    components/PopupSurface.cpp
+    components/PopupSurface.h
+    components/TerminalFindControls.cpp
+    components/TerminalFindControls.h
+    QuickOpenDialog.cpp
+    QuickOpenDialog.h
+    styles/ComponentStyleSheets.h
+    styles/OverlayStyle.cpp
+    styles/EditorChromeStyle.cpp
+    styles/ExplorerStyle.cpp
+    styles/ScrollbarStatusStyle.cpp
+    styles/SettingsDialogVisuals.cpp
+    styles/SettingsDialogVisuals.h
+    styles/StyleTemplate.cpp
+    styles/StyleTemplate.h
+    styles/TerminalPanelStyle.cpp
+    styles/WorkbenchStyle.cpp
+    Theme.cpp
+    Theme.h
+    TransientScrollBars.cpp
+    TransientScrollBars.h
+    TerminalPanel.cpp
+    TerminalPanel.h
+    TerminalSessionDelegate.cpp
+    TerminalSessionDelegate.h
+    TerminalView.cpp
+    TerminalView.h
+    ThemedIcon.cpp
+    ThemedIcon.h
+    WorkbenchTitleBar.cpp
+    WorkbenchTitleBar.h
+    WorkbenchChrome.cpp
+    WorkbenchChrome.h
+    WindowOutline.cpp
+    WindowOutline.h
+    WorkbenchDock.cpp
+    WorkbenchDock.h
+)
+
+target_link_libraries(litecode_ui
+    PUBLIC
+        litecode_core
+        litecode_workspace
+        litecode_terminal
+        litecode_ui_primitives
+        Qt6::Widgets
+    PRIVATE
+        litecode_editor
+        Qt6::Concurrent
+        Qt6::Svg
+        litecode_project_options
+)
+target_include_directories(litecode_ui PUBLIC ${PROJECT_SOURCE_DIR}/src)
+set_property(TARGET litecode_ui PROPERTY AUTOGEN_PARALLEL 1)
+
+add_custom_target(litecode_ui_component_check
+    COMMAND ${CMAKE_COMMAND}
+        -DSOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -P ${PROJECT_SOURCE_DIR}/cmake/CheckUiComponents.cmake
+    COMMENT "Checking LiteCode UI component boundaries"
+    VERBATIM
+)
+add_dependencies(litecode_ui litecode_ui_component_check)

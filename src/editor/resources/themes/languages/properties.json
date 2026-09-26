@@ -1,0 +1,11 @@
+﻿{
+    "id":  "properties",
+    "lexer":  "properties",
+    "styles":  {
+                   "comment":  1,
+                   "type":  2,
+                   "variable":  5,
+                   "foreground":  3,
+                   "string":  4
+               }
+}

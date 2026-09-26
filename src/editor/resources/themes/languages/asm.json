@@ -1,0 +1,23 @@
+﻿{
+    "id":  "asm",
+    "lexer":  "asm",
+    "styles":  {
+                   "comment":  [
+                                   1,
+                                   11
+                               ],
+                   "string":  [
+                                  3,
+                                  12,
+                                  16
+                              ],
+                   "number":  2,
+                   "keyword":  [
+                                   6,
+                                   7,
+                                   14
+                               ],
+                   "variable":  8,
+                   "preprocessor":  9
+               }
+}

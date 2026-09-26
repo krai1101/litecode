@@ -1,0 +1,4 @@
+﻿{
+    "id":  "hlsl",
+    "inherits":  "cpp"
+}

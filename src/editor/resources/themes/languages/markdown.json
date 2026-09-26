@@ -1,0 +1,42 @@
+﻿{
+    "id":  "markdown",
+    "lexer":  "markdown",
+    "styles":  {
+                   "markupHeading":  {
+                                         "ids":  [
+                                                     6,
+                                                     7,
+                                                     8,
+                                                     9,
+                                                     10,
+                                                     11
+                                                 ],
+                                         "bold":  true
+                                     },
+                   "markupBold":  {
+                                      "ids":  [
+                                                  2,
+                                                  3
+                                              ],
+                                      "bold":  true
+                                  },
+                   "markupItalic":  {
+                                        "ids":  [
+                                                    4,
+                                                    5
+                                                ],
+                                        "italic":  true
+                                    },
+                   "markupList":  [
+                                      13,
+                                      14
+                                  ],
+                   "markupQuote":  15,
+                   "type":  18,
+                   "string":  [
+                                  19,
+                                  20,
+                                  21
+                              ]
+               }
+}

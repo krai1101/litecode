@@ -1,0 +1,19 @@
+﻿{
+    "id":  "powershell",
+    "lexer":  "powershell",
+    "styles":  {
+                   "comment":  [
+                                   1,
+                                   13
+                               ],
+                   "string":  [
+                                  2,
+                                  3,
+                                  14,
+                                  15
+                              ],
+                   "keyword":  8,
+                   "variable":  5,
+                   "function":  9
+               }
+}

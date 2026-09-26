@@ -1,0 +1,4 @@
+﻿{
+    "id":  "bibtex",
+    "inherits":  "latex"
+}

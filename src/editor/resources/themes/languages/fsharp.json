@@ -1,0 +1,26 @@
+﻿{
+    "id":  "fsharp",
+    "lexer":  "fsharp",
+    "styles":  {
+                   "comment":  [
+                                   8,
+                                   9
+                               ],
+                   "string":  [
+                                  14,
+                                  15,
+                                  16,
+                                  17
+                              ],
+                   "number":  13,
+                   "keyword":  [
+                                   1,
+                                   2,
+                                   3,
+                                   4,
+                                   5
+                               ],
+                   "preprocessor":  10,
+                   "macro":  18
+               }
+}

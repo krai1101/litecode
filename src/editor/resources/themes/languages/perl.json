@@ -1,0 +1,31 @@
+﻿{
+    "id":  "perl",
+    "lexer":  "perl",
+    "styles":  {
+                   "comment":  [
+                                   2,
+                                   3
+                               ],
+                   "string":  [
+                                  6,
+                                  7,
+                                  19,
+                                  23,
+                                  24,
+                                  26,
+                                  27
+                              ],
+                   "escape":  [
+                                  17,
+                                  18,
+                                  29
+                              ],
+                   "number":  4,
+                   "keyword":  5,
+                   "variable":  [
+                                    12,
+                                    13,
+                                    14
+                                ]
+               }
+}

@@ -1,0 +1,14 @@
+﻿{
+    "id":  "shellscript",
+    "lexer":  "shellscript",
+    "styles":  {
+                   "comment":  2,
+                   "string":  [
+                                  5,
+                                  6,
+                                  11
+                              ],
+                   "keyword":  4,
+                   "variable":  9
+               }
+}

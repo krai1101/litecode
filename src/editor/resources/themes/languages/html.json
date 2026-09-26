@@ -1,0 +1,14 @@
+﻿{
+    "id":  "html",
+    "lexer":  "html",
+    "styles":  {
+                   "comment":  9,
+                   "string":  [
+                                  6,
+                                  7
+                              ],
+                   "declaration":  1,
+                   "type":  3,
+                   "number":  10
+               }
+}

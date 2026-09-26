@@ -1,0 +1,24 @@
+﻿{
+    "id":  "latex",
+    "lexer":  "latex",
+    "styles":  {
+                   "comment":  [
+                                   4,
+                                   7
+                               ],
+                   "function":  [
+                                    1,
+                                    9
+                                ],
+                   "type":  [
+                                2,
+                                5
+                            ],
+                   "number":  [
+                                  3,
+                                  6
+                              ],
+                   "string":  8,
+                   "parameter":  11
+               }
+}

@@ -1,0 +1,51 @@
+# Build, package, and generated CMake output.
+/build/
+/out/
+/dist/
+/package/
+/bin/
+/plugins/
+/_CPack_Packages/
+/CMakeFiles/
+/CMakeCache.txt
+/cmake_install.cmake
+/install_manifest.txt
+/compile_commands.json
+/.cache/
+
+# Per-user IDE and build configuration.
+/.idea/
+/.vs/
+/.vscode/
+/.qtcreator/
+/.qtc_clangd/
+/CMakeUserPresets.json
+*.user
+*.autosave
+
+# Runtime logs, crash artifacts, and editor temporary files.
+*.log
+*.dmp
+*.stackdump
+*.swp
+*.swo
+*~
+
+# Local diagnostic captures and generated benchmark fixtures.
+/codex-*.txt
+/panel-*.txt
+/shell-*.txt
+/test-*.xml
+/benchmarks/generated/
+/benchmarks/fixtures/generated/
+/benchmarks/results/*.json
+/benchmarks/screenshots/
+
+# Local development notes and visual references are not release inputs.
+/start_cmd.txt
+/vs code screnshots/
+
+# Operating-system metadata.
+.DS_Store
+Thumbs.db
+Desktop.ini

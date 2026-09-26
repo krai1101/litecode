@@ -1,0 +1,10 @@
+﻿{
+    "id":  "makefile",
+    "lexer":  "makefile",
+    "styles":  {
+                   "comment":  1,
+                   "preprocessor":  2,
+                   "variable":  3,
+                   "function":  5
+               }
+}

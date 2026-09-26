@@ -1,0 +1,29 @@
+﻿{
+    "id":  "dart",
+    "lexer":  "dart",
+    "styles":  {
+                   "comment":  [
+                                   1,
+                                   2,
+                                   3,
+                                   4
+                               ],
+                   "string":  [
+                                  5,
+                                  6,
+                                  7,
+                                  8,
+                                  9,
+                                  10
+                              ],
+                   "escape":  13,
+                   "number":  20,
+                   "keyword":  [
+                                   23,
+                                   24,
+                                   25
+                               ],
+                   "type":  26,
+                   "macro":  22
+               }
+}

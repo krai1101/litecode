@@ -1,0 +1,4 @@
+﻿{
+    "id":  "dockercompose",
+    "inherits":  "yaml"
+}

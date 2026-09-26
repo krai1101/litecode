@@ -1,0 +1,28 @@
+﻿{
+    "id":  "python",
+    "lexer":  "python",
+    "styles":  {
+                   "comment":  [
+                                   1,
+                                   12
+                               ],
+                   "string":  [
+                                  3,
+                                  4,
+                                  6,
+                                  7,
+                                  16,
+                                  17,
+                                  18,
+                                  19
+                              ],
+                   "number":  2,
+                   "keyword":  5,
+                   "type":  8,
+                   "function":  [
+                                    9,
+                                    14
+                                ],
+                   "macro":  15
+               }
+}
