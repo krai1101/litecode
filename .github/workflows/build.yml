@@ -1,0 +1,174 @@
+name: Build and test
+
+on:
+  push:
+    tags:
+      - 'v*'
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: litecode-build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Install Qt
+        shell: pwsh
+        run: ./scripts/install-qt-windows.ps1
+      - name: Check architecture boundaries
+        shell: pwsh
+        run: ./scripts/check-architecture.ps1
+      - name: Check formatting
+        shell: pwsh
+        run: ./scripts/format.ps1 -Check
+      - name: Build and test
+        shell: pwsh
+        env:
+          LITECODE_REQUIRE_LINK_TESTS: '1'
+        run: ./scripts/build-windows.ps1 -Configuration Release -QtRoot "$env:QT_ROOT_DIR"
+      - name: Run MSVC static analysis
+        shell: pwsh
+        run: ./scripts/analyze-windows.ps1 -QtRoot "$env:QT_ROOT_DIR"
+      - name: Stage and verify package
+        shell: pwsh
+        run: |
+          $packageRoot = Join-Path (Resolve-Path build).Path 'package'
+          cmake --install build/release --prefix $packageRoot
+          ./scripts/verify-package.ps1 -PackageRoot $packageRoot
+      - name: Build release archive
+        shell: pwsh
+        run: cmake --build build/release --target package --parallel 2
+      - name: Upload Windows package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: LiteCode-windows
+          path: build/release/LiteCode-*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends cmake ninja-build g++
+      - name: Install Qt
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730
+        with:
+          version: 6.11.2
+          modules: qt5compat
+          archives: icu qtbase qtsvg
+          cache: true
+      - name: Configure Qt runtime library path
+        run: |
+          qt_icu="$(find "$GITHUB_WORKSPACE/../Qt" -name 'libicui18n.so.*' -print -quit)"
+          test -n "$qt_icu" || { echo 'Qt ICU runtime library was not found'; exit 1; }
+          qt_lib="$(dirname "$qt_icu")"
+          echo "LD_LIBRARY_PATH=$qt_lib:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+      - name: Configure
+        run: |
+          qt_icu="$(find "$GITHUB_WORKSPACE/../Qt" -name 'libicui18n.so.*' -print -quit)"
+          test -n "$qt_icu" || { echo 'Qt ICU runtime library was not found'; exit 1; }
+          qt_lib="$(dirname "$qt_icu")"
+          export LD_LIBRARY_PATH="$qt_lib:${LD_LIBRARY_PATH:-}"
+          cmake --preset release
+      - name: Build
+        run: |
+          qt_icu="$(find "$GITHUB_WORKSPACE/../Qt" -name 'libicui18n.so.*' -print -quit)"
+          test -n "$qt_icu" || { echo 'Qt ICU runtime library was not found'; exit 1; }
+          qt_lib="$(dirname "$qt_icu")"
+          export LD_LIBRARY_PATH="$qt_lib:${LD_LIBRARY_PATH:-}"
+          cmake --build --preset release
+      - name: Test
+        env:
+          QT_QPA_PLATFORM: offscreen
+          LITECODE_REQUIRE_LINK_TESTS: '1'
+        run: ctest --preset release --parallel 2
+      - name: Build release archive
+        run: |
+          qt_icu="$(find "$GITHUB_WORKSPACE/../Qt" -name 'libicui18n.so.*' -print -quit)"
+          test -n "$qt_icu" || { echo 'Qt ICU runtime library was not found'; exit 1; }
+          qt_lib="$(dirname "$qt_icu")"
+          export LD_LIBRARY_PATH="$qt_lib:${LD_LIBRARY_PATH:-}"
+          cmake --build --preset release --target package
+      - name: Upload Linux package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: LiteCode-linux
+          path: build/release/LiteCode-*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Install build dependencies
+        run: brew install cmake ninja
+      - name: Install Qt
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730
+        with:
+          version: 6.11.2
+          modules: qt5compat
+          archives: qtbase qtsvg
+          cache: true
+      - name: Configure
+        run: cmake --preset release
+      - name: Build
+        run: cmake --build --preset release
+      - name: Test
+        env:
+          QT_QPA_PLATFORM: offscreen
+          LITECODE_REQUIRE_LINK_TESTS: '1'
+        run: ctest --preset release --parallel 2
+      - name: Build release archive
+        run: cmake --build --preset release --target package
+      - name: Upload macOS package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: LiteCode-macos
+          path: build/release/LiteCode-*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, linux, macos]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download release packages
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: LiteCode-*
+          path: dist
+          merge-multiple: true
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
+        with:
+          generate_release_notes: true
+          files: dist/*.zip
+          fail_on_unmatched_files: true

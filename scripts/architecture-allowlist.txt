@@ -1,0 +1,6 @@
+# rule-id|repository-relative path|max current occurrences|removal owner and justification
+#
+# These are counted debt entries, not exemptions for future code. The architecture check fails if
+# any count increases or if the same forbidden pattern appears in another file. Delete an entry as
+# soon as its owning work package removes the final occurrence.
+blocking-waitpid|src/terminal/UnixPtyBackend.cpp|1|WP1: blocking reap is isolated to a self-deleting QThread worker and is never UI-reachable

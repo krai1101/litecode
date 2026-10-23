@@ -1,0 +1,148 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "LiteCode-0.1.0",
+  "documentNamespace": "https://github.com/krai1101/litecode/spdx/LiteCode-0.1.0-20260926",
+  "creationInfo": {
+    "created": "2026-09-26T00:00:00Z",
+    "creators": ["Tool: LiteCode release process"]
+  },
+  "packages": [
+    {
+      "name": "LiteCode",
+      "SPDXID": "SPDXRef-Package-LiteCode",
+      "versionInfo": "0.1.0",
+      "downloadLocation": "https://github.com/krai1101/litecode",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "copyrightText": "Copyright 2026 @krai1101"
+    },
+    {
+      "name": "Qt",
+      "SPDXID": "SPDXRef-Package-Qt",
+      "versionInfo": "6.11.2",
+      "downloadLocation": "https://download.qt.io/archive/qt/6.11/6.11.2/",
+      "filesAnalyzed": false,
+      "licenseConcluded": "LGPL-3.0-only",
+      "licenseDeclared": "LGPL-3.0-only",
+      "copyrightText": "Copyright The Qt Company Ltd. and other contributors"
+    },
+    {
+      "name": "Scintilla",
+      "SPDXID": "SPDXRef-Package-Scintilla",
+      "versionInfo": "5.6.4",
+      "downloadLocation": "https://downloads.sourceforge.net/project/scintilla/scintilla/5.6.4/scintilla564.tgz",
+      "filesAnalyzed": false,
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "c62e19449ed066867fde4edc6e3864f56d16f893c9f7582792fcf27dd733a48e"}],
+      "licenseConcluded": "LicenseRef-Scintilla",
+      "licenseDeclared": "LicenseRef-Scintilla",
+      "copyrightText": "Copyright 1998-2021 Neil Hodgson"
+    },
+    {
+      "name": "Lexilla",
+      "SPDXID": "SPDXRef-Package-Lexilla",
+      "versionInfo": "5.5.1",
+      "downloadLocation": "https://github.com/ScintillaOrg/lexilla/archive/refs/tags/rel-5-5-1.zip",
+      "filesAnalyzed": false,
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "5c147f927927b35c55c630ef3a9affd5708400a3cad80447cc1043ab9a816f31"}],
+      "licenseConcluded": "LicenseRef-Scintilla",
+      "licenseDeclared": "LicenseRef-Scintilla",
+      "copyrightText": "Copyright 1998-2021 Neil Hodgson"
+    },
+    {
+      "name": "libvterm",
+      "SPDXID": "SPDXRef-Package-libvterm",
+      "versionInfo": "0.3.3",
+      "downloadLocation": "https://github.com/neovim/libvterm/releases/tag/v0.3.3",
+      "filesAnalyzed": false,
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "0babe3ab42c354925dadede90d352f054aa9c4ae6842ea803a20c9741e172e56"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "Copyright libvterm contributors"
+    },
+    {
+      "name": "ripgrep",
+      "SPDXID": "SPDXRef-Package-ripgrep",
+      "versionInfo": "15.2.0",
+      "downloadLocation": "https://github.com/BurntSushi/ripgrep/releases/tag/15.2.0",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "Copyright (c) 2015 Andrew Gallant"
+    },
+    {
+      "name": "uchardet",
+      "SPDXID": "SPDXRef-Package-uchardet",
+      "versionInfo": "0.0.8",
+      "downloadLocation": "https://deb.debian.org/debian/pool/main/u/uchardet/uchardet_0.0.8.orig.tar.xz",
+      "filesAnalyzed": false,
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "e97a60cfc00a1c147a674b097bb1422abd9fa78a2d9ce3f3fdcc2e78a34ac5f0"}],
+      "licenseConcluded": "MPL-1.1",
+      "licenseDeclared": "MPL-1.1",
+      "copyrightText": "Copyright uchardet contributors and Mozilla contributors"
+    },
+    {
+      "name": "Visual Studio Code Codicons",
+      "SPDXID": "SPDXRef-Package-Codicons",
+      "versionInfo": "0.0.45",
+      "downloadLocation": "https://github.com/microsoft/vscode-codicons/tree/dbb6555160650624bb1719d6264910b1cbe528f2",
+      "filesAnalyzed": false,
+      "licenseConcluded": "CC-BY-4.0",
+      "licenseDeclared": "CC-BY-4.0",
+      "copyrightText": "Copyright Microsoft Corporation and contributors"
+    },
+    {
+      "name": "Visual Studio Code Light Modern and Dark Modern themes",
+      "SPDXID": "SPDXRef-Package-VSCodeThemes",
+      "versionInfo": "b10759526092db723a7217e7627ae309d74719f4",
+      "downloadLocation": "https://github.com/microsoft/vscode/tree/b10759526092db723a7217e7627ae309d74719f4/extensions/theme-defaults/themes",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "Copyright Microsoft Corporation"
+    },
+    {
+      "name": "Visual Studio Code Seti icon theme / Seti UI",
+      "SPDXID": "SPDXRef-Package-SetiUI",
+      "versionInfo": "6ebcc0a377ae04e130212f34df551c8340cf966a",
+      "downloadLocation": "https://github.com/microsoft/vscode/tree/6ebcc0a377ae04e130212f34df551c8340cf966a/extensions/theme-seti",
+      "filesAnalyzed": false,
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "b1e0623f0492615e2d9eec11a3d6429de914404fd500d86401c4dd6860f5a62a"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "Copyright Microsoft Corporation and Jesse Weed"
+    },
+    {
+      "name": "Lucide Icons",
+      "SPDXID": "SPDXRef-Package-Lucide",
+      "versionInfo": "4aec3f892fd6c23063bc2fead83c899b5d412b1c",
+      "downloadLocation": "https://github.com/lucide-icons/lucide/tree/4aec3f892fd6c23063bc2fead83c899b5d412b1c",
+      "filesAnalyzed": false,
+      "licenseConcluded": "ISC",
+      "licenseDeclared": "ISC",
+      "copyrightText": "Copyright (c) 2026 Lucide Icons and Contributors; selected Feather-derived icons Copyright (c) 2013-present Cole Bemis"
+    }
+  ],
+  "relationships": [
+    {"spdxElementId": "SPDXRef-DOCUMENT", "relationshipType": "DESCRIBES", "relatedSpdxElement": "SPDXRef-Package-LiteCode"},
+    {"spdxElementId": "SPDXRef-Package-LiteCode", "relationshipType": "DEPENDS_ON", "relatedSpdxElement": "SPDXRef-Package-Qt"},
+    {"spdxElementId": "SPDXRef-Package-LiteCode", "relationshipType": "CONTAINS", "relatedSpdxElement": "SPDXRef-Package-Scintilla"},
+    {"spdxElementId": "SPDXRef-Package-LiteCode", "relationshipType": "CONTAINS", "relatedSpdxElement": "SPDXRef-Package-Lexilla"},
+    {"spdxElementId": "SPDXRef-Package-LiteCode", "relationshipType": "CONTAINS", "relatedSpdxElement": "SPDXRef-Package-libvterm"},
+    {"spdxElementId": "SPDXRef-Package-LiteCode", "relationshipType": "CONTAINS", "relatedSpdxElement": "SPDXRef-Package-ripgrep"},
+    {"spdxElementId": "SPDXRef-Package-LiteCode", "relationshipType": "CONTAINS", "relatedSpdxElement": "SPDXRef-Package-uchardet"},
+    {"spdxElementId": "SPDXRef-Package-LiteCode", "relationshipType": "CONTAINS", "relatedSpdxElement": "SPDXRef-Package-Codicons"},
+    {"spdxElementId": "SPDXRef-Package-LiteCode", "relationshipType": "CONTAINS", "relatedSpdxElement": "SPDXRef-Package-VSCodeThemes"},
+    {"spdxElementId": "SPDXRef-Package-LiteCode", "relationshipType": "CONTAINS", "relatedSpdxElement": "SPDXRef-Package-SetiUI"},
+    {"spdxElementId": "SPDXRef-Package-LiteCode", "relationshipType": "CONTAINS", "relatedSpdxElement": "SPDXRef-Package-Lucide"}
+  ],
+  "hasExtractedLicensingInfos": [
+    {
+      "licenseId": "LicenseRef-Scintilla",
+      "extractedText": "Permission to use, copy, modify, and distribute this software and its documentation for any purpose and without fee is hereby granted, provided that the copyright and permission notices are preserved.",
+      "name": "Scintilla permissive license"
+    }
+  ]
+}

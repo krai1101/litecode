@@ -1,0 +1,10 @@
+﻿{
+    "id":  "yaml",
+    "lexer":  "yaml",
+    "styles":  {
+                   "comment":  1,
+                   "variable":  2,
+                   "number":  4,
+                   "keyword":  3
+               }
+}

@@ -1,0 +1,37 @@
+﻿{
+    "id":  "ruby",
+    "lexer":  "ruby",
+    "styles":  {
+                   "comment":  [
+                                   2,
+                                   3
+                               ],
+                   "string":  [
+                                  6,
+                                  7,
+                                  21,
+                                  22,
+                                  24,
+                                  25
+                              ],
+                   "escape":  [
+                                  12,
+                                  27
+                              ],
+                   "number":  4,
+                   "keyword":  [
+                                   5,
+                                   29
+                               ],
+                   "type":  [
+                                8,
+                                15
+                            ],
+                   "function":  9,
+                   "variable":  [
+                                    13,
+                                    16,
+                                    17
+                                ]
+               }
+}

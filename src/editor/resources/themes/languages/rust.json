@@ -1,0 +1,24 @@
+﻿{
+    "id":  "rust",
+    "lexer":  "rust",
+    "styles":  {
+                   "comment":  [
+                                   1,
+                                   2,
+                                   3,
+                                   4
+                               ],
+                   "string":  [
+                                  13,
+                                  14,
+                                  15
+                              ],
+                   "keyword":  [
+                                   6,
+                                   8
+                               ],
+                   "type":  7,
+                   "number":  5,
+                   "macro":  19
+               }
+}

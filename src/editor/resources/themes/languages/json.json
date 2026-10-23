@@ -1,0 +1,15 @@
+﻿{
+    "id":  "json",
+    "lexer":  "json",
+    "styles":  {
+                   "comment":  [
+                                   6,
+                                   7
+                               ],
+                   "string":  2,
+                   "escape":  5,
+                   "variable":  4,
+                   "number":  1,
+                   "keyword":  11
+               }
+}

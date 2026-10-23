@@ -1,0 +1,17 @@
+﻿{
+    "id":  "sql",
+    "lexer":  "sql",
+    "styles":  {
+                   "comment":  [
+                                   1,
+                                   2,
+                                   3
+                               ],
+                   "string":  [
+                                  6,
+                                  7
+                              ],
+                   "keyword":  5,
+                   "number":  4
+               }
+}

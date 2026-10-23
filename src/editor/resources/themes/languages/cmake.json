@@ -1,0 +1,16 @@
+﻿{
+    "id":  "cmake",
+    "lexer":  "cmake",
+    "styles":  {
+                   "comment":  1,
+                   "string":  [
+                                  2,
+                                  3,
+                                  4
+                              ],
+                   "function":  5,
+                   "parameter":  6,
+                   "variable":  7,
+                   "number":  14
+               }
+}

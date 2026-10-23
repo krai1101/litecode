@@ -1,0 +1,24 @@
+﻿{
+    "id":  "julia",
+    "lexer":  "julia",
+    "styles":  {
+                   "comment":  [
+                                   1,
+                                   14
+                               ],
+                   "string":  [
+                                  6,
+                                  10,
+                                  15
+                              ],
+                   "number":  2,
+                   "keyword":  [
+                                   3,
+                                   4,
+                                   5,
+                                   20
+                               ],
+                   "type":  18,
+                   "macro":  12
+               }
+}

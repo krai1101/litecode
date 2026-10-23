@@ -1,0 +1,29 @@
+﻿{
+    "id":  "coffeescript",
+    "lexer":  "coffeescript",
+    "styles":  {
+                   "comment":  [
+                                   1,
+                                   2,
+                                   3,
+                                   22
+                               ],
+                   "string":  [
+                                  6,
+                                  7,
+                                  13,
+                                  20
+                              ],
+                   "escape":  [
+                                  14,
+                                  23
+                              ],
+                   "number":  4,
+                   "keyword":  [
+                                   5,
+                                   16
+                               ],
+                   "type":  19,
+                   "variable":  25
+               }
+}

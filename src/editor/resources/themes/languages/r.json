@@ -1,0 +1,21 @@
+﻿{
+    "id":  "r",
+    "lexer":  "r",
+    "styles":  {
+                   "comment":  1,
+                   "string":  [
+                                  6,
+                                  7,
+                                  13,
+                                  14
+                              ],
+                   "escape":  15,
+                   "number":  5,
+                   "keyword":  [
+                                   2,
+                                   3,
+                                   4
+                               ],
+                   "variable":  9
+               }
+}

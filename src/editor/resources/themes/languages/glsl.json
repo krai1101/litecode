@@ -1,0 +1,4 @@
+﻿{
+    "id":  "glsl",
+    "inherits":  "cpp"
+}

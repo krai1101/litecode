@@ -1,0 +1,43 @@
+﻿{
+    "id":  "cpp",
+    "lexer":  "cpp",
+    "styles":  {
+                   "comment":  [
+                                   1,
+                                   2,
+                                   3,
+                                   15,
+                                   23,
+                                   24,
+                                   26
+                               ],
+                   "macro":  [
+                                  17,
+                                  18
+                              ],
+                   "number":  4,
+                   "declaration":  5,
+                   "keyword":  16,
+                   "string":  [
+                                  6,
+                                  7,
+                                  8,
+                                  12,
+                                  13,
+                                  20,
+                                  21,
+                                  22,
+                                  25
+                              ],
+                   "escape":  [
+                                  14,
+                                  27
+                              ],
+                   "preprocessor":  9,
+                   "foreground":  [
+                                      10,
+                                      11
+                                  ],
+                   "type":  19
+               }
+}
