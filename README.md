@@ -10,8 +10,7 @@ terminal—without Electron, Chromium, a web view, or an embedded AI client.
 > **Beta software:** LiteCode is still in beta. Use it cautiously, keep backups
 > of important work, and report problems you encounter.
 
-<img width="1920" height="1031" alt="image" src="https://github.com/user-attachments/assets/f9b752fc-0d65-426f-bb50-fb936e430610" />
-
+<img width="1920" height="1031" alt="Capture" src="https://github.com/user-attachments/assets/c5894a72-b2f7-4d76-966a-92fa9e9bb758" />
 
 ## The repository
 
