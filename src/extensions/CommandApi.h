@@ -1,6 +1,6 @@
 #pragma once
-#include <QString>
 #include <QJsonArray>
+#include <QString>
 #include <optional>
 namespace litecode::extensions {
 struct Command final {
@@ -9,4 +9,4 @@ struct Command final {
     std::optional<QString> tooltip;
     QJsonArray arguments;
 };
-}
+} // namespace litecode::extensions

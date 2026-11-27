@@ -2,8 +2,8 @@
 
 #include "ui/FileIconTheme.h"
 #include "ui/Theme.h"
-#include "ui/components/TreeDisclosure.h"
 #include "ui/components/Controls.h"
+#include "ui/components/TreeDisclosure.h"
 
 #include <QApplication>
 #include <QBrush>

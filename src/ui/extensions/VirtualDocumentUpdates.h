@@ -5,7 +5,9 @@ namespace litecode::ui {
 class EditorArea;
 class VirtualDocumentUpdates final : public QObject {
   public:
-    VirtualDocumentUpdates(EditorArea* editors, extensions::WorkbenchContentProviders* providers, QObject* parent = nullptr);
+    VirtualDocumentUpdates(EditorArea* editors, extensions::WorkbenchContentProviders* providers,
+                           QObject* parent = nullptr);
+
   private:
     void update(const QUrl& uri, const QString& content);
     QPointer<EditorArea> editors_;

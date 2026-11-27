@@ -50,15 +50,22 @@ QuickInputDialog::QuickInputDialog(const QString& title, const QString& prompt,
     connect(input_, &QLineEdit::returnPressed, this, &QuickInputDialog::accept);
 }
 void QuickInputDialog::accept() {
-    if (acceptanceHandler_) { const auto handler = acceptanceHandler_; handler(); return; }
+    if (acceptanceHandler_) {
+        const auto handler = acceptanceHandler_;
+        handler();
+        return;
+    }
     if ((rawInput_ || !value().isEmpty()) && !pending_ && !blocksAcceptance_)
         QDialog::accept();
 }
-QString QuickInputDialog::value() const { return rawInput_ ? input_->text() : input_->text().trimmed(); }
+QString QuickInputDialog::value() const {
+    return rawInput_ ? input_->text() : input_->text().trimmed();
+}
 void QuickInputDialog::setValidation(const QString& diagnostic, bool pending) {
     setValidationSeverity(diagnostic, diagnostic.isEmpty() ? 0 : 3, pending);
 }
-void QuickInputDialog::setValidationSeverity(const QString& diagnostic, int severity, bool pending) {
+void QuickInputDialog::setValidationSeverity(const QString& diagnostic, int severity,
+                                             bool pending) {
     pending_ = pending;
     blocksAcceptance_ = severity == 3;
     setProperty("validationPending", pending);
@@ -67,14 +74,24 @@ void QuickInputDialog::setValidationSeverity(const QString& diagnostic, int seve
     validation_->style()->polish(validation_);
     validation_->setText(diagnostic);
     validation_->setVisible(!diagnostic.isEmpty());
-    setInputState(*input_, severity == 3 ? InputState::Error : severity == 2 ? InputState::Warning :
-        severity == 1 ? InputState::Info : InputState::Default);
+    setInputState(*input_, severity == 3   ? InputState::Error
+                           : severity == 2 ? InputState::Warning
+                           : severity == 1 ? InputState::Info
+                                           : InputState::Default);
     adjustSize();
 }
-void QuickInputDialog::setHint(const QString& hint) { hint_->setText(hint); hint_->setVisible(!hint.isEmpty()); }
-void QuickInputDialog::setTitleText(const QString& title) { title_->setText(title); title_->setVisible(!title.isEmpty()); }
+void QuickInputDialog::setHint(const QString& hint) {
+    hint_->setText(hint);
+    hint_->setVisible(!hint.isEmpty());
+}
+void QuickInputDialog::setTitleText(const QString& title) {
+    title_->setText(title);
+    title_->setVisible(!title.isEmpty());
+}
 void QuickInputDialog::setRawInputMode(bool enabled) { rawInput_ = enabled; }
-void QuickInputDialog::setAcceptanceHandler(std::function<void()> handler) { acceptanceHandler_ = std::move(handler); }
+void QuickInputDialog::setAcceptanceHandler(std::function<void()> handler) {
+    acceptanceHandler_ = std::move(handler);
+}
 QToolButton* QuickInputDialog::addInputAction(const QString& icon, const QString& tooltip) {
     auto* button = new IconButton(input_->parentWidget());
     setThemedIcon(button, icon);

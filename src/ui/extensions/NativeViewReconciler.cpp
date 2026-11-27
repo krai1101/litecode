@@ -13,9 +13,10 @@ bool sameTree(const NativeControl& a, const NativeControl& b) {
         a.helpText != b.helpText || a.helpUrl != b.helpUrl ||
         a.accessibleName != b.accessibleName || a.placeholder != b.placeholder ||
         a.toolTip != b.toolTip || a.items != b.items || a.enabled != b.enabled ||
-        a.visible != b.visible || a.readOnly != b.readOnly || a.password != b.password || a.checked != b.checked ||
-        a.spacing != b.spacing || a.margin != b.margin || a.contentsMargins != b.contentsMargins ||
-        a.stretch != b.stretch || a.currentIndex != b.currentIndex || a.value != b.value ||
+        a.visible != b.visible || a.readOnly != b.readOnly || a.password != b.password ||
+        a.checked != b.checked || a.spacing != b.spacing || a.margin != b.margin ||
+        a.contentsMargins != b.contentsMargins || a.stretch != b.stretch ||
+        a.currentIndex != b.currentIndex || a.value != b.value ||
         a.children.size() != b.children.size())
         return false;
     for (int i = 0; i < a.children.size(); ++i)

@@ -2,16 +2,20 @@
 #include <stdexcept>
 
 namespace litecode::extensions {
-HostTextEditorEdit::HostTextEditorEdit(std::shared_ptr<HostTextDocument> document, bool before, bool after)
+HostTextEditorEdit::HostTextEditorEdit(std::shared_ptr<HostTextDocument> document, bool before,
+                                       bool after)
     : document_(std::move(document)), callbackThread_(std::this_thread::get_id()) {
     data_.documentVersionId = document_->version();
     data_.undoStopBefore = before;
     data_.undoStopAfter = after;
 }
 TextEditorEditData HostTextEditorEdit::collect(std::shared_ptr<HostTextDocument> document,
-    const Callback& callback, bool undoStopBefore, bool undoStopAfter) {
-    if (!document) throw std::invalid_argument("Text editor document is required.");
-    if (!callback) throw std::invalid_argument("Text editor edit callback is required.");
+                                               const Callback& callback, bool undoStopBefore,
+                                               bool undoStopAfter) {
+    if (!document)
+        throw std::invalid_argument("Text editor document is required.");
+    if (!callback)
+        throw std::invalid_argument("Text editor edit callback is required.");
     auto builder = std::shared_ptr<HostTextEditorEdit>(
         new HostTextEditorEdit(std::move(document), undoStopBefore, undoStopAfter));
     try {
@@ -29,7 +33,8 @@ void HostTextEditorEdit::requireActive() const {
     if (!active_ || callbackThread_ != std::this_thread::get_id())
         throw std::logic_error("Edit is only valid while callback runs");
 }
-void HostTextEditorEdit::push(const Range& range, std::optional<QString> text, bool forceMoveMarkers) {
+void HostTextEditorEdit::push(const Range& range, std::optional<QString> text,
+                              bool forceMoveMarkers) {
     std::lock_guard lock(mutex_);
     requireActive();
     data_.edits.append({document_->validateRange(range), std::move(text), forceMoveMarkers});
@@ -37,7 +42,9 @@ void HostTextEditorEdit::push(const Range& range, std::optional<QString> text, b
 void HostTextEditorEdit::replace(const Position& location, const QString& value) {
     push(Range(location, location), value, false);
 }
-void HostTextEditorEdit::replace(const Range& location, const QString& value) { push(location, value, false); }
+void HostTextEditorEdit::replace(const Range& location, const QString& value) {
+    push(location, value, false);
+}
 void HostTextEditorEdit::insert(const Position& location, const QString& value) {
     push(Range(location, location), value, true);
 }

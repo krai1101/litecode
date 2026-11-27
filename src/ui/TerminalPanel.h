@@ -4,9 +4,9 @@
 #include "terminal/TerminalTypes.h"
 
 #include <QFont>
-#include <QWidget>
 #include <QHash>
 #include <QPointer>
+#include <QWidget>
 
 #include <functional>
 #include <memory>
@@ -66,7 +66,8 @@ class TerminalPanel final : public QWidget {
     void fileLinkActivated(const QString& filePath, int line, int column);
     void processCompleted(const litecode::terminal::TerminalExit& result);
     void defaultShellChanged(const QString& path);
-    void debugCommandReady(litecode::core::OperationId id, qint64 shellProcessId, const QString& error);
+    void debugCommandReady(litecode::core::OperationId id, qint64 shellProcessId,
+                           const QString& error);
 
   protected:
     bool eventFilter(QObject* watched, QEvent* event) override;

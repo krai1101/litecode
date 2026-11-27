@@ -2,6 +2,7 @@
 #include "ui/extensions/NativeMarkdownView.h"
 #include "ui/extensions/NativeTranscriptView.h"
 #include "ui/extensions/NativeViewWidget.h"
+#include <QFontInfo>
 #include <QLabel>
 #include <QPlainTextEdit>
 #include <QPushButton>
@@ -97,14 +98,15 @@ class NativeViewReconcileTests final : public QObject {
             return cursor.charFormat().font();
         };
         QCOMPARE(inlineFont().family(), configured.family());
-        QCOMPARE(inlineFont().pixelSize(), 19);
+        const int inlineSize = qMax(10, qRound(QFontInfo(browser->font()).pixelSize() * .9));
+        QCOMPARE(inlineFont().pixelSize(), inlineSize);
         const auto proseFont = browser->document()->defaultFont();
         configured.setPixelSize(23);
         view.setCodeFont(configured);
         QCOMPARE(view.findChild<ui::NativeMarkdownView*>("markdown"), browser);
         QCOMPARE(browser->findChild<QPlainTextEdit*>("nativeCodeText"), code);
         QCOMPARE(code->font().pixelSize(), 23);
-        QCOMPARE(inlineFont().pixelSize(), 23);
+        QCOMPARE(inlineFont().pixelSize(), inlineSize);
         QCOMPARE(browser->document()->defaultFont(), proseFont);
     }
     void pagesKeepScrollerComposerAndOverlappingDocuments() {

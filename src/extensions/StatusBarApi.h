@@ -39,4 +39,4 @@ class StatusBarItem {
     virtual void hide() = 0;
     virtual void dispose() = 0;
 };
-}
+} // namespace litecode::extensions

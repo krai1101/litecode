@@ -16,7 +16,9 @@ class DocumentTextBuffer final {
     [[nodiscard]] QString text() const;
     [[nodiscard]] QString text(const Range& range) const;
     [[nodiscard]] TextDocumentContentChangeEvent apply(const Range& range, const QString& text);
-    [[nodiscard]] QVector<TextDocumentContentChangeEvent> applyBatch(const QVector<TextEdit>& edits);
+    [[nodiscard]] QVector<TextDocumentContentChangeEvent>
+    applyBatch(const QVector<TextEdit>& edits);
+
   private:
     void rebuild();
     void add(int index, qint64 delta);

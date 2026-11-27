@@ -18,8 +18,8 @@ class SecretEncryptionBackend : public QObject {
     virtual QFuture<QByteArray> decrypt(QByteArray ciphertext, QByteArray context) = 0;
 };
 
-[[nodiscard]] std::unique_ptr<SecretEncryptionBackend> createSecretEncryptionBackend(
-    const QString& storagePath);
+[[nodiscard]] std::unique_ptr<SecretEncryptionBackend>
+createSecretEncryptionBackend(const QString& storagePath);
 void eraseSecretBytes(QByteArray& bytes);
 
 } // namespace litecode::extensions

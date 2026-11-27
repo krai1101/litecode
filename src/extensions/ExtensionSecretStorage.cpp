@@ -4,8 +4,8 @@
 #include <QFileInfo>
 #include <QMutexLocker>
 #include <QPromise>
-#include <QSet>
 #include <QScopeGuard>
+#include <QSet>
 #include <QThread>
 #include <exception>
 #include <stdexcept>
@@ -13,13 +13,15 @@
 
 namespace litecode::extensions {
 namespace {
-template<typename T, typename F> QFuture<T> completed(F&& operation) {
+template <typename T, typename F> QFuture<T> completed(F&& operation) {
     QPromise<T> promise;
     promise.start();
     const auto future = promise.future();
     try {
-        if constexpr (std::is_void_v<T>) operation();
-        else promise.addResult(operation());
+        if constexpr (std::is_void_v<T>)
+            operation();
+        else
+            promise.addResult(operation());
     } catch (...) {
         promise.setException(std::current_exception());
     }
@@ -40,31 +42,34 @@ ExtensionSecretStorage::ExtensionSecretStorage(const QString& path, QString exte
     // Watch the parent because QSaveFile atomically replaces the target inode.
     if (!watcher_.addPath(parent))
         throw std::runtime_error("Could not watch secret-storage changes.");
-    connect(&watcher_, &QFileSystemWatcher::directoryChanged, this,
-        [this](const QString&) {
-            try { refresh(); } catch (...) {
-                // Access methods surface storage errors through their futures.
-            }
-        });
+    connect(&watcher_, &QFileSystemWatcher::directoryChanged, this, [this](const QString&) {
+        try {
+            refresh();
+        } catch (...) {
+            // Access methods surface storage errors through their futures.
+        }
+    });
 }
 ExtensionSecretStorage::~ExtensionSecretStorage() { operations_.shutdown(); }
 
 QFuture<QStringList> ExtensionSecretStorage::keys() {
-    return operations_.enqueue<QStringList>(QString{}, [this] {
-        return completed<QStringList>([this] { return encrypted_.keys(); });
-    });
+    return operations_.enqueue<QStringList>(
+        QString{}, [this] { return completed<QStringList>([this] { return encrypted_.keys(); }); });
 }
 
 QFuture<std::optional<QString>> ExtensionSecretStorage::get(const QString& key) {
     return operations_.enqueue<std::optional<QString>>(key, [this, key] {
         const auto value = encrypted_.get(key);
-        if (value.isUndefined()) return completed<std::optional<QString>>([] { return std::optional<QString>{}; });
-        if (!value.isString()) throw std::runtime_error("Stored secret has an invalid format.");
+        if (value.isUndefined())
+            return completed<std::optional<QString>>([] { return std::optional<QString>{}; });
+        if (!value.isString())
+            throw std::runtime_error("Stored secret has an invalid format.");
         const auto cipher = QByteArray::fromBase64(value.toString().toLatin1(),
-                                                  QByteArray::AbortOnBase64DecodingErrors);
-        if (cipher.isEmpty()) throw std::runtime_error("Stored secret has an invalid encrypted value.");
-        return encryption_->decrypt(cipher, extensionId_.toUtf8()).then(this,
-            [](QByteArray plaintext) -> std::optional<QString> {
+                                                   QByteArray::AbortOnBase64DecodingErrors);
+        if (cipher.isEmpty())
+            throw std::runtime_error("Stored secret has an invalid encrypted value.");
+        return encryption_->decrypt(cipher, extensionId_.toUtf8())
+            .then(this, [](QByteArray plaintext) -> std::optional<QString> {
                 const auto clear = qScopeGuard([&plaintext] { eraseSecretBytes(plaintext); });
                 return QString::fromUtf8(plaintext);
             });
@@ -73,8 +78,8 @@ QFuture<std::optional<QString>> ExtensionSecretStorage::get(const QString& key) 
 
 QFuture<void> ExtensionSecretStorage::store(const QString& key, const QString& value) {
     return operations_.enqueue<void>(key, [this, key, value] {
-        return encryption_->encrypt(value.toUtf8(), extensionId_.toUtf8()).then(this,
-            [this, key](const QByteArray& cipher) {
+        return encryption_->encrypt(value.toUtf8(), extensionId_.toUtf8())
+            .then(this, [this, key](const QByteArray& cipher) {
                 encrypted_.update(key, QString::fromLatin1(cipher.toBase64())).waitForFinished();
                 refresh();
             });
@@ -100,19 +105,27 @@ void ExtensionSecretStorage::refresh() {
         QMutexLocker lock(&mutex_);
         const auto current = encrypted_.snapshot();
         QSet<QString> all;
-        for (auto it = previous_.begin(); it != previous_.end(); ++it) all.insert(it.key());
-        for (auto it = current.begin(); it != current.end(); ++it) all.insert(it.key());
+        for (auto it = previous_.begin(); it != previous_.end(); ++it)
+            all.insert(it.key());
+        for (auto it = current.begin(); it != current.end(); ++it)
+            all.insert(it.key());
         for (const auto& key : all)
-            if (previous_.value(key) != current.value(key)) changedKeys.append(key);
+            if (previous_.value(key) != current.value(key))
+                changedKeys.append(key);
         previous_ = current;
     }
     changedKeys.sort();
     if (QThread::currentThread() == thread()) {
-        for (const auto& key : changedKeys) changed_.fire({key});
+        for (const auto& key : changedKeys)
+            changed_.fire({key});
     } else {
-        QMetaObject::invokeMethod(this, [this, changedKeys] {
-            for (const auto& key : changedKeys) changed_.fire({key});
-        }, Qt::QueuedConnection);
+        QMetaObject::invokeMethod(
+            this,
+            [this, changedKeys] {
+                for (const auto& key : changedKeys)
+                    changed_.fire({key});
+            },
+            Qt::QueuedConnection);
     }
 }
 } // namespace litecode::extensions

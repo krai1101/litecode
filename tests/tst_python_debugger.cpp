@@ -11,8 +11,8 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QJsonDocument>
-#include <QLineEdit>
 #include <QLabel>
+#include <QLineEdit>
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QSignalSpy>

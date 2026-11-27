@@ -171,7 +171,8 @@ bool WorkbenchNativeViews::accept(const QString& owner, const QJsonObject& messa
     if (!it->controls.contains(control))
         return false;
     if (action == "scrollToEnd") {
-        if (it->controls.value(control) != NativeControlKind::Scroll) return false;
+        if (it->controls.value(control) != NativeControlKind::Scroll)
+            return false;
         emit scrollToEndRequested(id, control);
         return true;
     }
@@ -204,7 +205,8 @@ quint64 WorkbenchNativeViews::revision(const QString& id) const {
     return entries_.value(id).revision;
 }
 bool WorkbenchNativeViews::reveal(const QString& id) {
-    if (!entries_.contains(id)) return false;
+    if (!entries_.contains(id))
+        return false;
     emit showRequested(id, false);
     return true;
 }

@@ -13,6 +13,7 @@ class EditorArea;
 class DetachedDocumentWatcher final : public QObject {
   public:
     explicit DetachedDocumentWatcher(EditorArea* editors, QObject* parent = nullptr);
+
   private:
     void refresh();
     void changed(const QString& path, bool directory);

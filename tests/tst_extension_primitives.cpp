@@ -1,6 +1,6 @@
 #include "extensions/ExtensionApi.h"
-#include "extensions/WorkspaceEditApi.h"
 #include "extensions/SnippetApi.h"
+#include "extensions/WorkspaceEditApi.h"
 #include <QtTest>
 #include <stdexcept>
 
@@ -19,9 +19,11 @@ class ExtensionPrimitiveTests final : public QObject {
                 calls.append("nested:return");
             }
         });
-        auto second = emitter.event()([&](int value) { calls.append("second:" + QString::number(value)); });
+        auto second =
+            emitter.event()([&](int value) { calls.append("second:" + QString::number(value)); });
         emitter.fire(1);
-        QCOMPARE(calls, QStringList({"first:1", "second:1", "first:2", "second:2", "nested:return"}));
+        QCOMPARE(calls,
+                 QStringList({"first:1", "second:1", "first:2", "second:2", "nested:return"}));
         first.dispose();
         second.dispose();
     }
@@ -52,7 +54,10 @@ class ExtensionPrimitiveTests final : public QObject {
         QCOMPARE(calls, 1);
         struct Like {
             int* calls;
-            void dispose() { ++*calls; throw std::runtime_error("fixture cleanup"); }
+            void dispose() {
+                ++*calls;
+                throw std::runtime_error("fixture cleanup");
+            }
         };
         Disposable second([&] { ++calls; });
         auto combined = Disposable::from(Like{&calls}, second);
@@ -116,7 +121,10 @@ class ExtensionPrimitiveTests final : public QObject {
         auto source = std::make_unique<CancellationTokenSource>();
         const auto token = source->token();
         int first = 0, skipped = 0;
-        auto one = token.onCancellationRequested([&] { ++first; source.reset(); });
+        auto one = token.onCancellationRequested([&] {
+            ++first;
+            source.reset();
+        });
         auto two = token.onCancellationRequested([&] { ++skipped; });
         source->cancel();
         QVERIFY(!source);
@@ -207,14 +215,19 @@ class ExtensionPrimitiveTests final : public QObject {
     }
     void snippetNestedBuildersShareOnlyAutomaticNumbering() {
         SnippetString snippet;
-        snippet.appendTabstop(9).appendPlaceholder([](SnippetString& nested) {
-            nested.appendTabstop().appendPlaceholder("inner");
-        }).appendTabstop(0).appendChoice({"a", "b"});
+        snippet.appendTabstop(9)
+            .appendPlaceholder(
+                [](SnippetString& nested) { nested.appendTabstop().appendPlaceholder("inner"); })
+            .appendTabstop(0)
+            .appendChoice({"a", "b"});
         QCOMPARE(snippet.value, QStringLiteral("$9${1:$2${3:inner}}$0${4|a,b|}"));
-        snippet.appendVariable("VAR", [](SnippetString& nested) { nested.appendTabstop(); }).appendTabstop();
+        snippet.appendVariable("VAR", [](SnippetString& nested) { nested.appendTabstop(); })
+            .appendTabstop();
         QCOMPARE(snippet.value, QStringLiteral("$9${1:$2${3:inner}}$0${4|a,b|}${VAR:$5}$6"));
         SnippetString explicitPlaceholder;
-        explicitPlaceholder.appendPlaceholder([](SnippetString& nested) { nested.appendTabstop(); }, 7).appendTabstop();
+        explicitPlaceholder
+            .appendPlaceholder([](SnippetString& nested) { nested.appendTabstop(); }, 7)
+            .appendTabstop();
         QCOMPARE(explicitPlaceholder.value, QStringLiteral("${7:$1}$2"));
     }
     void snippetBuilderFailureConsumesOuterButNotNestedSequence() {
@@ -222,7 +235,8 @@ class ExtensionPrimitiveTests final : public QObject {
         QVERIFY_EXCEPTION_THROWN(snippet.appendPlaceholder([](SnippetString& nested) {
             nested.appendTabstop();
             throw std::runtime_error("builder failed");
-        }), std::runtime_error);
+        }),
+                                 std::runtime_error);
         QCOMPARE(snippet.value, QStringLiteral("prefix"));
         snippet.appendTabstop();
         QCOMPARE(snippet.value, QStringLiteral("prefix$2"));
@@ -290,9 +304,8 @@ class ExtensionPrimitiveTests final : public QObject {
             received.append("first:" + QString::number(value));
             throw std::runtime_error("listener failed");
         });
-        auto second = emitter.event()([&](int value) {
-            received.append("second:" + QString::number(value));
-        });
+        auto second = emitter.event()(
+            [&](int value) { received.append("second:" + QString::number(value)); });
         emitter.fire(7);
         QCOMPARE(received, QStringList({"first:7", "second:7"}));
         first.dispose();

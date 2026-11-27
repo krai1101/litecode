@@ -1,14 +1,14 @@
-#include "ui/EditorArea.h"
 #include "editor/ScintillaEditor.h"
-#include "ui/extensions/WorkbenchDocumentOpenService.h"
-#include "ui/extensions/VirtualDocumentUpdates.h"
-#include "ui/extensions/WorkbenchWorkspaceEditService.h"
 #include "extensions/ExtensionManager.h"
-#include <QFileInfo>
+#include "ui/EditorArea.h"
+#include "ui/extensions/VirtualDocumentUpdates.h"
+#include "ui/extensions/WorkbenchDocumentOpenService.h"
+#include "ui/extensions/WorkbenchWorkspaceEditService.h"
 #include <QFile>
+#include <QFileInfo>
 #include <QSaveFile>
-#include <QTemporaryDir>
 #include <QSignalSpy>
+#include <QTemporaryDir>
 #include <QtTest>
 
 using namespace litecode;
@@ -19,7 +19,11 @@ class ExtensionDocumentUiTests final : public QObject {
         QTemporaryDir directory;
         const auto path = directory.filePath("eol-undo.txt");
         const auto uri = QUrl::fromLocalFile(path);
-        { QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly)); QCOMPARE(file.write("first\nlast"), qint64(10)); }
+        {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write("first\nlast"), qint64(10));
+        }
         ui::EditorArea area;
         QVERIFY(area.openFile(path));
         QTRY_VERIFY(area.findChild<editor::ScintillaEditor*>());
@@ -31,17 +35,18 @@ class ExtensionDocumentUiTests final : public QObject {
         ui::WorkbenchWorkspaceEditService service(&area, &opens);
         extensions::WorkspaceEdit edit;
         edit.set(uri, QVector<extensions::TextEdit>{
-            extensions::TextEdit::insert(extensions::Position(0, 0), "prefix\n"),
-            extensions::TextEdit::setEndOfLine(extensions::EndOfLine::LF),
-            extensions::TextEdit::setEndOfLine(extensions::EndOfLine::CRLF)});
-        auto applied = service.apply("fixture", {extensions::detail::WorkspaceEditAccess::entries(edit), {}, {}});
+                          extensions::TextEdit::insert(extensions::Position(0, 0), "prefix\n"),
+                          extensions::TextEdit::setEndOfLine(extensions::EndOfLine::LF),
+                          extensions::TextEdit::setEndOfLine(extensions::EndOfLine::CRLF)});
+        auto applied = service.apply(
+            "fixture", {extensions::detail::WorkspaceEditAccess::entries(edit), {}, {}});
         QTRY_VERIFY(applied.isFinished());
         QVERIFY(applied.result());
         QCOMPARE(area.extensionDocumentSnapshot(id)->text, QString("prefix\r\nfirst\r\nlast"));
         QCOMPARE(model->session().lineEnding(), core::LineEnding::CrLf);
         core::DocumentEditReason lastReason = core::DocumentEditReason::Other;
         connect(&area, &ui::EditorArea::documentSnapshotChanged, &area,
-            [&](core::DocumentId, core::DocumentEditReason reason) { lastReason = reason; });
+                [&](core::DocumentId, core::DocumentEditReason reason) { lastReason = reason; });
         widget->undo();
         QCOMPARE(model->contents(), QByteArray("first\nlast"));
         QCOMPARE(model->session().lineEnding(), core::LineEnding::Lf);
@@ -52,16 +57,28 @@ class ExtensionDocumentUiTests final : public QObject {
         QCOMPARE(lastReason, core::DocumentEditReason::Redo);
         QString error;
         QVERIFY(area.saveDocument(id, &error));
-        { QFile file(path); QVERIFY(file.open(QIODevice::ReadOnly)); QCOMPARE(file.readAll(), QByteArray("prefix\r\nfirst\r\nlast")); }
+        {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::ReadOnly));
+            QCOMPARE(file.readAll(), QByteArray("prefix\r\nfirst\r\nlast"));
+        }
         widget->undo();
         QVERIFY(area.saveDocument(id, &error));
-        { QFile file(path); QVERIFY(file.open(QIODevice::ReadOnly)); QCOMPARE(file.readAll(), QByteArray("first\nlast")); }
+        {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::ReadOnly));
+            QCOMPARE(file.readAll(), QByteArray("first\nlast"));
+        }
     }
     void workspaceEditServiceRejectsStaleVersionsConfirmationAndStoppedOwner() {
         QTemporaryDir directory;
         const auto path = directory.filePath("rpc-edit.txt");
         const auto uri = QUrl::fromLocalFile(path);
-        { QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly)); QCOMPARE(file.write("text"), qint64(4)); }
+        {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write("text"), qint64(4));
+        }
         ui::EditorArea area;
         ui::WorkbenchDocumentOpenService opens(&area);
         ui::WorkbenchWorkspaceEditService edits(&area, &opens);
@@ -70,8 +87,10 @@ class ExtensionDocumentUiTests final : public QObject {
         const core::DocumentId id(opened.result().id.toULongLong());
         extensions::WorkspaceEdit value;
         value.insert(uri, extensions::Position(0, 0), "prefix ");
-        extensions::WorkspaceEditRequest request{extensions::detail::WorkspaceEditAccess::entries(value),
-            {{uri.toString(QUrl::FullyEncoded), opened.result().version + 1}}, {}};
+        extensions::WorkspaceEditRequest request{
+            extensions::detail::WorkspaceEditAccess::entries(value),
+            {{uri.toString(QUrl::FullyEncoded), opened.result().version + 1}},
+            {}};
         auto stale = edits.apply("fixture", request);
         QTRY_VERIFY(stale.isFinished());
         QVERIFY(!stale.result());
@@ -83,8 +102,10 @@ class ExtensionDocumentUiTests final : public QObject {
         QVERIFY(!pending.result());
         QCOMPARE(area.extensionDocumentSnapshot(id)->text, QString("text"));
         extensions::WorkspaceEdit review;
-        review.insert(uri, extensions::Position(0, 0), "review ", extensions::WorkspaceEditEntryMetadata{true, "Review", {}, {}});
-        auto required = edits.apply("fixture", {extensions::detail::WorkspaceEditAccess::entries(review), {}, {}});
+        review.insert(uri, extensions::Position(0, 0), "review ",
+                      extensions::WorkspaceEditEntryMetadata{true, "Review", {}, {}});
+        auto required = edits.apply(
+            "fixture", {extensions::detail::WorkspaceEditAccess::entries(review), {}, {}});
         QVERIFY(required.isFinished());
         QVERIFY(!required.result());
         QCOMPARE(area.extensionDocumentSnapshot(id)->text, QString("text"));
@@ -92,7 +113,11 @@ class ExtensionDocumentUiTests final : public QObject {
     void visibleEditBatchKeepsInsertionOrderAndOneUndoGroup() {
         QTemporaryDir directory;
         const auto path = directory.filePath("batch-undo.txt");
-        { QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly)); QCOMPARE(file.write("body"), qint64(4)); }
+        {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write("body"), qint64(4));
+        }
         ui::EditorArea area;
         QVERIFY(area.openFile(path));
         QTRY_VERIFY(area.findChild<editor::ScintillaEditor*>());
@@ -117,26 +142,35 @@ class ExtensionDocumentUiTests final : public QObject {
         ui::WorkbenchDocumentOpenService opens(&area);
         auto first = opens.create({QString("plaintext"), QString("first"), {}}, "edit-owner");
         auto second = opens.create({QString("plaintext"), QString("second"), {}}, "edit-owner");
-        QTRY_VERIFY(first.isFinished()); QTRY_VERIFY(second.isFinished());
-        const core::DocumentId firstId(first.result().id.toULongLong()), secondId(second.result().id.toULongLong());
-        const auto firstModel = area.documentModels().find(firstId), secondModel = area.documentModels().find(secondId);
+        QTRY_VERIFY(first.isFinished());
+        QTRY_VERIFY(second.isFinished());
+        const core::DocumentId firstId(first.result().id.toULongLong()),
+            secondId(second.result().id.toULongLong());
+        const auto firstModel = area.documentModels().find(firstId),
+                   secondModel = area.documentModels().find(secondId);
         core::DocumentEdit one, two;
-        one.removedLength = 5; one.insertedText = "FIRST";
-        two.removedLength = 6; two.insertedText = "SECOND";
-        const auto firstVersion = firstModel->session().version(), secondVersion = secondModel->session().version();
+        one.removedLength = 5;
+        one.insertedText = "FIRST";
+        two.removedLength = 6;
+        two.insertedText = "SECOND";
+        const auto firstVersion = firstModel->session().version(),
+                   secondVersion = secondModel->session().version();
         QString error;
-        QVERIFY(!area.applyDocumentEditPlans({{firstId, firstVersion, {one}}, {secondId, secondVersion + 1, {two}}}, &error));
+        QVERIFY(!area.applyDocumentEditPlans(
+            {{firstId, firstVersion, {one}}, {secondId, secondVersion + 1, {two}}}, &error));
         QVERIFY(!error.isEmpty());
         QCOMPARE(firstModel->contents(), QByteArray("first"));
         QCOMPARE(secondModel->contents(), QByteArray("second"));
         QCOMPARE(firstModel->session().version(), firstVersion);
         int notifications = 0;
-        connect(&area, &ui::EditorArea::documentEditsApplied, &area, [&](core::DocumentId, const QVector<core::DocumentEdit>&) {
-            ++notifications;
-            QCOMPARE(firstModel->contents(), QByteArray("FIRST"));
-            QCOMPARE(secondModel->contents(), QByteArray("SECOND"));
-        });
-        QVERIFY(area.applyDocumentEditPlans({{firstId, firstVersion, {one}}, {secondId, secondVersion, {two}}}, &error));
+        connect(&area, &ui::EditorArea::documentEditsApplied, &area,
+                [&](core::DocumentId, const QVector<core::DocumentEdit>&) {
+                    ++notifications;
+                    QCOMPARE(firstModel->contents(), QByteArray("FIRST"));
+                    QCOMPARE(secondModel->contents(), QByteArray("SECOND"));
+                });
+        QVERIFY(area.applyDocumentEditPlans(
+            {{firstId, firstVersion, {one}}, {secondId, secondVersion, {two}}}, &error));
         QCOMPARE(notifications, 2);
         QCOMPARE(firstModel->session().version(), firstVersion + 1);
         QCOMPARE(secondModel->session().version(), secondVersion + 1);
@@ -145,7 +179,11 @@ class ExtensionDocumentUiTests final : public QObject {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
         const auto path = directory.filePath("watched.txt");
-        { QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly)); QCOMPARE(file.write("before"), qint64(6)); }
+        {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write("before"), qint64(6));
+        }
         ui::EditorArea area;
         ui::WorkbenchDocumentOpenService opens(&area);
         auto opened = opens.open(QUrl::fromLocalFile(path), {}, "watch-owner");
@@ -154,8 +192,12 @@ class ExtensionDocumentUiTests final : public QObject {
         const auto initialVersion = opened.result().version;
         QSignalSpy closed(&area, &ui::EditorArea::documentClosed);
         QVERIFY(!area.hasDocumentEditor(id));
-        { QSaveFile file(path); QVERIFY(file.open(QIODevice::WriteOnly));
-          QCOMPARE(file.write("replacement"), qint64(11)); QVERIFY(file.commit()); }
+        {
+            QSaveFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write("replacement"), qint64(11));
+            QVERIFY(file.commit());
+        }
         QTRY_COMPARE(area.extensionDocumentSnapshot(id)->text, QString("replacement"));
         QVERIFY(area.extensionDocumentSnapshot(id)->version > initialVersion);
         QVERIFY(!area.extensionDocumentSnapshot(id)->dirty);
@@ -163,7 +205,11 @@ class ExtensionDocumentUiTests final : public QObject {
         QTRY_VERIFY(area.documentModels().find(id)->session().isDeleted());
         QVERIFY(area.extensionDocumentSnapshot(id));
         QCOMPARE(closed.size(), 0);
-        { QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly)); QCOMPARE(file.write("restored"), qint64(8)); }
+        {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write("restored"), qint64(8));
+        }
         QTRY_COMPARE(area.extensionDocumentSnapshot(id)->text, QString("restored"));
         QVERIFY(!area.documentModels().find(id)->session().isDeleted());
         QCOMPARE(closed.size(), 0);
@@ -173,7 +219,11 @@ class ExtensionDocumentUiTests final : public QObject {
     void detachedDirtyContentsSurviveExternalDeleteAndRecreate() {
         QTemporaryDir directory;
         const auto path = directory.filePath("dirty-watch.txt");
-        { QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly)); QCOMPARE(file.write("disk"), qint64(4)); }
+        {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write("disk"), qint64(4));
+        }
         ui::EditorArea area;
         ui::WorkbenchDocumentOpenService opens(&area);
         auto opened = opens.open(QUrl::fromLocalFile(path), {}, "watch-owner");
@@ -188,7 +238,11 @@ class ExtensionDocumentUiTests final : public QObject {
         const auto version = model->session().version();
         QVERIFY(QFile::remove(path));
         QTRY_VERIFY(model->session().isDeleted());
-        { QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly)); QCOMPARE(file.write("external"), qint64(8)); }
+        {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write("external"), qint64(8));
+        }
         QTRY_VERIFY(!model->session().isDeleted());
         QCOMPARE(model->contents(), QByteArray("unsaved"));
         QCOMPARE(model->session().version(), version);
@@ -198,7 +252,8 @@ class ExtensionDocumentUiTests final : public QObject {
     }
     void nativeProviderOpensAndUpdatesReadOnlyDocumentAcrossHostBoundary() {
         QTemporaryDir directory;
-        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN, directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
+        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN,
+                            directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
         ui::EditorArea area;
         extensions::ExtensionManager manager(directory.path());
         manager.setHostExecutablePath(LITECODE_EXTENSION_HOST);
@@ -206,46 +261,72 @@ class ExtensionDocumentUiTests final : public QObject {
         opens.setContentProviders(&manager.contentProviders());
         ui::WorkbenchWorkspaceEditService workspaceEdits(&area, &opens);
         const QPointer<ui::WorkbenchWorkspaceEditService> editService(&workspaceEdits);
-        manager.documents().setApplyEditDelegate([editService](const QString& owner, const extensions::WorkspaceEditRequest& request) {
-            if (!editService) throw std::runtime_error("Workspace edit service stopped.");
-            return editService->apply(owner, request);
-        }, [editService](const QString& owner) { if (editService) editService->removeOwner(owner); });
+        manager.documents().setApplyEditDelegate(
+            [editService](const QString& owner, const extensions::WorkspaceEditRequest& request) {
+                if (!editService)
+                    throw std::runtime_error("Workspace edit service stopped.");
+                return editService->apply(owner, request);
+            },
+            [editService](const QString& owner) {
+                if (editService)
+                    editService->removeOwner(owner);
+            });
         ui::VirtualDocumentUpdates updates(&area, &manager.contentProviders());
         const QPointer<ui::WorkbenchDocumentOpenService> service(&opens);
         manager.documents().setOpenDelegate(
-            [service](const QString& owner, const QUrl& uri, const extensions::TextDocumentOpenOptions& options) {
-                if (!service) throw std::runtime_error("Opening service stopped.");
+            [service](const QString& owner, const QUrl& uri,
+                      const extensions::TextDocumentOpenOptions& options) {
+                if (!service)
+                    throw std::runtime_error("Opening service stopped.");
                 return service->open(uri, options, owner);
-            }, [service](const QString& owner, const extensions::UntitledTextDocumentOptions& options) {
-                if (!service) throw std::runtime_error("Opening service stopped.");
+            },
+            [service](const QString& owner,
+                      const extensions::UntitledTextDocumentOptions& options) {
+                if (!service)
+                    throw std::runtime_error("Opening service stopped.");
                 return service->create(options, owner);
-            }, [service](const QString& owner) { if (service) service->removeOwner(owner); });
-        connect(&area, &ui::EditorArea::documentOpened, &manager, [&area, &manager](core::DocumentId id) {
-            if (const auto snapshot = area.extensionDocumentSnapshot(id)) manager.documents().update(*snapshot);
+            },
+            [service](const QString& owner) {
+                if (service)
+                    service->removeOwner(owner);
+            });
+        connect(&area, &ui::EditorArea::documentOpened, &manager,
+                [&area, &manager](core::DocumentId id) {
+                    if (const auto snapshot = area.extensionDocumentSnapshot(id))
+                        manager.documents().update(*snapshot);
+                });
+        connect(&area, &ui::EditorArea::documentEdited, &manager,
+                [&area, &manager](const core::DocumentEdit& edit) {
+                    const auto metadata = area.extensionDocumentMetadata(edit.documentId);
+                    if (!metadata)
+                        return;
+                    const extensions::Range range(edit.range.start.line,
+                                                  edit.range.start.utf16Column, edit.range.end.line,
+                                                  edit.range.end.utf16Column);
+                    QVERIFY(manager.documents().change(
+                        QString::number(edit.documentId.value()), edit.version + 1, range,
+                        QString::fromUtf8(edit.insertedText), metadata->dirty));
+                });
+        connect(&area, &ui::EditorArea::documentClosed, &manager, [&manager](core::DocumentId id) {
+            manager.documents().close(QString::number(id.value()));
         });
-        connect(&area, &ui::EditorArea::documentEdited, &manager, [&area, &manager](const core::DocumentEdit& edit) {
-            const auto metadata = area.extensionDocumentMetadata(edit.documentId);
-            if (!metadata) return;
-            const extensions::Range range(edit.range.start.line, edit.range.start.utf16Column,
-                edit.range.end.line, edit.range.end.utf16Column);
-            QVERIFY(manager.documents().change(QString::number(edit.documentId.value()), edit.version + 1,
-                range, QString::fromUtf8(edit.insertedText), metadata->dirty));
-        });
-        connect(&area, &ui::EditorArea::documentClosed, &manager,
-            [&manager](core::DocumentId id) { manager.documents().close(QString::number(id.value())); });
         QVector<core::DocumentEdit> lastBatch;
         connect(&area, &ui::EditorArea::documentEditsApplied, &manager,
-            [&area, &manager, &lastBatch](core::DocumentId id, const QVector<core::DocumentEdit>& edits) {
-                lastBatch = edits;
-                const auto metadata = area.extensionDocumentMetadata(id);
-                QVERIFY(metadata);
-                QVector<extensions::TextEdit> changes;
-                for (const auto& edit : edits) changes.append(extensions::TextEdit(
-                    extensions::Range(edit.range.start.line, edit.range.start.utf16Column,
-                        edit.range.end.line, edit.range.end.utf16Column), QString::fromUtf8(edit.insertedText)));
-                QVERIFY(manager.documents().changeBatch(QString::number(id.value()), edits.first().version + 1,
-                    changes, metadata->dirty));
-            });
+                [&area, &manager, &lastBatch](core::DocumentId id,
+                                              const QVector<core::DocumentEdit>& edits) {
+                    lastBatch = edits;
+                    const auto metadata = area.extensionDocumentMetadata(id);
+                    QVERIFY(metadata);
+                    QVector<extensions::TextEdit> changes;
+                    for (const auto& edit : edits)
+                        changes.append(extensions::TextEdit(
+                            extensions::Range(edit.range.start.line, edit.range.start.utf16Column,
+                                              edit.range.end.line, edit.range.end.utf16Column),
+                            QString::fromUtf8(edit.insertedText)));
+                    QVERIFY(manager.documents().changeBatch(QString::number(id.value()),
+                                                            edits.first().version + 1, changes,
+                                                            metadata->dirty));
+                });
         manager.discover();
         QVERIFY(manager.setEnabled("tests.native", true));
         QSignalSpy results(&manager, &extensions::ExtensionManager::commandResult);
@@ -254,7 +335,8 @@ class ExtensionDocumentUiTests final : public QObject {
         QTRY_COMPARE(results.size(), 1);
         auto result = results.takeFirst();
         QVERIFY2(result.at(2).toString().isEmpty(), qPrintable(result.at(2).toString()));
-        QCOMPARE(result.at(1).value<QJsonValue>().toObject().value("text").toString(), QString("provider original"));
+        QCOMPARE(result.at(1).value<QJsonValue>().toObject().value("text").toString(),
+                 QString("provider original"));
         QVERIFY(result.at(1).value<QJsonValue>().toObject().value("sameInstance").toBool());
         const auto model = area.documentModels().find(uri);
         QVERIFY(model);
@@ -274,7 +356,8 @@ class ExtensionDocumentUiTests final : public QObject {
         QTRY_COMPARE(results.size(), 1);
         result = results.takeFirst();
         QVERIFY(result.at(2).toString().isEmpty());
-        QCOMPARE(result.at(1).value<QJsonValue>().toObject().value("text").toString(), QString("provider updated"));
+        QCOMPARE(result.at(1).value<QJsonValue>().toObject().value("text").toString(),
+                 QString("provider updated"));
         QVERIFY(result.at(1).value<QJsonValue>().toObject().value("sameInstance").toBool());
         QVERIFY(manager.requestCommand("tests.native.virtualChange", {"first\nstable\nlast"}) != 0);
         QTRY_COMPARE(results.size(), 1);
@@ -282,7 +365,8 @@ class ExtensionDocumentUiTests final : public QObject {
         // Provider updates are edits to an existing model, not setValue():
         // upstream normalizes inserted text to that model's current EOL.
         const auto newline = model->session().lineEnding() == core::LineEnding::CrLf
-            ? QString("\r\n") : QString("\n");
+                                 ? QString("\r\n")
+                                 : QString("\n");
         const auto beforeBatch = QString("first") + newline + "stable" + newline + "last";
         const auto afterBatch = QString("FIRST") + newline + "stable" + newline + "LAST";
         QTRY_COMPARE(area.extensionDocumentSnapshot(id)->text, beforeBatch);
@@ -300,15 +384,24 @@ class ExtensionDocumentUiTests final : public QObject {
         QCOMPARE(result.at(1).value<QJsonValue>().toObject().value("text").toString(), afterBatch);
         const auto diskPath = directory.filePath("host-watched.txt");
         const auto diskUri = QUrl::fromLocalFile(diskPath);
-        { QFile file(diskPath); QVERIFY(file.open(QIODevice::WriteOnly)); QCOMPARE(file.write("disk original"), qint64(13)); }
+        {
+            QFile file(diskPath);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write("disk original"), qint64(13));
+        }
         QVERIFY(manager.requestCommand("tests.native.openDocument", {diskUri.toString()}) != 0);
         QTRY_COMPARE(results.size(), 1);
         result = results.takeFirst();
         QVERIFY(result.at(2).toString().isEmpty());
-        QCOMPARE(result.at(1).value<QJsonValue>().toObject().value("text").toString(), QString("disk original"));
+        QCOMPARE(result.at(1).value<QJsonValue>().toObject().value("text").toString(),
+                 QString("disk original"));
         const auto diskId = area.documentModels().find(diskUri)->session().id();
-        { QSaveFile file(diskPath); QVERIFY(file.open(QIODevice::WriteOnly));
-          QCOMPARE(file.write("disk changed"), qint64(12)); QVERIFY(file.commit()); }
+        {
+            QSaveFile file(diskPath);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write("disk changed"), qint64(12));
+            QVERIFY(file.commit());
+        }
         QTRY_COMPARE(area.extensionDocumentSnapshot(diskId)->text, QString("disk changed"));
         // The host's cached open must see the propagated reload, not silently
         // re-read the file or construct a second TextDocument object.
@@ -316,16 +409,21 @@ class ExtensionDocumentUiTests final : public QObject {
         QTRY_COMPARE(results.size(), 1);
         result = results.takeFirst();
         QVERIFY(result.at(2).toString().isEmpty());
-        QCOMPARE(result.at(1).value<QJsonValue>().toObject().value("text").toString(), QString("disk changed"));
+        QCOMPARE(result.at(1).value<QJsonValue>().toObject().value("text").toString(),
+                 QString("disk changed"));
         QVERIFY(result.at(1).value<QJsonValue>().toObject().value("sameInstance").toBool());
-        QVERIFY(manager.requestCommand("tests.native.applyEdit", {QJsonObject{{"uri", diskUri.toString()}, {"text", "prefix "}}}) != 0);
+        QVERIFY(manager.requestCommand(
+                    "tests.native.applyEdit",
+                    {QJsonObject{{"uri", diskUri.toString()}, {"text", "prefix "}}}) != 0);
         QTRY_COMPARE(results.size(), 1);
         result = results.takeFirst();
         QVERIFY(result.at(2).toString().isEmpty());
         QVERIFY(result.at(1).value<QJsonValue>().toBool());
         QCOMPARE(area.extensionDocumentSnapshot(diskId)->text, QString("prefix disk changed"));
         QVERIFY(area.extensionDocumentSnapshot(diskId)->dirty);
-        QVERIFY(manager.requestCommand("tests.native.applyEdit", {QJsonObject{{"uri", diskUri.toString()}, {"eol", 2}}}) != 0);
+        QVERIFY(manager.requestCommand("tests.native.applyEdit",
+                                       {QJsonObject{{"uri", diskUri.toString()}, {"eol", 2}}}) !=
+                0);
         QTRY_COMPARE(results.size(), 1);
         result = results.takeFirst();
         QVERIFY(result.at(2).toString().isEmpty());
@@ -336,10 +434,15 @@ class ExtensionDocumentUiTests final : public QObject {
         result = results.takeFirst();
         QVERIFY(result.at(2).toString().isEmpty());
         QCOMPARE(result.at(1).value<QJsonValue>().toObject().value("eol").toInt(), 2);
-        { QFile file(diskPath); QVERIFY(file.open(QIODevice::ReadOnly)); QCOMPARE(file.readAll(), QByteArray("disk changed")); }
-        QVERIFY(manager.requestCommand("tests.native.applyEdit", {
-            QJsonObject{{"uri", diskUri.toString()}, {"text", "must not apply "}},
-            QJsonObject{{"uri", uri.toString()}, {"text", "read-only edit"}}}) != 0);
+        {
+            QFile file(diskPath);
+            QVERIFY(file.open(QIODevice::ReadOnly));
+            QCOMPARE(file.readAll(), QByteArray("disk changed"));
+        }
+        QVERIFY(manager.requestCommand(
+                    "tests.native.applyEdit",
+                    {QJsonObject{{"uri", diskUri.toString()}, {"text", "must not apply "}},
+                     QJsonObject{{"uri", uri.toString()}, {"text", "read-only edit"}}}) != 0);
         QTRY_COMPARE(results.size(), 1);
         result = results.takeFirst();
         QVERIFY(result.at(2).toString().isEmpty());
@@ -353,7 +456,11 @@ class ExtensionDocumentUiTests final : public QObject {
     void closingLoadingTabTransfersPendingOpenToDetachedReader() {
         QTemporaryDir directory;
         const auto path = directory.filePath("transfer.txt");
-        { QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly)); QCOMPARE(file.write("transfer"), qint64(8)); }
+        {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write("transfer"), qint64(8));
+        }
         ui::EditorArea area;
         ui::WorkbenchDocumentOpenService opens(&area);
         QVERIFY(area.openFile(path));
@@ -370,7 +477,11 @@ class ExtensionDocumentUiTests final : public QObject {
     void referenceExpiryRetainsVisibleDocumentUntilTabCloses() {
         QTemporaryDir directory;
         const auto path = directory.filePath("retained.txt");
-        { QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly)); QCOMPARE(file.write("retained"), qint64(8)); }
+        {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write("retained"), qint64(8));
+        }
         ui::EditorArea area;
         ui::WorkbenchDocumentOpenService opens(&area, nullptr, {200, 80 * 1024 * 1024, 50});
         auto opened = opens.open(QUrl::fromLocalFile(path), {}, "owner");
@@ -385,7 +496,11 @@ class ExtensionDocumentUiTests final : public QObject {
     void lastOwnerReleaseClosesCleanDetachedButNotUnsavedDocuments() {
         QTemporaryDir directory;
         const auto path = directory.filePath("owners.txt");
-        { QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly)); QCOMPARE(file.write("owners"), qint64(6)); }
+        {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write("owners"), qint64(6));
+        }
         ui::EditorArea area;
         ui::WorkbenchDocumentOpenService opens(&area);
         auto first = opens.open(QUrl::fromLocalFile(path), {}, "first");
@@ -412,7 +527,11 @@ class ExtensionDocumentUiTests final : public QObject {
     void ownerRemovalDuringLoadingDoesNotStealAnotherOwnersResult() {
         QTemporaryDir directory;
         const auto path = directory.filePath("pending-owner.txt");
-        { QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly)); QCOMPARE(file.write("pending"), qint64(7)); }
+        {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write("pending"), qint64(7));
+        }
         ui::EditorArea area;
         ui::WorkbenchDocumentOpenService opens(&area);
         auto stopped = opens.open(QUrl::fromLocalFile(path), {}, "stopped");
@@ -429,7 +548,11 @@ class ExtensionDocumentUiTests final : public QObject {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
         const auto path = directory.filePath("detached.py");
-        { QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly)); QCOMPARE(file.write("value = 42\n"), qint64(11)); }
+        {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write("value = 42\n"), qint64(11));
+        }
         ui::EditorArea area;
         ui::WorkbenchDocumentOpenService opens(&area);
         auto first = opens.open(QUrl::fromLocalFile(path), {});
@@ -486,7 +609,11 @@ class ExtensionDocumentUiTests final : public QObject {
     void openWhileVisibleReaderIsPendingAndUnsupportedScheme() {
         QTemporaryDir directory;
         const auto path = directory.filePath("pending.txt");
-        { QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly)); QCOMPARE(file.write("pending"), qint64(7)); }
+        {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write("pending"), qint64(7));
+        }
         ui::EditorArea area;
         ui::WorkbenchDocumentOpenService opens(&area);
         QVERIFY(area.openFile(path));
@@ -501,7 +628,11 @@ class ExtensionDocumentUiTests final : public QObject {
     void visibleAttachmentDuringDetachedReadDoesNotReplaceModel() {
         QTemporaryDir directory;
         const auto path = directory.filePath("race.txt");
-        { QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly)); QCOMPARE(file.write("original"), qint64(8)); }
+        {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write("original"), qint64(8));
+        }
         ui::EditorArea area;
         ui::WorkbenchDocumentOpenService opens(&area);
         auto opened = opens.open(QUrl::fromLocalFile(path), {});

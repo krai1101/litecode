@@ -48,7 +48,8 @@ NativeExtensionInstallResult installNativeExtension(const QString& source,
             return fail("No LiteCode extension library in this folder. Select the built package "
                         "folder containing the library and its bundled files.");
         if (selected.suffix().compare("vsix", Qt::CaseInsensitive) == 0)
-            return fail("Select a native LiteCode package folder. VS Code .vsix packages are not supported.");
+            return fail("Select a native LiteCode package folder. VS Code .vsix packages are not "
+                        "supported.");
         return fail("The selected file is not a native LiteCode extension library.");
     }
     const auto validation = ExtensionManager::validateManifest(manifest);

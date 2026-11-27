@@ -22,7 +22,8 @@ QJsonObject DebugConfigurations::parseJsonc(const QByteArray& bytes, QString* er
         return fail("Configuration exceeds the 1 MiB size limit.");
     try {
         const auto document = core::JsoncDocument::parse(bytes).value();
-        if (!document.isObject()) return fail("Expected a configuration object.");
+        if (!document.isObject())
+            return fail("Expected a configuration object.");
         return document.toObject();
     } catch (const std::exception& exception) {
         return fail(QString::fromUtf8(exception.what()));
@@ -31,38 +32,52 @@ QJsonObject DebugConfigurations::parseJsonc(const QByteArray& bytes, QString* er
 
 namespace {
 bool schemaTypeMatches(const QJsonValue& value, const QString& type) {
-    if (type == QStringLiteral("string")) return value.isString();
-    if (type == QStringLiteral("boolean")) return value.isBool();
-    if (type == QStringLiteral("object")) return value.isObject();
-    if (type == QStringLiteral("array")) return value.isArray();
-    if (type == QStringLiteral("number")) return value.isDouble();
+    if (type == QStringLiteral("string"))
+        return value.isString();
+    if (type == QStringLiteral("boolean"))
+        return value.isBool();
+    if (type == QStringLiteral("object"))
+        return value.isObject();
+    if (type == QStringLiteral("array"))
+        return value.isArray();
+    if (type == QStringLiteral("number"))
+        return value.isDouble();
     if (type == QStringLiteral("integer"))
         return value.isDouble() && value.toDouble() == double(value.toInteger());
-    if (type == QStringLiteral("null")) return value.isNull();
+    if (type == QStringLiteral("null"))
+        return value.isNull();
     return false;
 }
 
-bool validateSchemaValue(const QJsonValue& value, const QJsonObject& schema,
-                         const QString& path, QString* error, int depth) {
+bool validateSchemaValue(const QJsonValue& value, const QJsonObject& schema, const QString& path,
+                         QString* error, int depth) {
     const auto fail = [error, &path](const QString& problem) {
-        if (error) *error = path + QStringLiteral(": ") + problem;
+        if (error)
+            *error = path + QStringLiteral(": ") + problem;
         return false;
     };
-    if (depth > 64) return fail(QStringLiteral("schema nesting is too deep"));
+    if (depth > 64)
+        return fail(QStringLiteral("schema nesting is too deep"));
     const QJsonValue type = schema.value(QStringLiteral("type"));
     if (!type.isUndefined()) {
         QStringList types;
-        if (type.isString()) types.append(type.toString());
+        if (type.isString())
+            types.append(type.toString());
         else if (type.isArray()) {
             for (const auto& candidate : type.toArray()) {
-                if (!candidate.isString()) return fail(QStringLiteral("invalid schema type"));
+                if (!candidate.isString())
+                    return fail(QStringLiteral("invalid schema type"));
                 types.append(candidate.toString());
             }
-        } else return fail(QStringLiteral("invalid schema type"));
-        if (types.isEmpty()) return fail(QStringLiteral("invalid schema type"));
+        } else
+            return fail(QStringLiteral("invalid schema type"));
+        if (types.isEmpty())
+            return fail(QStringLiteral("invalid schema type"));
         bool matched = false;
-        for (const QString& candidate : types) matched |= schemaTypeMatches(value, candidate);
-        if (!matched) return fail(QStringLiteral("expected %1").arg(types.join(QStringLiteral(" or "))));
+        for (const QString& candidate : types)
+            matched |= schemaTypeMatches(value, candidate);
+        if (!matched)
+            return fail(QStringLiteral("expected %1").arg(types.join(QStringLiteral(" or "))));
     }
     const QJsonValue allowed = schema.value(QStringLiteral("enum"));
     if (allowed.isArray() && !allowed.toArray().contains(value))
@@ -71,7 +86,8 @@ bool validateSchemaValue(const QJsonValue& value, const QJsonObject& schema,
         const QJsonObject object = value.toObject();
         const QJsonObject properties = schema.value(QStringLiteral("properties")).toObject();
         for (const auto& required : schema.value(QStringLiteral("required")).toArray()) {
-            if (!required.isString()) return fail(QStringLiteral("invalid required schema"));
+            if (!required.isString())
+                return fail(QStringLiteral("invalid required schema"));
             if (!object.contains(required.toString()))
                 return fail(QStringLiteral("missing %1").arg(required.toString()));
         }
@@ -99,7 +115,8 @@ bool validateSchemaValue(const QJsonValue& value, const QJsonObject& schema,
 
 bool DebugConfigurations::validateAgainstSchema(const QJsonObject& configuration,
                                                 const QJsonObject& schema, QString* error) {
-    if (error) error->clear();
+    if (error)
+        error->clear();
     return validateSchemaValue(configuration, schema, QStringLiteral("Configuration"), error, 0);
 }
 QString DebugConfigurations::filePath(const QString& workspaceFolder) {

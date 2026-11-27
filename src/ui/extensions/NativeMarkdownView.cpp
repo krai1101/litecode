@@ -60,7 +60,8 @@ QVector<QStringList> fencedLines(const QString& source) {
     return result;
 }
 } // namespace
-NativeMarkdownView::NativeMarkdownView(bool contentSized, QWidget* parent, bool allowDocumentResources)
+NativeMarkdownView::NativeMarkdownView(bool contentSized, QWidget* parent,
+                                       bool allowDocumentResources)
     : QTextBrowser(parent), codeFont_(QFontDatabase::systemFont(QFontDatabase::FixedFont)),
       contentSized_(contentSized), allowDocumentResources_(allowDocumentResources) {
     codeFont_.setPixelSize(QFontInfo(font()).pixelSize());

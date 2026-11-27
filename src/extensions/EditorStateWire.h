@@ -20,5 +20,5 @@ namespace wire {
 QJsonObject encodeEditorState(const WindowEditorState& state);
 std::optional<WindowEditorState> decodeEditorState(const QJsonObject& message);
 bool sameEditorState(const WindowEditorState& left, const WindowEditorState& right);
-}
+} // namespace wire
 } // namespace litecode::extensions

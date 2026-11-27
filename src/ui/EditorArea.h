@@ -40,7 +40,9 @@ struct GitComparison;
 namespace litecode::core {
 class SettingsService;
 }
-namespace litecode::extensions { struct TextEditorEditData; }
+namespace litecode::extensions {
+struct TextEditorEditData;
+}
 
 namespace litecode::ui {
 class ExplorerFileSystemModel;
@@ -94,14 +96,17 @@ class EditorArea final : public QWidget {
                           bool replaceExisting = false, const QString& iconResource = {});
     void openGitComparison(const workspace::GitComparison& comparison);
     void openResourceComparison(const QUrl& left, const QUrl& right, const QString& before,
-                                const QString& after, const QString& title, bool preserveFocus = false);
+                                const QString& after, const QString& title,
+                                bool preserveFocus = false);
 
     bool saveCurrent(QString* errorMessage = nullptr);
     bool saveCurrentWithEncoding(core::TextEncoding encoding, QString* errorMessage = nullptr);
     bool saveCurrentAs(const QString& filePath, QString* errorMessage = nullptr);
     bool reopenCurrentWithEncoding(core::TextEncoding encoding, QString* errorMessage = nullptr);
-    bool saveDocument(core::DocumentId documentId, QString* errorMessage = nullptr, bool force = false);
-    bool saveDocumentAs(core::DocumentId documentId, const QString& filePath, QString* errorMessage = nullptr);
+    bool saveDocument(core::DocumentId documentId, QString* errorMessage = nullptr,
+                      bool force = false);
+    bool saveDocumentAs(core::DocumentId documentId, const QString& filePath,
+                        QString* errorMessage = nullptr);
     bool reloadDocument(core::DocumentId documentId, QString* errorMessage = nullptr);
     bool closeDocument(core::DocumentId documentId);
     void markDocumentDeleted(core::DocumentId documentId);
@@ -109,7 +114,9 @@ class EditorArea final : public QWidget {
     void rebindPaths(const QString& previousPath, const QString& path);
     [[nodiscard]] QVector<EditorDocumentInfo> documents() const;
     [[nodiscard]] editor::DocumentModelStore& documentModels() { return documentModels_; }
-    [[nodiscard]] bool hasDocumentEditor(core::DocumentId id) const { return pageForDocument(id) != nullptr; }
+    [[nodiscard]] bool hasDocumentEditor(core::DocumentId id) const {
+        return pageForDocument(id) != nullptr;
+    }
     [[nodiscard]] core::TextEncoding documentDefaultEncoding() const { return defaultEncoding_; }
     [[nodiscard]] bool documentAutoGuessEncoding() const { return autoGuessEncoding_; }
     // Workbench-only entry point; extension-facing APIs live in the SDK/host.
@@ -119,13 +126,18 @@ class EditorArea final : public QWidget {
     void releaseDocumentReference(core::DocumentId id);
     void disposeUnusedDocument(core::DocumentId id);
     bool applyVirtualDocumentEdit(core::DocumentId id, core::DocumentEdit edit);
-    bool applyVirtualDocumentEdits(core::DocumentId id, qint64 expectedVersion, QVector<core::DocumentEdit> edits);
+    bool applyVirtualDocumentEdits(core::DocumentId id, qint64 expectedVersion,
+                                   QVector<core::DocumentEdit> edits);
     bool applyDocumentEditPlans(const QVector<DocumentEditPlan>& plans, QString* error = nullptr);
-    bool applyTextEditorEdit(core::DocumentId id, const extensions::TextEditorEditData& edit, QString* error = nullptr);
-    bool applyTextEditorEdit(const QString& editorId, const extensions::TextEditorEditData& edit, QString* error = nullptr);
+    bool applyTextEditorEdit(core::DocumentId id, const extensions::TextEditorEditData& edit,
+                             QString* error = nullptr);
+    bool applyTextEditorEdit(const QString& editorId, const extensions::TextEditorEditData& edit,
+                             QString* error = nullptr);
     [[nodiscard]] extensions::WindowEditorState extensionEditorState() const;
-    [[nodiscard]] std::optional<extensions::TextDocumentSnapshot> extensionDocumentSnapshot(core::DocumentId id) const;
-    [[nodiscard]] std::optional<extensions::TextDocumentMetadata> extensionDocumentMetadata(core::DocumentId id) const;
+    [[nodiscard]] std::optional<extensions::TextDocumentSnapshot>
+    extensionDocumentSnapshot(core::DocumentId id) const;
+    [[nodiscard]] std::optional<extensions::TextDocumentMetadata>
+    extensionDocumentMetadata(core::DocumentId id) const;
     [[nodiscard]] QStringList openFiles() const;
     [[nodiscard]] QString currentFile() const;
     [[nodiscard]] core::TextEncoding currentEncoding() const;
@@ -161,8 +173,10 @@ class EditorArea final : public QWidget {
                         const QByteArray& contents, qint64 version,
                         litecode::core::DocumentStorageMode storageMode);
     void documentEdited(const litecode::core::DocumentEdit& edit);
-    void documentEditsApplied(litecode::core::DocumentId id, const QVector<litecode::core::DocumentEdit>& edits);
-    void documentSnapshotChanged(litecode::core::DocumentId id, litecode::core::DocumentEditReason reason);
+    void documentEditsApplied(litecode::core::DocumentId id,
+                              const QVector<litecode::core::DocumentEdit>& edits);
+    void documentSnapshotChanged(litecode::core::DocumentId id,
+                                 litecode::core::DocumentEditReason reason);
     void documentSnapshotApplied(const litecode::extensions::TextDocumentSnapshot& snapshot);
     void extensionEditorStateChanged(const litecode::extensions::WindowEditorState& state);
     void documentMetadataChanged(litecode::core::DocumentId id);
@@ -187,7 +201,8 @@ class EditorArea final : public QWidget {
 
   private:
     void openComparison(const workspace::GitComparison& comparison, const QString& key,
-                        const QString& titleOverride = {}, bool preserveFocus = false, bool replaceExisting = true, bool openFileAvailable = true);
+                        const QString& titleOverride = {}, bool preserveFocus = false,
+                        bool replaceExisting = true, bool openFileAvailable = true);
 
     struct Page;
 

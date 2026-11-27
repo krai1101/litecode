@@ -1,9 +1,9 @@
 #include "ui/extensions/ExtensionDetailsPage.h"
-#include "ui/extensions/NativeMarkdownView.h"
 #include "extensions/ExtensionManager.h"
 #include "ui/ThemedIcon.h"
 #include "ui/TransientScrollBars.h"
 #include "ui/components/Controls.h"
+#include "ui/extensions/NativeMarkdownView.h"
 #include <QApplication>
 #include <QDesktopServices>
 #include <QDir>
@@ -120,8 +120,8 @@ ExtensionDetailsPage::ExtensionDetailsPage(extensions::ExtensionManager& manager
     });
     documentationLayout->addWidget(readme_);
     content->addWidget(documentation_);
-    for (auto* label :
-         {name_, identity_, description_, installationHeading, heading, status_, diagnostic_, location_}) {
+    for (auto* label : {name_, identity_, description_, installationHeading, heading, status_,
+                        diagnostic_, location_}) {
         label->setTextFormat(Qt::PlainText);
         label->setWordWrap(true);
         label->setTextInteractionFlags(Qt::TextSelectableByMouse);
@@ -157,7 +157,7 @@ void ExtensionDetailsPage::refresh() {
                 documentation_->setVisible(!readme.isEmpty());
             }
             icon_->setPixmap((extension.iconPath.isEmpty()
-                     ? themedIcon(":/icons/extensions.svg",
+                                  ? themedIcon(":/icons/extensions.svg",
                                                qApp->property("litecodeDarkTheme").toBool())
                                   : QIcon(extension.iconPath))
                                  .pixmap(icon_->size(), icon_->devicePixelRatioF()));
@@ -191,7 +191,8 @@ void ExtensionDetailsPage::refresh() {
 }
 void ExtensionDetailsPage::changeEvent(QEvent* event) {
     QWidget::changeEvent(event);
-    if (readme_ && enable_ && (event->type() == QEvent::StyleChange || event->type() == QEvent::PaletteChange))
+    if (readme_ && enable_ &&
+        (event->type() == QEvent::StyleChange || event->type() == QEvent::PaletteChange))
         refresh();
 }
 

@@ -19,41 +19,53 @@ class CancellationToken final {
   public:
     CancellationToken() = default;
     bool isCancellationRequested() const {
-        if (!state_) return false;
+        if (!state_)
+            return false;
         std::lock_guard lock(state_->mutex);
         return state_->cancelled;
     }
-    [[nodiscard]] Disposable onCancellationRequested(std::function<void()> listener,
-        std::vector<Disposable>* disposables = nullptr) const {
-        if (!state_ || !listener) return {};
+    [[nodiscard]] Disposable
+    onCancellationRequested(std::function<void()> listener,
+                            std::vector<Disposable>* disposables = nullptr) const {
+        if (!state_ || !listener)
+            return {};
         {
             std::lock_guard lock(state_->mutex);
             if (!state_->cancelled) {
-                if (state_->fixedNone) return {};
-                if (!state_->emitter) state_->emitter = std::make_shared<EventEmitter<std::monostate>>();
+                if (state_->fixedNone)
+                    return {};
+                if (!state_->emitter)
+                    state_->emitter = std::make_shared<EventEmitter<std::monostate>>();
                 // Cancel cannot fire between obtaining the emitter and subscribing.
                 return state_->emitter->event()(
-                    [listener = std::move(listener)](const std::monostate&) { listener(); }, disposables);
+                    [listener = std::move(listener)](const std::monostate&) { listener(); },
+                    disposables);
             }
         }
         auto active = std::make_shared<std::atomic<bool>>(true);
         auto registration = Disposable([active] { *active = false; });
-        if (disposables) disposables->push_back(registration);
+        if (disposables)
+            disposables->push_back(registration);
         QTimer::singleShot(0, [active, listener = std::move(listener)] {
             if (active->exchange(false)) {
-                try { listener(); } catch (...) {}
+                try {
+                    listener();
+                } catch (...) {
+                }
             }
         });
         return registration;
     }
-    template<typename Listener, typename Receiver>
+    template <typename Listener, typename Receiver>
         requires std::invocable<Listener, Receiver*>
-    [[nodiscard]] Disposable onCancellationRequested(Listener listener, Receiver* receiver,
-        std::vector<Disposable>* disposables = nullptr) const {
-        if (!receiver) return {};
-        return onCancellationRequested([listener = std::move(listener), receiver] {
-            std::invoke(listener, receiver);
-        }, disposables);
+    [[nodiscard]] Disposable
+    onCancellationRequested(Listener listener, Receiver* receiver,
+                            std::vector<Disposable>* disposables = nullptr) const {
+        if (!receiver)
+            return {};
+        return onCancellationRequested(
+            [listener = std::move(listener), receiver] { std::invoke(listener, receiver); },
+            disposables);
     }
 
   private:
@@ -79,7 +91,8 @@ class CancellationTokenSource final {
         std::shared_ptr<EventEmitter<std::monostate>> emitter;
         {
             std::lock_guard lock(state->mutex);
-            if (state->cancelled || state->fixedNone) return;
+            if (state->cancelled || state->fixedNone)
+                return;
             state->cancelled = true;
             emitter = state->emitter;
         }
@@ -89,7 +102,8 @@ class CancellationTokenSource final {
             emitter->fire({});
             {
                 std::lock_guard lock(state->mutex);
-                if (state->emitter == emitter) state->emitter.reset();
+                if (state->emitter == emitter)
+                    state->emitter.reset();
             }
             emitter->dispose();
         }
@@ -99,13 +113,16 @@ class CancellationTokenSource final {
         std::shared_ptr<EventEmitter<std::monostate>> emitter;
         {
             std::lock_guard lock(state->mutex);
-            if (!state->materialized && !state->cancelled) state->fixedNone = true;
+            if (!state->materialized && !state->cancelled)
+                state->fixedNone = true;
             emitter = std::exchange(state->emitter, {});
         }
         // A materialized uncancelled token stays mutable: new subscriptions
         // recreate its emitter, following upstream MutableToken.dispose().
-        if (emitter) emitter->dispose();
+        if (emitter)
+            emitter->dispose();
     }
+
   private:
     std::shared_ptr<detail::CancellationState> state_;
 };

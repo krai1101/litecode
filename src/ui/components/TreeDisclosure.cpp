@@ -19,7 +19,8 @@ class TreeDisclosure final : public QObject {
 
   protected:
     bool eventFilter(QObject*, QEvent* event) override {
-        if (event->type() != QEvent::MouseButtonPress && event->type() != QEvent::MouseButtonRelease)
+        if (event->type() != QEvent::MouseButtonPress &&
+            event->type() != QEvent::MouseButtonRelease)
             return false;
         const auto* mouse = static_cast<QMouseEvent*>(event);
         if (mouse->button() != Qt::LeftButton)

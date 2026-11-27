@@ -1,6 +1,6 @@
 #include "ui/extensions/DetachedDocumentWatcher.h"
-#include "ui/EditorArea.h"
 #include "core/FileSystemPath.h"
+#include "ui/EditorArea.h"
 #include <QDir>
 #include <QFileInfo>
 #include <QFileSystemWatcher>
@@ -15,24 +15,29 @@ QString existingParent(const QString& path) {
     QDir directory(QFileInfo(path).absolutePath());
     while (!directory.exists()) {
         const auto previous = directory.absolutePath();
-        if (!directory.cdUp() || directory.absolutePath() == previous) return {};
+        if (!directory.cdUp() || directory.absolutePath() == previous)
+            return {};
     }
     return directory.absolutePath();
 }
 bool beneath(const QString& file, const QString& directory) {
     const auto normalized = core::normalizedFileSystemPath(file);
     auto parent = core::normalizedFileSystemPath(directory);
-    if (!parent.endsWith(QLatin1Char('/'))) parent += QLatin1Char('/');
+    if (!parent.endsWith(QLatin1Char('/')))
+        parent += QLatin1Char('/');
     return normalized.startsWith(parent, core::fileSystemCaseSensitivity(directory));
 }
-}
+} // namespace
 DetachedDocumentWatcher::DetachedDocumentWatcher(EditorArea* editors, QObject* parent)
-    : QObject(parent), editors_(editors), watcher_(new QFileSystemWatcher(this)), timer_(new QTimer(this)) {
+    : QObject(parent), editors_(editors), watcher_(new QFileSystemWatcher(this)),
+      timer_(new QTimer(this)) {
     timer_->setSingleShot(true);
     timer_->setInterval(150);
     connect(timer_, &QTimer::timeout, this, [this] { flush(); });
-    connect(watcher_, &QFileSystemWatcher::fileChanged, this, [this](const QString& path) { changed(path, false); });
-    connect(watcher_, &QFileSystemWatcher::directoryChanged, this, [this](const QString& path) { changed(path, true); });
+    connect(watcher_, &QFileSystemWatcher::fileChanged, this,
+            [this](const QString& path) { changed(path, false); });
+    connect(watcher_, &QFileSystemWatcher::directoryChanged, this,
+            [this](const QString& path) { changed(path, true); });
     connect(editors, &EditorArea::documentOpened, this, [this] { refresh(); });
     connect(editors, &EditorArea::documentClosed, this, [this](core::DocumentId id) {
         pending_.remove(id.value());
@@ -47,34 +52,44 @@ DetachedDocumentWatcher::DetachedDocumentWatcher(EditorArea* editors, QObject* p
 void DetachedDocumentWatcher::refresh() {
     QSet<QString> files, directories;
     const auto previousFiles = watcher_->files();
-    if (editors_) for (const auto& model : editors_->documentModels().models()) {
-        const auto& session = model->session();
-        if (model->resource().scheme() != QStringLiteral("file") ||
-            session.state() == editor::DocumentState::Loading || editors_->hasDocumentEditor(session.id())) continue;
-        const auto path = session.filePath();
-        if (QFileInfo::exists(path)) {
-            files.insert(path);
-            // Closing a tab transfers watch ownership. Check for a disk change
-            // in the hand-off interval rather than waiting for another event.
-            if (!previousFiles.contains(path)) schedule(session.id());
+    if (editors_)
+        for (const auto& model : editors_->documentModels().models()) {
+            const auto& session = model->session();
+            if (model->resource().scheme() != QStringLiteral("file") ||
+                session.state() == editor::DocumentState::Loading ||
+                editors_->hasDocumentEditor(session.id()))
+                continue;
+            const auto path = session.filePath();
+            if (QFileInfo::exists(path)) {
+                files.insert(path);
+                // Closing a tab transfers watch ownership. Check for a disk change
+                // in the hand-off interval rather than waiting for another event.
+                if (!previousFiles.contains(path))
+                    schedule(session.id());
+            }
+            const auto parent = existingParent(path);
+            if (!parent.isEmpty())
+                directories.insert(parent);
         }
-        const auto parent = existingParent(path);
-        if (!parent.isEmpty()) directories.insert(parent);
-    }
     const auto reconcile = [this](const QStringList& paths, const QSet<QString>& desired) {
         const QSet<QString> current(paths.cbegin(), paths.cend());
-        for (const auto& path : current - desired) watcher_->removePath(path);
-        for (const auto& path : desired - current) watcher_->addPath(path);
+        for (const auto& path : current - desired)
+            watcher_->removePath(path);
+        for (const auto& path : desired - current)
+            watcher_->addPath(path);
     };
     reconcile(watcher_->files(), files);
     reconcile(watcher_->directories(), directories);
 }
 void DetachedDocumentWatcher::changed(const QString& path, bool directory) {
-    if (!editors_) return;
+    if (!editors_)
+        return;
     for (const auto& model : editors_->documentModels().models()) {
         const auto& session = model->session();
         if (model->resource().scheme() != QStringLiteral("file") ||
-            session.state() == editor::DocumentState::Loading || editors_->hasDocumentEditor(session.id())) continue;
+            session.state() == editor::DocumentState::Loading ||
+            editors_->hasDocumentEditor(session.id()))
+            continue;
         if ((!directory && core::pathsReferToSameEntry(session.filePath(), path)) ||
             (directory && beneath(session.filePath(), path)))
             schedule(session.id());
@@ -84,19 +99,25 @@ void DetachedDocumentWatcher::changed(const QString& path, bool directory) {
     refresh();
 }
 void DetachedDocumentWatcher::schedule(core::DocumentId id) {
-    if (running_.contains(id.value())) repeat_.insert(id.value());
-    else pending_.insert(id.value());
+    if (running_.contains(id.value()))
+        repeat_.insert(id.value());
+    else
+        pending_.insert(id.value());
     timer_->start();
 }
 void DetachedDocumentWatcher::flush() {
     const auto pending = std::exchange(pending_, {});
-    for (const auto value : pending) reload(core::DocumentId(value));
+    for (const auto value : pending)
+        reload(core::DocumentId(value));
 }
 void DetachedDocumentWatcher::reload(core::DocumentId id) {
-    if (!editors_) return;
+    if (!editors_)
+        return;
     const auto model = editors_->documentModels().find(id);
-    if (!model || model->resource().scheme() != QStringLiteral("file") || editors_->hasDocumentEditor(id) ||
-        model->session().state() == editor::DocumentState::Loading) return;
+    if (!model || model->resource().scheme() != QStringLiteral("file") ||
+        editors_->hasDocumentEditor(id) ||
+        model->session().state() == editor::DocumentState::Loading)
+        return;
     const auto path = model->session().filePath();
     if (!QFileInfo::exists(path)) {
         // Do not discard references or unsaved contents on an external delete.
@@ -115,34 +136,45 @@ void DetachedDocumentWatcher::reload(core::DocumentId id) {
     const auto guess = editors_->documentAutoGuessEncoding();
     auto* watcher = new QFutureWatcher<editor::DocumentLoadResult>(this);
     connect(watcher, &QFutureWatcher<editor::DocumentLoadResult>::finished, this,
-        [this, watcher, id, path, version] {
-            const QPointer<DetachedDocumentWatcher> alive(this);
-            running_.remove(id.value());
-            const bool repeat = repeat_.remove(id.value());
-            try {
-                const auto load = watcher->result();
-                const auto model = editors_ ? editors_->documentModels().find(id) : nullptr;
-                if (model && model->session().filePath() == path && !editors_->hasDocumentEditor(id) &&
-                    !model->session().isModified() && model->session().version() == version) {
-                    if (load.outcome == editor::DocumentLoadResult::Outcome::Loaded) {
-                        if (!editor::DocumentSession::matchesDiskSnapshot(path, load)) schedule(id);
-                        else if (model->session().isDeleted() || model->contents() != load.contents ||
-                            model->session().encoding() != load.encoding || model->session().isReadOnly() != load.readOnly ||
-                            model->session().hasByteOrderMark() != load.hasByteOrderMark ||
-                            model->session().hadDecodingErrors() != load.hadDecodingErrors ||
-                            model->session().lineEnding() != load.lineEnding)
-                            editors_->acceptDocumentLoad(id, load, nullptr);
-                    } else if (!QFileInfo::exists(path)) model->session().markDeleted();
-                    else emit editors_->fileReloadFailed(path, load.diagnostic);
+            [this, watcher, id, path, version] {
+                const QPointer<DetachedDocumentWatcher> alive(this);
+                running_.remove(id.value());
+                const bool repeat = repeat_.remove(id.value());
+                try {
+                    const auto load = watcher->result();
+                    const auto model = editors_ ? editors_->documentModels().find(id) : nullptr;
+                    if (model && model->session().filePath() == path &&
+                        !editors_->hasDocumentEditor(id) && !model->session().isModified() &&
+                        model->session().version() == version) {
+                        if (load.outcome == editor::DocumentLoadResult::Outcome::Loaded) {
+                            if (!editor::DocumentSession::matchesDiskSnapshot(path, load))
+                                schedule(id);
+                            else if (model->session().isDeleted() ||
+                                     model->contents() != load.contents ||
+                                     model->session().encoding() != load.encoding ||
+                                     model->session().isReadOnly() != load.readOnly ||
+                                     model->session().hasByteOrderMark() != load.hasByteOrderMark ||
+                                     model->session().hadDecodingErrors() !=
+                                         load.hadDecodingErrors ||
+                                     model->session().lineEnding() != load.lineEnding)
+                                editors_->acceptDocumentLoad(id, load, nullptr);
+                        } else if (!QFileInfo::exists(path))
+                            model->session().markDeleted();
+                        else
+                            emit editors_->fileReloadFailed(path, load.diagnostic);
+                    }
+                } catch (...) {
+                    qWarning("Detached document reload failed.");
                 }
-            } catch (...) { qWarning("Detached document reload failed."); }
-            // A document/error listener may tear down the workbench while a
-            // reload announces its result. Do not touch destroyed QObject state.
-            if (!alive) return;
-            watcher->deleteLater();
-            refresh();
-            if (repeat) schedule(id);
-        });
+                // A document/error listener may tear down the workbench while a
+                // reload announces its result. Do not touch destroyed QObject state.
+                if (!alive)
+                    return;
+                watcher->deleteLater();
+                refresh();
+                if (repeat)
+                    schedule(id);
+            });
     watcher->setFuture(QtConcurrent::run([path, preferred, encoding, guess] {
         return editor::DocumentSession::loadBounded(path, preferred, encoding, guess);
     }));

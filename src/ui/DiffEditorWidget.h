@@ -16,8 +16,8 @@ namespace litecode::ui {
 class DiffEditorWidget final : public QWidget {
     Q_OBJECT
   public:
-    explicit DiffEditorWidget(const workspace::GitComparison& comparison,
-                              QWidget* parent = nullptr, bool openFileAvailable = true);
+    explicit DiffEditorWidget(const workspace::GitComparison& comparison, QWidget* parent = nullptr,
+                              bool openFileAvailable = true);
     ~DiffEditorWidget() override;
     void bindWorkingEditor(editor::ScintillaEditor* model);
     void setEditorFont(const QString& family, int size, int weight);

@@ -14,7 +14,8 @@ struct InputBoxValidationMessage final {
     InputBoxValidationSeverity severity{InputBoxValidationSeverity::Error};
 };
 using InputBoxValidationResult = std::variant<std::monostate, QString, InputBoxValidationMessage>;
-using InputBoxValidatorResult = std::variant<InputBoxValidationResult, QFuture<InputBoxValidationResult>>;
+using InputBoxValidatorResult =
+    std::variant<InputBoxValidationResult, QFuture<InputBoxValidationResult>>;
 struct InputBoxOptions final {
     std::optional<QString> title, value, prompt, placeHolder;
     std::optional<QPair<int, int>> valueSelection;

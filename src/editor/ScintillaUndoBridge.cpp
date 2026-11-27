@@ -1,22 +1,23 @@
 #include "editor/ScintillaUndoBridge.h"
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <cassert>
 #include <cstring>
+#include <forward_list>
+#include <map>
+#include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
-#include <array>
-#include <map>
-#include <forward_list>
-#include <optional>
-#include <memory>
-#include <chrono>
-#include <algorithm>
 
 // Scintilla internal headers expect their prerequisite headers in this order.
 // Isolate this dependency here rather than exposing engine types in our API.
+// clang-format off
 #include <ScintillaTypes.h>
 #include <ILoader.h>
 #include <ILexer.h>
@@ -36,6 +37,7 @@
 #include <UndoHistory.h>
 #include <ScintillaMessages.h>
 #include <ScintillaEditBase.h>
+// clang-format on
 
 namespace litecode::editor::detail {
 namespace {
@@ -47,17 +49,19 @@ Scintilla::Internal::Document* document(ScintillaEditBase& control) {
         control.send(static_cast<unsigned int>(Scintilla::Message::GetDocPointer)));
     return static_cast<Scintilla::Internal::Document*>(editable);
 }
-}
+} // namespace
 bool beginCoalescingUndoAction(ScintillaEditBase& control, bool allowPrior) {
     auto* model = document(control);
-    if (!model) return false;
+    if (!model)
+        return false;
     const auto current = model->UndoCurrent();
-    const bool priorOpen = current > 0 &&
-        (model->UndoActionType(current - 1) & Scintilla::Internal::coalesceFlag) != 0;
+    const bool priorOpen = current > 0 && (model->UndoActionType(current - 1) &
+                                           Scintilla::Internal::coalesceFlag) != 0;
     model->BeginUndoAction(allowPrior && priorOpen);
     return true;
 }
 void endCoalescingUndoAction(ScintillaEditBase& control) {
-    if (auto* model = document(control)) model->EndUndoAction();
+    if (auto* model = document(control))
+        model->EndUndoAction();
 }
 } // namespace litecode::editor::detail

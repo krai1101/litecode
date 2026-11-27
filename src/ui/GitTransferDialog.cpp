@@ -32,8 +32,8 @@ class TransferRequest final : public QObject {
                     }
                     QVector<QuickPickItem> items;
                     for (const auto& remote : remotes) {
-                        const QString url = action_ == GitTransferAction::PullFrom
-                                                ? remote.fetchUrl : remote.pushUrl;
+                        const QString url = action_ == GitTransferAction::PullFrom ? remote.fetchUrl
+                                                                                   : remote.pushUrl;
                         if (!url.isEmpty())
                             items.append({remote.name, remote.name, url});
                     }
@@ -48,20 +48,22 @@ class TransferRequest final : public QObject {
                         remote_ = items.first().id;
                     else
                         remote_ = pick(action_ == GitTransferAction::PullFrom ? tr("Pull From")
-                                                                            : tr("Push To"),
+                                                                              : tr("Push To"),
                                        action_ == GitTransferAction::PullFrom
                                            ? tr("Pick a remote to pull the branch from")
-                                           : tr("Pick a remote to publish this branch to"), items);
+                                           : tr("Pick a remote to publish this branch to"),
+                                       items);
                     if (remote_.isEmpty()) {
                         deleteLater();
                         return;
                     }
                     if (action_ != GitTransferAction::PullFrom) {
                         if (action_ == GitTransferAction::PushToForce) {
-                            if (confirmForcePush_ && ConfirmationDialog::ask(
-                                    owner_, tr("Force Push"),
-                                    tr("Force pushing can overwrite commits on the remote branch. Continue?"),
-                                    tr("Force Push"), {}, tr("Cancel")) !=
+                            if (confirmForcePush_ &&
+                                ConfirmationDialog::ask(owner_, tr("Force Push"),
+                                                        tr("Force pushing can overwrite commits on "
+                                                           "the remote branch. Continue?"),
+                                                        tr("Force Push"), {}, tr("Cancel")) !=
                                     ConfirmationChoice::Primary) {
                                 deleteLater();
                                 return;
@@ -92,8 +94,8 @@ class TransferRequest final : public QObject {
                             const QString name = branch.ref.mid(prefix.size());
                             items.append({name, name, branch.commit.left(7)});
                         }
-                    const QString branch = pick(tr("Pull From"),
-                                                tr("Pick a branch to pull from"), items);
+                    const QString branch =
+                        pick(tr("Pull From"), tr("Pick a branch to pull from"), items);
                     if (!branch.isEmpty() && current())
                         git_->pullFrom(remote_, branch);
                     deleteLater();
@@ -106,8 +108,7 @@ class TransferRequest final : public QObject {
         return owner_ && git_ && git_->repository() == repository_ &&
                git_->workspaceGeneration() == generation_ && !git_->busy();
     }
-    QString pick(const QString& title, const QString& prompt,
-                 const QVector<QuickPickItem>& items) {
+    QString pick(const QString& title, const QString& prompt, const QVector<QuickPickItem>& items) {
         if (!current())
             return {};
         if (items.isEmpty()) {
@@ -115,7 +116,8 @@ class TransferRequest final : public QObject {
             return {};
         }
         QuickOpenDialog picker(title, prompt, items, {}, owner_);
-        return picker.exec() == QDialog::Accepted && current() ? picker.selectedItemId() : QString{};
+        return picker.exec() == QDialog::Accepted && current() ? picker.selectedItemId()
+                                                               : QString{};
     }
     QPointer<QWidget> owner_;
     QPointer<workspace::GitService> git_;

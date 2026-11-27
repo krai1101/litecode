@@ -9,10 +9,12 @@ class NativeDialog final : public QDialog {
     ~NativeDialog() override;
     QVBoxLayout* contentLayout() const { return content_; }
     void openCentered();
+
   protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
     void showEvent(QShowEvent* event) override;
     void hideEvent(QHideEvent* event) override;
+
   private:
     void position();
     QPointer<QWidget> anchor_;

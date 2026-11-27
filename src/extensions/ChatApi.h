@@ -1,10 +1,10 @@
 #pragma once
-#include "extensions/PrimitivesApi.h"
 #include "extensions/CommandApi.h"
 #include "extensions/MarkdownApi.h"
-#include "extensions/ThemeApi.h"
-#include "extensions/TextApi.h"
+#include "extensions/PrimitivesApi.h"
 #include "extensions/ProviderApi.h"
+#include "extensions/TextApi.h"
+#include "extensions/ThemeApi.h"
 #include <QFuture>
 #include <QJsonObject>
 #include <QJsonValue>
@@ -69,7 +69,8 @@ struct ChatResponseMarkdownPart final {
     MarkdownString value;
     ChatResponseMarkdownPart(MarkdownString markdown) : value(std::move(markdown)) {
         if (const auto trusted = std::get_if<bool>(&value.isTrusted); trusted && *trusted)
-            throw std::invalid_argument("The boolean true form of MarkdownString.isTrusted is not supported for chat participants.");
+            throw std::invalid_argument("The boolean true form of MarkdownString.isTrusted is not "
+                                        "supported for chat participants.");
     }
     ChatResponseMarkdownPart(QString markdown) : value(std::move(markdown)) {}
 };
@@ -81,18 +82,21 @@ struct ChatResponseAnchorPart final {
     ChatResource value;
     std::optional<QString> title;
 };
-struct ChatResponseProgressPart final { QString value; };
+struct ChatResponseProgressPart final {
+    QString value;
+};
 struct ChatResponseReferencePart final {
     ChatResource value;
     std::optional<IconPath> iconPath;
 };
-struct ChatResponseCommandButtonPart final { Command value; };
-using ChatResponsePart = std::variant<
-    ChatResponseMarkdownPart, ChatResponseFileTreePart, ChatResponseAnchorPart,
-    ChatResponseProgressPart, ChatResponseReferencePart, ChatResponseCommandButtonPart>;
-using ChatResponseContentPart = std::variant<
-    ChatResponseMarkdownPart, ChatResponseFileTreePart, ChatResponseAnchorPart,
-    ChatResponseCommandButtonPart>;
+struct ChatResponseCommandButtonPart final {
+    Command value;
+};
+using ChatResponsePart = std::variant<ChatResponseMarkdownPart, ChatResponseFileTreePart,
+                                      ChatResponseAnchorPart, ChatResponseProgressPart,
+                                      ChatResponseReferencePart, ChatResponseCommandButtonPart>;
+using ChatResponseContentPart = std::variant<ChatResponseMarkdownPart, ChatResponseFileTreePart,
+                                             ChatResponseAnchorPart, ChatResponseCommandButtonPart>;
 struct ChatRequestTurn final {
     QString prompt;
     QString participant;
@@ -107,12 +111,14 @@ struct ChatResponseTurn final {
     std::optional<QString> command;
 };
 using ChatTurn = std::variant<ChatRequestTurn, ChatResponseTurn>;
-struct ChatContext final { QVector<ChatTurn> history; };
+struct ChatContext final {
+    QVector<ChatTurn> history;
+};
 class ChatFollowupProvider {
   public:
     virtual ~ChatFollowupProvider() = default;
-    virtual ProviderResult<QVector<ChatFollowup>> provideFollowups(
-        ChatResult result, ChatContext context, CancellationToken token) = 0;
+    virtual ProviderResult<QVector<ChatFollowup>>
+    provideFollowups(ChatResult result, ChatContext context, CancellationToken token) = 0;
 };
 class ChatResponseStream {
   public:
@@ -134,11 +140,11 @@ class ChatResponseStream {
 };
 // Native representation of ProviderResult<ChatResult | void>, including an
 // absent result delivered by an asynchronous provider.
-using ChatHandlerResult = std::variant<std::monostate, ChatResult, std::optional<ChatResult>,
-                                      QFuture<ChatResult>, QFuture<std::optional<ChatResult>>, QFuture<void>>;
+using ChatHandlerResult =
+    std::variant<std::monostate, ChatResult, std::optional<ChatResult>, QFuture<ChatResult>,
+                 QFuture<std::optional<ChatResult>>, QFuture<void>>;
 using ChatRequestHandler = std::function<ChatHandlerResult(
-    ChatRequest, ChatContext, std::shared_ptr<ChatResponseStream>,
-    CancellationToken)>;
+    ChatRequest, ChatContext, std::shared_ptr<ChatResponseStream>, CancellationToken)>;
 class ChatParticipant {
   public:
     virtual ~ChatParticipant() = default;
@@ -155,7 +161,7 @@ class ChatParticipant {
 class Chat {
   public:
     virtual ~Chat() = default;
-    virtual std::shared_ptr<ChatParticipant> createChatParticipant(
-        const QString& id, ChatRequestHandler handler) = 0;
+    virtual std::shared_ptr<ChatParticipant> createChatParticipant(const QString& id,
+                                                                   ChatRequestHandler handler) = 0;
 };
 } // namespace litecode::extensions

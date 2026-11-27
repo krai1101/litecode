@@ -1,37 +1,37 @@
 #pragma once
 #include "extensions/ChatHistory.h"
 #include "extensions/ChatStreamLedger.h"
-#include "extensions/ExtensionApi.h"
 #include "extensions/ConfigurationRegistry.h"
-#include "extensions/WorkbenchDocuments.h"
-#include "extensions/WorkbenchContentProviders.h"
-#include "extensions/WorkbenchOutput.h"
-#include "extensions/WorkbenchMessages.h"
-#include "extensions/WorkbenchDialogs.h"
-#include "extensions/WorkbenchInputBox.h"
-#include "extensions/WorkbenchQuickPick.h"
-#include "extensions/WorkbenchQuickInputCoordinator.h"
-#include "extensions/WorkbenchStatusBar.h"
-#include "extensions/WorkbenchExternalUris.h"
-#include "extensions/WorkbenchUriHandlers.h"
-#include "extensions/WorkbenchProgress.h"
-#include "extensions/WorkbenchClipboard.h"
-#include "extensions/WorkbenchEnvironment.h"
-#include "extensions/WindowStateWire.h"
 #include "extensions/EditorStateWire.h"
+#include "extensions/ExtensionApi.h"
 #include "extensions/TextEditorEditData.h"
+#include "extensions/WindowStateWire.h"
+#include "extensions/WorkbenchClipboard.h"
+#include "extensions/WorkbenchContentProviders.h"
 #include "extensions/WorkbenchDebugConfigurations.h"
 #include "extensions/WorkbenchDebugSessions.h"
-#include "extensions/WorkbenchDebugTrackers.h"
 #include "extensions/WorkbenchDebugStarts.h"
+#include "extensions/WorkbenchDebugTrackers.h"
+#include "extensions/WorkbenchDialogs.h"
+#include "extensions/WorkbenchDocuments.h"
+#include "extensions/WorkbenchEnvironment.h"
+#include "extensions/WorkbenchExternalUris.h"
+#include "extensions/WorkbenchInputBox.h"
+#include "extensions/WorkbenchMessages.h"
 #include "extensions/WorkbenchNativeViews.h"
+#include "extensions/WorkbenchOutput.h"
+#include "extensions/WorkbenchProgress.h"
+#include "extensions/WorkbenchQuickInputCoordinator.h"
+#include "extensions/WorkbenchQuickPick.h"
+#include "extensions/WorkbenchStatusBar.h"
+#include "extensions/WorkbenchUriHandlers.h"
 #include <QHash>
-#include <QSet>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QJsonValue>
-#include <memory>
+#include <QSet>
 #include <functional>
+#include <memory>
 #include <vector>
 
 class QPluginLoader;
@@ -72,8 +72,9 @@ class ExtensionManager final : public QObject {
     // Private workbench state source, not an extension-facing setter.
     void setWindowState(WindowState state);
     [[nodiscard]] WindowState windowState() const { return windowState_; }
-    void setEditorStateSource(std::function<WindowEditorState()> source,
-        std::function<bool(const QString&, const TextEditorEditData&)> applyEdit);
+    void
+    setEditorStateSource(std::function<WindowEditorState()> source,
+                         std::function<bool(const QString&, const TextEditorEditData&)> applyEdit);
     void setEditorState(const WindowEditorState& state);
     void setWorkbenchCommandSource(std::function<QStringList()> ids,
                                    std::function<bool(const QString&)> invoke);
@@ -88,8 +89,12 @@ class ExtensionManager final : public QObject {
     bool activateForChatParticipant(const QString& participantId);
     bool executeCommand(const QString& id);
     // Internal asynchronous workbench/host operation; not part of the plugin SDK.
-    quint64 requestCommand(const QString& id, const QJsonArray& arguments = {}, const QString& owner = {});
-    void setDiffCommandHandler(std::function<QFuture<QJsonValue>(const QString&, const QJsonArray&)> handler) { diffCommand_ = std::move(handler); }
+    quint64 requestCommand(const QString& id, const QJsonArray& arguments = {},
+                           const QString& owner = {});
+    void setDiffCommandHandler(
+        std::function<QFuture<QJsonValue>(const QString&, const QJsonArray&)> handler) {
+        diffCommand_ = std::move(handler);
+    }
     QStringList commands() const;
     QVector<ExtensionCommand> commandContributions() const;
     QVector<DebuggerContribution> debuggerContributions() const;
@@ -106,13 +111,16 @@ class ExtensionManager final : public QObject {
                                          const QString& participantId) const;
     quint64 requestDocumentFormat(const QString& languageId, const QString& text,
                                   const QString& extensionId = {});
-    quint64 requestDebugAdapter(const QString& type, const QJsonObject& configuration, const QString& sessionId = {},
-        const QJsonValue& folderOverride = QJsonValue::Undefined);
+    quint64 requestDebugAdapter(const QString& type, const QJsonObject& configuration,
+                                const QString& sessionId = {},
+                                const QJsonValue& folderOverride = QJsonValue::Undefined);
     // Releases a pending descriptor or a host-owned inline instance. Private IPC.
     bool releaseDebugAdapter(quint64 requestId);
-    quint64 requestDebugConfiguration(const QString& type, const QString& method, const QJsonValue& configuration,
-        DebugConfigurationProviderTriggerKind trigger = DebugConfigurationProviderTriggerKind::Initial,
-        const QJsonValue& folderOverride = QJsonValue::Undefined);
+    quint64 requestDebugConfiguration(const QString& type, const QString& method,
+                                      const QJsonValue& configuration,
+                                      DebugConfigurationProviderTriggerKind trigger =
+                                          DebugConfigurationProviderTriggerKind::Initial,
+                                      const QJsonValue& folderOverride = QJsonValue::Undefined);
     bool cancelDebugConfiguration(quint64 requestId);
     void setDebugSessionHandler(WorkbenchDebugSessions::Handler handler);
     void setDebugStartHandler(WorkbenchDebugStarts::Handler handler);
@@ -120,7 +128,9 @@ class ExtensionManager final : public QObject {
     void publishDebugTrackerEvent(const QString& sessionId, const QJsonObject& event);
     static QString validateManifest(const QJsonObject& manifest);
     // Workbench configuration service access; this is not a plugin SDK API.
-    [[nodiscard]] const ConfigurationRegistry& configurationRegistry() const { return configurationRegistry_; }
+    [[nodiscard]] const ConfigurationRegistry& configurationRegistry() const {
+        return configurationRegistry_;
+    }
     [[nodiscard]] ConfigurationService& configuration() { return *configurationService_; }
     [[nodiscard]] WorkbenchDocuments& documents() { return *documents_; }
     [[nodiscard]] WorkbenchContentProviders& contentProviders() { return *contentProviders_; }
@@ -149,13 +159,12 @@ class ExtensionManager final : public QObject {
     void uriDispatched(const QString& owner);
     void documentFormatResult(quint64 requestId, const QString& text, const QString& error);
     void debugAdapterResult(quint64 requestId, const QJsonObject& descriptor, const QString& error);
-    void debugConfigurationResult(quint64 requestId, const QJsonValue& result, const QString& error);
+    void debugConfigurationResult(quint64 requestId, const QJsonValue& result,
+                                  const QString& error);
     void debugSessionOwnerUnavailable(const QString& sessionId);
     void chatResponsePart(quint64 requestId, quint64 sequence, const QJsonObject& part);
-    void chatRequestFinished(quint64 requestId, const QJsonObject& result,
-                             const QString& error);
-    void chatFollowupsReady(quint64 requestId, const QJsonArray& followups,
-                            const QString& error);
+    void chatRequestFinished(quint64 requestId, const QJsonObject& result, const QString& error);
+    void chatFollowupsReady(quint64 requestId, const QJsonArray& followups, const QString& error);
 
   private:
     struct Entry;
@@ -171,13 +180,17 @@ class ExtensionManager final : public QObject {
     void handleHostMessage(Entry& entry, const QJsonObject& message);
     void sendHostMessage(Entry& entry, const QJsonObject& message);
     void failDebugRequests(Entry& entry, const QString& error);
-    void sendDebugAdapterRequest(Entry& entry, quint64 id, const QString& type, const QJsonObject& session);
+    void sendDebugAdapterRequest(Entry& entry, quint64 id, const QString& type,
+                                 const QJsonObject& session);
     void failCommandRequests(Entry& entry, const QString& error);
     void failChatRequests(Entry& entry, const QString& error);
     void dispatchQueuedChatRequests(Entry& entry);
     void discardForwardedCommandRequests(Entry& source);
     void rebuildConfigurationContributions();
-    struct ForwardedCommand { Entry* source{}; quint64 sourceRequestId{}; };
+    struct ForwardedCommand {
+        Entry* source{};
+        quint64 sourceRequestId{};
+    };
     QString directory_, workspace_, hostExecutablePath_;
     WorkbenchNativeViews nativeViews_;
     std::function<QStringList()> workbenchCommandIds_;

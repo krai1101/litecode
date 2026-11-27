@@ -11,18 +11,29 @@ class TextLine final {
   public:
     [[nodiscard]] int lineNumber() const { return line_; }
     [[nodiscard]] QString text() const { return text_; }
-    [[nodiscard]] Range range() const { return Range(line_, 0, line_, static_cast<int>(text_.size())); }
-    [[nodiscard]] Range rangeIncludingLineBreak() const { return last_ ? range() : Range(line_, 0, line_ + 1, 0); }
+    [[nodiscard]] Range range() const {
+        return Range(line_, 0, line_, static_cast<int>(text_.size()));
+    }
+    [[nodiscard]] Range rangeIncludingLineBreak() const {
+        return last_ ? range() : Range(line_, 0, line_ + 1, 0);
+    }
     [[nodiscard]] int firstNonWhitespaceCharacterIndex() const {
         int index = 0;
         // ECMAScript \s includes BOM but excludes Unicode NEL (U+0085).
-        while (index < text_.size() && ((text_.at(index).isSpace() && text_.at(index).unicode() != 0x85) || text_.at(index).unicode() == 0xfeff)) ++index;
+        while (index < text_.size() &&
+               ((text_.at(index).isSpace() && text_.at(index).unicode() != 0x85) ||
+                text_.at(index).unicode() == 0xfeff))
+            ++index;
         return index;
     }
-    [[nodiscard]] bool isEmptyOrWhitespace() const { return firstNonWhitespaceCharacterIndex() == text_.size(); }
+    [[nodiscard]] bool isEmptyOrWhitespace() const {
+        return firstNonWhitespaceCharacterIndex() == text_.size();
+    }
+
   private:
     friend class HostTextDocument;
-    TextLine(int line, QString text, bool last) : line_(line), text_(std::move(text)), last_(last) {}
+    TextLine(int line, QString text, bool last)
+        : line_(line), text_(std::move(text)), last_(last) {}
     int line_;
     QString text_;
     bool last_;
@@ -46,8 +57,9 @@ class TextDocument {
     [[nodiscard]] virtual qint64 offsetAt(const Position& position) const = 0;
     [[nodiscard]] virtual Position positionAt(qint64 offset) const = 0;
     [[nodiscard]] virtual QString getText(const std::optional<Range>& range = {}) const = 0;
-    [[nodiscard]] virtual std::optional<Range> getWordRangeAtPosition(const Position& position,
-        const std::optional<QRegularExpression>& regex = {}) const = 0;
+    [[nodiscard]] virtual std::optional<Range>
+    getWordRangeAtPosition(const Position& position,
+                           const std::optional<QRegularExpression>& regex = {}) const = 0;
     [[nodiscard]] virtual Range validateRange(const Range& range) const = 0;
     [[nodiscard]] virtual Position validatePosition(const Position& position) const = 0;
 };

@@ -6,7 +6,8 @@ class ElidingButton final : public Button {
   public:
     using Button::Button;
     QSize minimumSizeHint() const override;
+
   protected:
     void paintEvent(QPaintEvent*) override;
 };
-}
+} // namespace litecode::ui::components

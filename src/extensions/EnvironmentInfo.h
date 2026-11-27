@@ -19,5 +19,5 @@ bool isNewAppInstall(const QDateTime& firstSessionDate, const QDateTime& now);
 namespace wire {
 QJsonObject encodeEnvironmentInfo(const EnvironmentInfo& info);
 std::optional<EnvironmentInfo> decodeEnvironmentInfo(const QJsonObject& object);
-}
+} // namespace wire
 } // namespace litecode::extensions

@@ -8,11 +8,11 @@
 #include "ui/GitHistoryWidget.h"
 #include "ui/GitPreferencesMenu.h"
 #include "ui/GitRepositoryPicker.h"
-#include "ui/GitTagRecoveryDialog.h"
+#include "ui/GitStashDialog.h"
 #include "ui/GitTagDialog.h"
+#include "ui/GitTagRecoveryDialog.h"
 #include "ui/GitTransferDialog.h"
 #include "ui/GitWorktreeDialog.h"
-#include "ui/GitStashDialog.h"
 #include "ui/QuickOpenDialog.h"
 #include "ui/Theme.h"
 #include "ui/ThemedIcon.h"
@@ -26,8 +26,8 @@
 #include <QApplication>
 #include <QDialog>
 #include <QDir>
-#include <QFileDialog>
 #include <QFile>
+#include <QFileDialog>
 #include <QFileInfo>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -43,13 +43,11 @@
 #include <QTimer>
 #include <QTreeWidget>
 #include <QVBoxLayout>
-#include <optional>
 #include <memory>
+#include <optional>
 
 namespace litecode::ui {
-void SourceControlPanel::deleteWorktree() {
-    requestGitWorktreeDeletion(this, git_);
-}
+void SourceControlPanel::deleteWorktree() { requestGitWorktreeDeletion(this, git_); }
 namespace {
 std::optional<QString> gitInput(QWidget* parent, const QString& title, const QString& label,
                                 const QString& placeholder = {}) {
@@ -140,8 +138,7 @@ class ChangeDelegate final : public QStyledItemDelegate {
         painter->setFont(font);
         const QFontMetrics metrics(font);
         const int start = iconRect.right() + 4;
-        const QRect statusRect(option.rect.right() - TrailingInset - 14, option.rect.top(), 16,
-                               22);
+        const QRect statusRect(option.rect.right() - TrailingInset - 14, option.rect.top(), 16, 22);
         const QRect action = actionRect(option.rect);
         const int end = (hovered ? action.left() : statusRect.left()) - 4;
         const QString name = QFileInfo(path).fileName();
@@ -160,7 +157,7 @@ class ChangeDelegate final : public QStyledItemDelegate {
                     metrics.elidedText(directory, Qt::ElideRight, available - nameWidth - 6));
         }
         const QString status = index.data(Qt::UserRole + 4).toString();
-        painter->setPen(status == "!" ? theme.gitConflict
+        painter->setPen(status == "!"   ? theme.gitConflict
                         : status == "D" ? theme.gitDeleted
                         : status == "U" ? theme.gitUntracked
                         : status == "A" ? theme.gitAdded
@@ -172,8 +169,7 @@ class ChangeDelegate final : public QStyledItemDelegate {
                 painter->setPen(theme.foreground);
                 painter->drawLine(action.center() - QPoint(5, 0), action.center() + QPoint(5, 0));
             } else
-                themedIcon(":/icons/add.svg", dark)
-                    .paint(painter, action.adjusted(4, 3, -4, -3));
+                themedIcon(":/icons/add.svg", dark).paint(painter, action.adjusted(4, 3, -4, -3));
         }
         painter->restore();
     }
@@ -356,15 +352,13 @@ SourceControlPanel::SourceControlPanel(QWidget* parent) : QWidget(parent) {
             &SourceControlPanel::repositoryCloned);
     connect(git_, &workspace::GitService::worktreeCreated, this,
             &SourceControlPanel::worktreeCreated);
-    connect(git_, &workspace::GitService::cloneCancelled, this,
-            [this](const QString& destination) {
-                ConfirmationDialog::showMessage(
-                    this, tr("Clone Canceled"),
-                    tr("The clone was canceled. An incomplete destination may remain at %1. Inspect it before retrying.")
-                        .arg(destination));
-            });
-    connect(git_, &workspace::GitService::outputLine, this,
-            &SourceControlPanel::gitOutputLine);
+    connect(git_, &workspace::GitService::cloneCancelled, this, [this](const QString& destination) {
+        ConfirmationDialog::showMessage(this, tr("Clone Canceled"),
+                                        tr("The clone was canceled. An incomplete destination may "
+                                           "remain at %1. Inspect it before retrying.")
+                                            .arg(destination));
+    });
+    connect(git_, &workspace::GitService::outputLine, this, &SourceControlPanel::gitOutputLine);
     connect(more, &QToolButton::clicked, this, [this, more, changesAction, graphAction] {
         components::Menu menu(this);
         menu.setObjectName("scmActionsMenu");
@@ -398,8 +392,8 @@ SourceControlPanel::SourceControlPanel(QWidget* parent) : QWidget(parent) {
         tagRecovery->setEnabled(recovery->isEnabled());
         tagRestore->setEnabled(recovery->isEnabled());
         auto tagAction = [this, &menu](const QString& label, GitTagAction action) {
-            auto* item = menu.addAction(label, this,
-                                        [this, action] { requestGitTagAction(this, git_, action); });
+            auto* item = menu.addAction(
+                label, this, [this, action] { requestGitTagAction(this, git_, action); });
             item->setEnabled(!git_->busy() && !git_->repository().isEmpty());
             return item;
         };
@@ -408,7 +402,8 @@ SourceControlPanel::SourceControlPanel(QWidget* parent) : QWidget(parent) {
         auto* deleteRemoteTag = tagAction(tr("Delete Remote Tag…"), GitTagAction::DeleteRemote);
         auto* pushTags = tagAction(tr("Push Tags"), GitTagAction::Push);
         QFile gitPointer(QDir(git_->repository()).filePath(".git"));
-        const bool linkedWorktree = gitPointer.open(QIODevice::ReadOnly) &&
+        const bool linkedWorktree =
+            gitPointer.open(QIODevice::ReadOnly) &&
             QString::fromUtf8(gitPointer.read(4096)).replace('\\', '/').contains("/worktrees/");
         QAction* createWorktree = nullptr;
         QAction* openWorktree = nullptr;
@@ -418,15 +413,15 @@ SourceControlPanel::SourceControlPanel(QWidget* parent) : QWidget(parent) {
             openWorktree = menu.addAction(tr("Open Worktree"), this, [this] {
                 emit openWorktreeRequested(git_->repository(), false);
             });
-            openWorktreeNewWindow = menu.addAction(tr("Open Worktree in New Window"), this,
-                                                   [this] {
+            openWorktreeNewWindow = menu.addAction(tr("Open Worktree in New Window"), this, [this] {
                 emit openWorktreeRequested(git_->repository(), true);
             });
             deleteLinkedWorktree = menu.addAction(tr("Delete Worktree..."), this, [this] {
                 const QString active = git_->repository();
                 const quint64 generation = git_->workspaceGeneration();
                 auto connection = std::make_shared<QMetaObject::Connection>();
-                *connection = connect(git_, &workspace::GitService::worktreesReady, this,
+                *connection = connect(
+                    git_, &workspace::GitService::worktreesReady, this,
                     [this, active, generation, connection](const QStringList& paths) {
                         disconnect(*connection);
                         if (git_->workspaceGeneration() != generation ||
@@ -477,14 +472,17 @@ SourceControlPanel::SourceControlPanel(QWidget* parent) : QWidget(parent) {
             }
             if (!tracked && !untracked)
                 return;
-            const QString message = tracked && untracked
-                ? tr("Discard working-tree changes in %1 tracked file(s) and move %2 untracked file(s) to Trash? Staged changes are preserved. Tracked edits cannot be recovered.")
-                      .arg(tracked).arg(untracked)
-                : tracked
-                    ? tr("Discard working-tree changes in %1 tracked file(s)? Staged changes are preserved. Tracked edits cannot be recovered.")
-                          .arg(tracked)
-                    : tr("Move %1 untracked file(s) to Trash? Staged changes are preserved.")
-                          .arg(untracked);
+            const QString message =
+                tracked && untracked ? tr("Discard working-tree changes in %1 tracked file(s) and "
+                                          "move %2 untracked file(s) to Trash? Staged changes are "
+                                          "preserved. Tracked edits cannot be recovered.")
+                                           .arg(tracked)
+                                           .arg(untracked)
+                : tracked ? tr("Discard working-tree changes in %1 tracked file(s)? Staged changes "
+                               "are preserved. Tracked edits cannot be recovered.")
+                                .arg(tracked)
+                          : tr("Move %1 untracked file(s) to Trash? Staged changes are preserved.")
+                                .arg(untracked);
             const auto choice = ConfirmationDialog::ask(
                 this, tr("Discard All Changes"), message,
                 tracked ? tr("Discard All Changes") : tr("Move to Trash"),
@@ -531,7 +529,8 @@ SourceControlPanel::SourceControlPanel(QWidget* parent) : QWidget(parent) {
             return item;
         };
         auto* stash = stashAction(tr("Stash"), GitStashAction::Create);
-        auto* stashUntracked = stashAction(tr("Stash (Include Untracked)"), GitStashAction::CreateUntracked);
+        auto* stashUntracked =
+            stashAction(tr("Stash (Include Untracked)"), GitStashAction::CreateUntracked);
         auto* stashStaged = stashAction(tr("Stash Staged"), GitStashAction::CreateStaged);
         auto* applyLatest = stashAction(tr("Apply Latest Stash"), GitStashAction::ApplyLatest);
         auto* apply = stashAction(tr("Apply Stash…"), GitStashAction::Apply);
@@ -593,8 +592,7 @@ SourceControlPanel::SourceControlPanel(QWidget* parent) : QWidget(parent) {
                 if (confirmForcePush())
                     git_->pushForce();
             });
-            pushToForce = menu.addAction(tr("Push to... (Force)"), this,
-                                         [this] {
+            pushToForce = menu.addAction(tr("Push to... (Force)"), this, [this] {
                 requestGitTransfer(this, git_, GitTransferAction::PushToForce,
                                    preferences_.confirmForcePush);
             });
@@ -603,10 +601,11 @@ SourceControlPanel::SourceControlPanel(QWidget* parent) : QWidget(parent) {
             return menu.addAction(label, this, [this, rebase] {
                 if (!allowWorktreeChange())
                     return;
-                if (ConfirmationDialog::ask(
-                        this, tr("Synchronize Changes"),
-                        tr("Pull commits from the upstream branch, then push local commits only if the pull succeeds?"),
-                        tr("Synchronize"), {}, tr("Cancel")) == ConfirmationChoice::Primary)
+                if (ConfirmationDialog::ask(this, tr("Synchronize Changes"),
+                                            tr("Pull commits from the upstream branch, then push "
+                                               "local commits only if the pull succeeds?"),
+                                            tr("Synchronize"), {},
+                                            tr("Cancel")) == ConfirmationChoice::Primary)
                     git_->sync(rebase);
             });
         };
@@ -625,15 +624,16 @@ SourceControlPanel::SourceControlPanel(QWidget* parent) : QWidget(parent) {
         });
         auto* removeRemote =
             menu.addAction(tr("Remove Remote…"), this, [this] { chooseRemote(false); });
-        for (auto* action : {branches, create, createFrom, fetch, fetchAll, fetchPrune, pull,
-                             pullRebase, pullFrom, push, pushTo, sync, syncRebase, publish,
-                             addRemote, removeRemote})
+        for (auto* action :
+             {branches, create, createFrom, fetch, fetchAll, fetchPrune, pull, pullRebase, pullFrom,
+              push, pushTo, sync, syncRebase, publish, addRemote, removeRemote})
             action->setEnabled(stage->isEnabled());
         if (pushForce)
             pushForce->setEnabled(stage->isEnabled());
         if (pushToForce)
             pushToForce->setEnabled(stage->isEnabled());
-        auto makeCommitAction = [this, &menu](const QString& label, workspace::GitCommitOptions options) {
+        auto makeCommitAction = [this, &menu](const QString& label,
+                                              workspace::GitCommitOptions options) {
             // VS Code omits no-verify variants entirely until the setting is enabled.
             if (options.noVerify && !preferences_.allowNoVerifyCommit)
                 return static_cast<QAction*>(nullptr);
@@ -647,10 +647,11 @@ SourceControlPanel::SourceControlPanel(QWidget* parent) : QWidget(parent) {
                         return;
                     message = *entered;
                 }
-                if (options.noVerify && ConfirmationDialog::ask(
-                        this, tr("Commit Without Verification"),
-                        tr("Skip pre-commit hooks for this commit?"), tr("Commit"), {}, tr("Cancel")) !=
-                                            ConfirmationChoice::Primary)
+                if (options.noVerify &&
+                    ConfirmationDialog::ask(this, tr("Commit Without Verification"),
+                                            tr("Skip pre-commit hooks for this commit?"),
+                                            tr("Commit"), {},
+                                            tr("Cancel")) != ConfirmationChoice::Primary)
                     return;
                 git_->commitWithOptions(message, options);
             });
@@ -664,64 +665,74 @@ SourceControlPanel::SourceControlPanel(QWidget* parent) : QWidget(parent) {
         auto* undoCommit = menu.addAction(tr("Undo Commit"), this, [this] {
             if (ConfirmationDialog::ask(this, tr("Undo Commit"),
                                         tr("Undo the last local commit and keep its file changes?"),
-                                        tr("Undo Commit"), {}, tr("Cancel")) ==
-                ConfirmationChoice::Primary)
+                                        tr("Undo Commit"), {},
+                                        tr("Cancel")) == ConfirmationChoice::Primary)
                 git_->undoCommit();
         });
         undoCommit->setEnabled(!git_->busy() && !git_->repository().isEmpty());
-        auto* abortRebase = menu.addAction(tr("Abort Rebase"), this,
-                                           [this] { git_->abortRebase(); });
+        auto* abortRebase =
+            menu.addAction(tr("Abort Rebase"), this, [this] { git_->abortRebase(); });
         abortRebase->setEnabled(undoCommit->isEnabled());
-        auto* commitNoVerify = makeCommitAction(tr("Commit (No Verify)"), {Scope::Staged, false, false, true});
-        auto* stagedNoVerify = makeCommitAction(tr("Commit Staged (No Verify)"), {Scope::Staged, false, false, true});
-        auto* allNoVerify = makeCommitAction(tr("Commit All (No Verify)"), {Scope::All, false, false, true});
+        auto* commitNoVerify =
+            makeCommitAction(tr("Commit (No Verify)"), {Scope::Staged, false, false, true});
+        auto* stagedNoVerify =
+            makeCommitAction(tr("Commit Staged (No Verify)"), {Scope::Staged, false, false, true});
+        auto* allNoVerify =
+            makeCommitAction(tr("Commit All (No Verify)"), {Scope::All, false, false, true});
         auto* amend = makeCommitAction(tr("Commit (Amend)"), {Scope::Staged, true});
         auto* stagedAmend = makeCommitAction(tr("Commit Staged (Amend)"), {Scope::Staged, true});
         auto* allAmend = makeCommitAction(tr("Commit All (Amend)"), {Scope::All, true});
-        auto* amendNoVerify = makeCommitAction(tr("Commit (Amend, No Verify)"), {Scope::Staged, true, false, true});
-        auto* stagedAmendNoVerify = makeCommitAction(tr("Commit Staged (Amend, No Verify)"), {Scope::Staged, true, false, true});
-        auto* allAmendNoVerify = makeCommitAction(tr("Commit All (Amend, No Verify)"), {Scope::All, true, false, true});
-        auto* signedCommit = makeCommitAction(tr("Commit (Signed Off)"), {Scope::Staged, false, true});
-        auto* signedStaged = makeCommitAction(tr("Commit Staged (Signed Off)"), {Scope::Staged, false, true});
-        auto* signedAll = makeCommitAction(tr("Commit All (Signed Off)"), {Scope::All, false, true});
-        auto* signedNoVerify = makeCommitAction(tr("Commit (Signed Off, No Verify)"), {Scope::Staged, false, true, true});
-        auto* signedStagedNoVerify = makeCommitAction(tr("Commit Staged (Signed Off, No Verify)"), {Scope::Staged, false, true, true});
-        auto* signedAllNoVerify = makeCommitAction(tr("Commit All (Signed Off, No Verify)"), {Scope::All, false, true, true});
-        QList<QAction*> pullPushActions{sync, syncRebase, nullptr, pull, pullRebase,
-                                        pullFrom, push};
+        auto* amendNoVerify =
+            makeCommitAction(tr("Commit (Amend, No Verify)"), {Scope::Staged, true, false, true});
+        auto* stagedAmendNoVerify = makeCommitAction(tr("Commit Staged (Amend, No Verify)"),
+                                                     {Scope::Staged, true, false, true});
+        auto* allAmendNoVerify =
+            makeCommitAction(tr("Commit All (Amend, No Verify)"), {Scope::All, true, false, true});
+        auto* signedCommit =
+            makeCommitAction(tr("Commit (Signed Off)"), {Scope::Staged, false, true});
+        auto* signedStaged =
+            makeCommitAction(tr("Commit Staged (Signed Off)"), {Scope::Staged, false, true});
+        auto* signedAll =
+            makeCommitAction(tr("Commit All (Signed Off)"), {Scope::All, false, true});
+        auto* signedNoVerify = makeCommitAction(tr("Commit (Signed Off, No Verify)"),
+                                                {Scope::Staged, false, true, true});
+        auto* signedStagedNoVerify = makeCommitAction(tr("Commit Staged (Signed Off, No Verify)"),
+                                                      {Scope::Staged, false, true, true});
+        auto* signedAllNoVerify = makeCommitAction(tr("Commit All (Signed Off, No Verify)"),
+                                                   {Scope::All, false, true, true});
+        QList<QAction*> pullPushActions{sync,       syncRebase, nullptr, pull,
+                                        pullRebase, pullFrom,   push};
         if (pushForce)
             pullPushActions.append(pushForce);
         pullPushActions.append(pushTo);
         if (pushToForce)
             pullPushActions.append(pushToForce);
         pullPushActions.append({nullptr, fetch, fetchPrune, fetchAll});
-        groupGitActionsMenu(menu, views.menuAction(), repositories,
-                            {pull, push, clone, branches, fetch},
-                            {{tr("Commit"), {commitAction, commitStaged, commitAll, undoCommit,
-                                              abortRebase, nullptr, commitNoVerify, stagedNoVerify,
-                                              allNoVerify, nullptr, amend, stagedAmend, allAmend,
-                                              nullptr, amendNoVerify, stagedAmendNoVerify,
-                                              allAmendNoVerify, nullptr, signedCommit, signedStaged,
-                                              signedAll, nullptr, signedNoVerify,
-                                              signedStagedNoVerify, signedAllNoVerify}},
-                             {tr("Changes"), {stage, unstage, nullptr, discardAll}},
-                             {tr("Pull, Push"), pullPushActions},
-                             {tr("Branch"), {merge, rebase, nullptr, create, createFrom, nullptr,
-                                              renameBranch, deleteBranch, deleteRemoteBranch,
-                                              nullptr, publish}},
-                             {tr("Remote"), {addRemote, removeRemote}},
-                             {tr("Stash"), {stash, stashUntracked,
-                                             git_->supportsStagedStash() ? stashStaged : nullptr, nullptr,
-                                             applyLatest, apply, nullptr, popLatest, pop,
-                                             nullptr, drop, dropAll, nullptr, viewStash}},
-                             {tr("Tags"), {createTag, deleteTag, deleteRemoteTag, nullptr,
-                                            pushTags}},
-                             {tr("Worktrees"), {openWorktree, openWorktreeNewWindow,
-                                                 createWorktree, deleteLinkedWorktree}},
-                             {tr("Recovery"), {recovery, tagRecovery, tagRestore}}});
+        groupGitActionsMenu(
+            menu, views.menuAction(), repositories, {pull, push, clone, branches, fetch},
+            {{tr("Commit"), {commitAction,     commitStaged, commitAll,      undoCommit,
+                             abortRebase,      nullptr,      commitNoVerify, stagedNoVerify,
+                             allNoVerify,      nullptr,      amend,          stagedAmend,
+                             allAmend,         nullptr,      amendNoVerify,  stagedAmendNoVerify,
+                             allAmendNoVerify, nullptr,      signedCommit,   signedStaged,
+                             signedAll,        nullptr,      signedNoVerify, signedStagedNoVerify,
+                             signedAllNoVerify}},
+             {tr("Changes"), {stage, unstage, nullptr, discardAll}},
+             {tr("Pull, Push"), pullPushActions},
+             {tr("Branch"),
+              {merge, rebase, nullptr, create, createFrom, nullptr, renameBranch, deleteBranch,
+               deleteRemoteBranch, nullptr, publish}},
+             {tr("Remote"), {addRemote, removeRemote}},
+             {tr("Stash"),
+              {stash, stashUntracked, git_->supportsStagedStash() ? stashStaged : nullptr, nullptr,
+               applyLatest, apply, nullptr, popLatest, pop, nullptr, drop, dropAll, nullptr,
+               viewStash}},
+             {tr("Tags"), {createTag, deleteTag, deleteRemoteTag, nullptr, pushTags}},
+             {tr("Worktrees"),
+              {openWorktree, openWorktreeNewWindow, createWorktree, deleteLinkedWorktree}},
+             {tr("Recovery"), {recovery, tagRecovery, tagRestore}}});
         menu.addSeparator();
-        menu.addAction(tr("Show Git Output"), this,
-                       [this] { emit gitOutputRequested(); });
+        menu.addAction(tr("Show Git Output"), this, [this] { emit gitOutputRequested(); });
         menu.addSeparator();
         addGitPreferencesMenu(
             menu, preferences_,
@@ -785,7 +796,8 @@ SourceControlPanel::SourceControlPanel(QWidget* parent) : QWidget(parent) {
     connect(git_, &workspace::GitService::error, this, [this](const QString& error) {
         choosingBranch_ = choosingRemote_ = false;
         if (error.startsWith(tr("Git installation not found")))
-            empty_->setText(tr("Install Git to use Source Control. No GitHub sign-in or SSH key is needed for local changes and commits."));
+            empty_->setText(tr("Install Git to use Source Control. No GitHub sign-in or SSH key is "
+                               "needed for local changes and commits."));
         notice_->setText(error);
         notice_->show();
     });
@@ -1091,8 +1103,8 @@ void SourceControlPanel::render() {
             item->setData(0, Qt::UserRole + 3, change.originalPath);
             item->setData(0, Qt::UserRole + 4,
                           change.conflict ? QStringLiteral("!")
-                          : untracked    ? QStringLiteral("U")
-                                         : QString(QChar(index ? change.index : change.worktree)));
+                          : untracked     ? QStringLiteral("U")
+                                          : QString(QChar(index ? change.index : change.worktree)));
             item->setSelected(selected.contains(change.path + (index ? "#staged" : "#working")));
         };
         if (change.conflict) {

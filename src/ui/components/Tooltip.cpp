@@ -50,11 +50,11 @@ class TooltipLabel final : public QLabel {
             border.setAlphaF(0.16f);
             painter.setPen(border);
             painter.setBrush(palette().color(QPalette::ToolTipBase));
-            const QRectF box = QRectF(rect()).adjusted(
-                .5 + (edge_ == TooltipEdge::Left ? pointerDepth : 0),
-                .5 + (edge_ == TooltipEdge::Top ? pointerDepth : 0),
-                -.5 - (edge_ == TooltipEdge::Right ? pointerDepth : 0),
-                -.5 - (edge_ == TooltipEdge::Bottom ? pointerDepth : 0));
+            const QRectF box =
+                QRectF(rect()).adjusted(.5 + (edge_ == TooltipEdge::Left ? pointerDepth : 0),
+                                        .5 + (edge_ == TooltipEdge::Top ? pointerDepth : 0),
+                                        -.5 - (edge_ == TooltipEdge::Right ? pointerDepth : 0),
+                                        -.5 - (edge_ == TooltipEdge::Bottom ? pointerDepth : 0));
             QPainterPath outline;
             if (edge_ == TooltipEdge::None) {
                 outline.addRoundedRect(box, 8, 8);
@@ -65,13 +65,15 @@ class TooltipLabel final : public QLabel {
                     const qreal x = qBound(box.left() + 10, qreal(offset_), box.right() - 10);
                     const qreal y = edge_ == TooltipEdge::Top ? box.top() : box.bottom();
                     const qreal direction = edge_ == TooltipEdge::Top ? -1 : 1;
-                    pointer = {{x - 4, y - direction}, {x, y + direction * pointerDepth},
+                    pointer = {{x - 4, y - direction},
+                               {x, y + direction * pointerDepth},
                                {x + 4, y - direction}};
                 } else {
                     const qreal x = edge_ == TooltipEdge::Left ? box.left() : box.right();
                     const qreal y = qBound(box.top() + 9, qreal(offset_), box.bottom() - 9);
                     const qreal direction = edge_ == TooltipEdge::Left ? -1 : 1;
-                    pointer = {{x - direction, y - 4}, {x + direction * pointerDepth, y},
+                    pointer = {{x - direction, y - 4},
+                               {x + direction * pointerDepth, y},
                                {x - direction, y + 4}};
                 }
                 QPainterPath notch;
@@ -136,7 +138,8 @@ class TooltipController final : public QObject {
             return false;
         switch (event->type()) {
         case QEvent::MouseMove:
-            if (!anchorBounds_.contains(static_cast<QMouseEvent*>(event)->globalPosition().toPoint()))
+            if (!anchorBounds_.contains(
+                    static_cast<QMouseEvent*>(event)->globalPosition().toPoint()))
                 hide();
             break;
         case QEvent::Leave:
@@ -185,9 +188,8 @@ class TooltipController final : public QObject {
         }
         const auto palette = qApp->palette();
         tip_->setPalette(palette);
-        const QString textStyle =
-            QStringLiteral("background: transparent; color: %1;")
-                .arg(palette.color(QPalette::ToolTipText).name());
+        const QString textStyle = QStringLiteral("background: transparent; color: %1;")
+                                      .arg(palette.color(QPalette::ToolTipText).name());
         if (tip_->styleSheet() != textStyle)
             tip_->setStyleSheet(textStyle);
         tip_->setPointer(TooltipEdge::None);
@@ -197,8 +199,8 @@ class TooltipController final : public QObject {
         const int width = qMin(natural.width(), qMin(400, available.width()));
         const bool wrap = width < natural.width();
         tip_->setWordWrap(wrap);
-        const int height = qBound(1, wrap ? tip_->heightForWidth(width) : natural.height(),
-                                  available.height());
+        const int height =
+            qBound(1, wrap ? tip_->heightForWidth(width) : natural.height(), available.height());
         anchorBounds_ = QRect(anchor.mapToGlobal(content.anchor.topLeft()), content.anchor.size());
         const int maxX = available.right() - width + 1;
         const int maxY = available.bottom() - height + 1;
@@ -223,16 +225,24 @@ class TooltipController final : public QObject {
         if (qobject_cast<QAbstractButton*>(&anchor)) {
             QRect pointed = bounds;
             switch (edge) {
-            case TooltipEdge::Top: pointed.adjust(0, -pointerDepth, 0, 0); break;
-            case TooltipEdge::Bottom: pointed.adjust(0, 0, 0, pointerDepth); break;
-            case TooltipEdge::Left: pointed.adjust(-pointerDepth, 0, 0, 0); break;
-            case TooltipEdge::Right: pointed.adjust(0, 0, pointerDepth, 0); break;
-            case TooltipEdge::None: break;
+            case TooltipEdge::Top:
+                pointed.adjust(0, -pointerDepth, 0, 0);
+                break;
+            case TooltipEdge::Bottom:
+                pointed.adjust(0, 0, 0, pointerDepth);
+                break;
+            case TooltipEdge::Left:
+                pointed.adjust(-pointerDepth, 0, 0, 0);
+                break;
+            case TooltipEdge::Right:
+                pointed.adjust(0, 0, pointerDepth, 0);
+                break;
+            case TooltipEdge::None:
+                break;
             }
             const bool horizontal = edge == TooltipEdge::Left || edge == TooltipEdge::Right;
             // A side pointer can enter the activity button's transparent margin.
-            if (available.contains(pointed) &&
-                (horizontal || !pointed.intersects(anchorBounds_))) {
+            if (available.contains(pointed) && (horizontal || !pointed.intersects(anchorBounds_))) {
                 const QPoint offset = anchorBounds_.center() - pointed.topLeft();
                 tip_->setPointer(edge, horizontal ? offset.y() : offset.x());
                 bounds = pointed;
@@ -241,8 +251,8 @@ class TooltipController final : public QObject {
         tip_->setGeometry(bounds);
         tip_->show();
         const int duration = anchor.toolTipDuration();
-        dismissTimer_.start(duration > 0 ? duration
-                                         : int(qMin(qsizetype{10000}, 4000 + 40 * content.text.size())));
+        dismissTimer_.start(
+            duration > 0 ? duration : int(qMin(qsizetype{10000}, 4000 + 40 * content.text.size())));
     }
 
     QPointer<TooltipLabel> tip_;

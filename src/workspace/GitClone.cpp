@@ -11,7 +11,8 @@ QString targetNameFor(const QString& source) {
     QString name = source.trimmed();
     while (name.endsWith('/') || name.endsWith('\\'))
         name.chop(1);
-    name = name.mid(qMax(name.lastIndexOf('/'), qMax(name.lastIndexOf('\\'), name.lastIndexOf(':'))) + 1);
+    name = name.mid(
+        qMax(name.lastIndexOf('/'), qMax(name.lastIndexOf('\\'), name.lastIndexOf(':'))) + 1);
     if (name.endsWith(".git", Qt::CaseInsensitive))
         name.chop(4);
     return name;
@@ -24,8 +25,7 @@ void GitService::cloneRepository(const QString& url, const QString& parentDirect
     const QString source = url.trimmed();
     const QString name = targetNameFor(source);
     if (source.isEmpty() || name.isEmpty() || name == "." || name == ".." ||
-        name.contains(QChar('\0')) || name.contains(QChar('\n')) ||
-        name.contains(QChar('\r'))) {
+        name.contains(QChar('\0')) || name.contains(QChar('\n')) || name.contains(QChar('\r'))) {
         emit error(tr("Enter a valid repository URL or path to clone."));
         return;
     }
@@ -49,8 +49,11 @@ void GitService::cloneRepository(const QString& url, const QString& parentDirect
                 return;
             }
             if (code != 0) {
-                emit error(diagnostic.isEmpty() ? tr("Git clone failed. The destination may be incomplete; inspect it before retrying.")
-                                                : tr("Git clone failed: %1\nThe destination may be incomplete; inspect it before retrying.").arg(diagnostic));
+                emit error(diagnostic.isEmpty() ? tr("Git clone failed. The destination may be "
+                                                     "incomplete; inspect it before retrying.")
+                                                : tr("Git clone failed: %1\nThe destination may be "
+                                                     "incomplete; inspect it before retrying.")
+                                                      .arg(diagnostic));
                 return;
             }
             emit operationFinished();
@@ -59,7 +62,7 @@ void GitService::cloneRepository(const QString& url, const QString& parentDirect
         });
 }
 void GitService::cancelClone() {
-    if (!busy_ || currentOperation_ != "clone")
+    if (!busy_ || currentOperation_ != "clone" || cloneCancellationRequested_)
         return;
     cloneCancellationRequested_ = true;
 #ifdef Q_OS_WIN
@@ -72,10 +75,31 @@ void GitService::cancelClone() {
     if (gitPid > 0 && systemDirectoryLength > 0 && systemDirectoryLength < MAX_PATH) {
         const QString taskkill =
             QDir(QString::fromWCharArray(systemDirectory)).filePath("taskkill.exe");
-        QProcess killer;
-        killer.start(taskkill, {"/T", "/F", "/PID", QString::number(gitPid)});
-        if (killer.waitForFinished(5000) && killer.exitCode() == 0)
-            return;
+        auto* killer = new QProcess(this);
+        const auto killOriginal = [this, gitPid] {
+            if (cloneCancellationRequested_ && currentOperation_ == "clone" &&
+                process_.processId() == gitPid)
+                process_.kill();
+        };
+        connect(killer, &QProcess::finished, this,
+                [killer, killOriginal](int code, QProcess::ExitStatus status) {
+                    if (status != QProcess::NormalExit || code != 0)
+                        killOriginal();
+                    killer->deleteLater();
+                });
+        connect(killer, &QProcess::errorOccurred, this,
+                [killer, killOriginal](QProcess::ProcessError error) {
+                    if (error == QProcess::FailedToStart) {
+                        killOriginal();
+                        killer->deleteLater();
+                    }
+                });
+        QTimer::singleShot(5000, killer, [killer, killOriginal] {
+            killOriginal();
+            killer->kill();
+        });
+        killer->start(taskkill, {"/T", "/F", "/PID", QString::number(gitPid)});
+        return;
     }
 #endif
     process_.kill();

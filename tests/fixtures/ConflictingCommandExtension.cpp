@@ -7,8 +7,8 @@ class ConflictingCommandExtension final : public QObject, public litecode::exten
 
   public:
     void activate(litecode::extensions::ExtensionContext& context) override {
-        context.subscriptions.push_back(context.registerCommand(
-            "tests.native.hello", [](const QJsonArray&) -> QJsonValue {
+        context.subscriptions.push_back(
+            context.registerCommand("tests.native.hello", [](const QJsonArray&) -> QJsonValue {
                 return QJsonValue("conflicting extension");
             }));
     }

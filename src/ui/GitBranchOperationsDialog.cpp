@@ -32,13 +32,12 @@ class BranchRequest final : public QObject {
                     for (const auto& branch : branches) {
                         if (branch.current || branch.ref.endsWith("/HEAD"))
                             continue;
-                        const bool include = action_ == GitBranchAction::Merge
-                                                 ? true
-                                                 : action_ == GitBranchAction::DeleteRemote
-                                                       ? branch.remote
-                                                       : action_ == GitBranchAction::DeleteLocal
-                                                             ? !branch.remote && !branch.tag
-                                                             : !branch.tag;
+                        const bool include = action_ == GitBranchAction::Merge ? true
+                                             : action_ == GitBranchAction::DeleteRemote
+                                                 ? branch.remote
+                                             : action_ == GitBranchAction::DeleteLocal
+                                                 ? !branch.remote && !branch.tag
+                                                 : !branch.tag;
                         if (include)
                             items.append({branch.ref, branch.name, branch.commit.left(7)});
                     }
@@ -48,7 +47,7 @@ class BranchRequest final : public QObject {
                         deleteLater();
                         return;
                     }
-                    const auto title = action_ == GitBranchAction::Merge ? tr("Merge")
+                    const auto title = action_ == GitBranchAction::Merge    ? tr("Merge")
                                        : action_ == GitBranchAction::Rebase ? tr("Rebase Branch")
                                        : action_ == GitBranchAction::DeleteRemote
                                            ? tr("Delete Remote Branch")
@@ -66,29 +65,34 @@ class BranchRequest final : public QObject {
                     else if (action_ == GitBranchAction::DeleteLocal) {
                         const auto name = ref.mid(11);
                         if (confirm(tr("Delete local branch '%1'? Git will refuse if it is not "
-                                       "fully merged.").arg(name)))
+                                       "fully merged.")
+                                        .arg(name)))
                             git_->deleteBranch(name);
                     } else {
                         const auto fullName = ref.mid(13);
                         const auto remote = fullName.section('/', 0, 0);
                         const auto name = fullName.mid(remote.size() + 1);
                         if (confirm(tr("Delete branch '%1' from remote '%2'? This changes the "
-                                       "remote repository.").arg(name, remote)))
+                                       "remote repository.")
+                                        .arg(name, remote)))
                             git_->deleteRemoteBranch(remote, name);
                     }
                     deleteLater();
                 });
         reader_.setWorkspace(repository_);
     }
+
   private:
     bool current() const {
         return owner_ && git_ && git_->repository() == repository_ &&
                git_->workspaceGeneration() == generation_ && !git_->busy();
     }
     bool confirm(const QString& message) const {
-        return current() && ConfirmationDialog::ask(owner_, tr("Confirm Branch Deletion"), message,
-                                                     tr("Delete Branch"), {}, tr("Cancel")) ==
-                                ConfirmationChoice::Primary && current();
+        return current() &&
+               ConfirmationDialog::ask(owner_, tr("Confirm Branch Deletion"), message,
+                                       tr("Delete Branch"), {},
+                                       tr("Cancel")) == ConfirmationChoice::Primary &&
+               current();
     }
     QPointer<QWidget> owner_;
     QPointer<workspace::GitService> git_;

@@ -2,12 +2,12 @@
 #include "debug/DebugConfiguration.h"
 #include "debug/DebugSession.h"
 #include "debug/TaskRunner.h"
-#include "ui/components/SidebarView.h"
 #include "extensions/CancellationApi.h"
-#include <QPromise>
-#include <QPointer>
-#include <QMap>
+#include "ui/components/SidebarView.h"
 #include <QHash>
+#include <QMap>
+#include <QPointer>
+#include <QPromise>
 #include <QSet>
 #include <QWidget>
 
@@ -16,16 +16,19 @@ class QProcess;
 class QPushButton;
 class QToolButton;
 
-namespace litecode::core { class SettingsService; }
+namespace litecode::core {
+class SettingsService;
+}
 
 namespace litecode::ui {
-namespace components { class ComboBox; }
+namespace components {
+class ComboBox;
+}
 class DebugInspectorWidget;
 class RunDebugPanel final : public components::SidebarView {
     Q_OBJECT
   public:
-    explicit RunDebugPanel(QWidget* parent = nullptr,
-                           core::SettingsService* settings = nullptr);
+    explicit RunDebugPanel(QWidget* parent = nullptr, core::SettingsService* settings = nullptr);
     ~RunDebugPanel() override;
     void setWorkspace(const QString& path);
     void setDebuggerSchemas(const QHash<QString, QJsonObject>& schemas);
@@ -34,13 +37,18 @@ class RunDebugPanel final : public components::SidebarView {
     void startDebugging();
     void startSelectedConfiguration(const QJsonObject& configuration);
     QFuture<bool> startFromExtension(const QJsonValue& folder, const QJsonValue& configuration,
-        const QJsonObject& options, extensions::CancellationToken cancellation);
+                                     const QJsonObject& options,
+                                     extensions::CancellationToken cancellation);
     QJsonValue launchFolder() const { return launchFolder_; }
     void requestConfiguration();
     void runWithoutDebugging();
-    void completeDebugAdapterRequest(quint64 requestId, const QJsonObject& descriptor, const QString& error);
-    void completeDebugConfigurationRequest(quint64 requestId, const QJsonValue& configuration, const QString& error);
-    void setVariableContextSource(std::function<debug::VariableContext()> source) { variableContextSource_ = std::move(source); }
+    void completeDebugAdapterRequest(quint64 requestId, const QJsonObject& descriptor,
+                                     const QString& error);
+    void completeDebugConfigurationRequest(quint64 requestId, const QJsonValue& configuration,
+                                           const QString& error);
+    void setVariableContextSource(std::function<debug::VariableContext()> source) {
+        variableContextSource_ = std::move(source);
+    }
     void stop();
     void cancelOwnedDebugSession(const QString& sessionId);
     void continueDebugging();
@@ -59,10 +67,11 @@ class RunDebugPanel final : public components::SidebarView {
     bool isPaused() const;
     void setIntegratedTerminalAvailable(bool available);
     bool usesIntegratedTerminal() const { return integratedTerminalActive_; }
-    bool respondToRunInTerminal(const QJsonObject& request, bool success,
-                                const QString& error = {}, const QJsonObject& body = {});
+    bool respondToRunInTerminal(const QJsonObject& request, bool success, const QString& error = {},
+                                const QJsonObject& body = {});
     QFuture<QJsonValue> handleDebugSessionRequest(const QString& id, const QString& operation,
-        const QString& command, const QJsonValue& arguments);
+                                                  const QString& command,
+                                                  const QJsonValue& arguments);
   signals:
     void outputReceived(const QString& text);
     void outputReset();
@@ -77,12 +86,14 @@ class RunDebugPanel final : public components::SidebarView {
     void debugAdapterRequested(quint64 requestId, const QString& type,
                                const QJsonObject& configuration, const QString& sessionId);
     void debugAdapterReleased(quint64 requestId);
-    void debugConfigurationRequested(quint64 requestId, const QString& type, const QString& method, const QJsonObject& configuration);
+    void debugConfigurationRequested(quint64 requestId, const QString& type, const QString& method,
+                                     const QJsonObject& configuration);
     void debugConfigurationCanceled(quint64 requestId);
     void selectDebugConfigurationRequested();
     void selectDynamicConfigurationRequested(const QString& type);
     void debugSessionEvent(const QJsonObject& event);
     void debugTrackerEvent(const QString& sessionId, const QJsonObject& event);
+
   private:
     bool prepare(QJsonObject* configuration, bool resolve = true);
     void requestConfigurationStep(const QString& method, const QJsonObject& configuration);

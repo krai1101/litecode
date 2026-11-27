@@ -143,7 +143,9 @@ bool TerminalSessionService::sendInput(core::OperationId id, const QByteArray& b
     return session->backend->enqueueInput(bytes);
 }
 qint64 TerminalSessionService::processId(core::OperationId id) const {
-    for (const auto& session : sessions_) if (session->id == id) return session->backend->processId();
+    for (const auto& session : sessions_)
+        if (session->id == id)
+            return session->backend->processId();
     return 0;
 }
 

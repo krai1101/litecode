@@ -3,7 +3,9 @@
 #include <QPointer>
 #include <QUrl>
 
-namespace litecode::extensions { class ConfigurationService; }
+namespace litecode::extensions {
+class ConfigurationService;
+}
 namespace litecode::ui {
 class EditorSessionController;
 class WorkbenchController;
@@ -12,8 +14,9 @@ class WorkbenchController;
 class FileDialogDefaults final : public QObject {
   public:
     FileDialogDefaults(EditorSessionController& editors, WorkbenchController& workbench,
-        extensions::ConfigurationService& configuration, QObject* parent);
+                       extensions::ConfigurationService& configuration, QObject* parent);
     QUrl defaultUri() const;
+
   private:
     QString lastFile_, lastRoot_;
     QPointer<extensions::ConfigurationService> configuration_;

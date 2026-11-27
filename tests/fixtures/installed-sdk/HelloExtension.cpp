@@ -7,12 +7,12 @@ class HelloExtension final : public QObject, public litecode::extensions::Extens
 
   public:
     void activate(litecode::extensions::ExtensionContext& context) override {
-        context.subscriptions.push_back(context.registerDocumentFormatter(
-            "markdown", [](const QString& text) {
+        context.subscriptions.push_back(
+            context.registerDocumentFormatter("markdown", [](const QString& text) {
                 return text.isEmpty() || text.endsWith('\n') ? text : text + '\n';
             }));
-        context.subscriptions.push_back(
-            context.commands().registerCommand("example.hello.greet", [&context](const QJsonArray&) -> QJsonValue {
+        context.subscriptions.push_back(context.commands().registerCommand(
+            "example.hello.greet", [&context](const QJsonArray&) -> QJsonValue {
                 context.showInformationMessage("Hello from a native LiteCode extension!");
                 return QJsonValue(QJsonValue::Undefined);
             }));

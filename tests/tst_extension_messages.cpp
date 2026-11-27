@@ -1,7 +1,7 @@
 #include "extensions/HostWindow.h"
 #include "extensions/WorkbenchMessages.h"
-#include <QTemporaryDir>
 #include <QSignalSpy>
+#include <QTemporaryDir>
 #include <QtTest>
 
 using namespace litecode::extensions;
@@ -14,9 +14,13 @@ class ExtensionMessageTests final : public QObject {
         WorkbenchMessages workbench;
         HostWindow* window = nullptr;
         HostWindow host(directory.path(), [&](const QJsonObject& request) {
-            QVERIFY(workbench.accept("fixture", "Fixture", request,
-                [&, id = request.value("requestId").toString().toULongLong()](std::optional<int> selection, const QString& error) {
-                    window->messages().complete(id, selection ? QJsonValue(*selection) : QJsonValue(QJsonValue::Null), error);
+            QVERIFY(workbench.accept(
+                "fixture", "Fixture", request,
+                [&, id = request.value("requestId").toString().toULongLong()](
+                    std::optional<int> selection, const QString& error) {
+                    window->messages().complete(
+                        id, selection ? QJsonValue(*selection) : QJsonValue(QJsonValue::Null),
+                        error);
                 }));
         });
         window = &host;
@@ -43,21 +47,28 @@ class ExtensionMessageTests final : public QObject {
         QVERIFY(!dismissed.result());
     }
     void customItemPreservedAndHostExit() {
-        struct CustomItem : MessageItem { int payload{}; };
+        struct CustomItem : MessageItem {
+            int payload{};
+        };
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
         WorkbenchMessages workbench;
         HostWindow* window = nullptr;
         HostWindow host(directory.path(), [&](const QJsonObject& request) {
-            QVERIFY(workbench.accept("fixture", "Fixture", request,
-                [&, id = request.value("requestId").toString().toULongLong()](std::optional<int> selection, const QString& error) {
-                    window->messages().complete(id, selection ? QJsonValue(*selection) : QJsonValue(QJsonValue::Null), error);
+            QVERIFY(workbench.accept(
+                "fixture", "Fixture", request,
+                [&, id = request.value("requestId").toString().toULongLong()](
+                    std::optional<int> selection, const QString& error) {
+                    window->messages().complete(
+                        id, selection ? QJsonValue(*selection) : QJsonValue(QJsonValue::Null),
+                        error);
                 }));
         });
         window = &host;
         QSignalSpy requests(&workbench, &WorkbenchMessages::requested);
         QVector<CustomItem> actions{{{"Same", false}, 7}, {{"Same", true}, 42}};
-        auto result = host.showErrorMessage("Error", MessageOptions{true, QString("Details")}, actions);
+        auto result =
+            host.showErrorMessage("Error", MessageOptions{true, QString("Details")}, actions);
         QTRY_COMPARE(requests.size(), 1);
         auto request = requests.first().first().value<WindowMessageRequest>();
         QCOMPARE(request.severity, 3);

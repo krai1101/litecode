@@ -1,10 +1,10 @@
 #include "core/SettingsService.h"
-#include "ui/MainWindow.h"
-#include "ui/GitCredentialBroker.h"
-#include "ui/Theme.h"
-#include "ui/extensions/NativeUriDispatcher.h"
-#include "ui/extensions/NativeUriBroker.h"
 #include "extensions/UriWire.h"
+#include "ui/GitCredentialBroker.h"
+#include "ui/MainWindow.h"
+#include "ui/Theme.h"
+#include "ui/extensions/NativeUriBroker.h"
+#include "ui/extensions/NativeUriDispatcher.h"
 #include "workspace/WorkspaceReplace.h"
 #include "workspace/WorkspaceSearch.h"
 #include "workspace/WorkspaceService.h"
@@ -41,29 +41,34 @@ int main(int argc, char* argv[]) {
     QList<QUrl> incomingUris;
     for (int index = 1; index < arguments.size(); ++index) {
         const bool explicitUri = arguments.at(index) == "--open-url";
-        if (explicitUri && ++index >= arguments.size()) break;
+        if (explicitUri && ++index >= arguments.size())
+            break;
         const QUrl uri(arguments.at(index), QUrl::StrictMode);
-        if (uri.isValid() && uri.scheme().compare(litecode::extensions::wire::AppUriScheme, Qt::CaseInsensitive) == 0)
+        if (uri.isValid() && uri.scheme().compare(litecode::extensions::wire::AppUriScheme,
+                                                  Qt::CaseInsensitive) == 0)
             incomingUris.append(uri);
     }
     // Profile identity is independent of workspace: OAuth returns to the last
     // focused workbench, not a new window restoring an unrelated workspace.
     const QString uriProfile = settingsFile.isEmpty() ? QStringLiteral("default")
-        : QFileInfo(settingsFile).absoluteFilePath();
+                                                      : QFileInfo(settingsFile).absoluteFilePath();
     if (!arguments.contains(QStringLiteral("--new-window")) && !incomingUris.isEmpty()) {
         const auto accepted = litecode::ui::NativeUriBroker::forward(uriProfile, incomingUris);
         incomingUris = incomingUris.mid(accepted);
-        if (incomingUris.isEmpty()) return 0;
+        if (incomingUris.isEmpty())
+            return 0;
     }
     auto& uriDispatcher = litecode::ui::NativeUriDispatcher::forApplication();
-    QObject::connect(&uriDispatcher, &litecode::ui::NativeUriDispatcher::routingError,
-                     &application, [](const QString& message) { qWarning().noquote() << message; });
+    QObject::connect(&uriDispatcher, &litecode::ui::NativeUriDispatcher::routingError, &application,
+                     [](const QString& message) { qWarning().noquote() << message; });
     litecode::ui::NativeUriBroker uriBroker(uriProfile, &application);
-    if (!uriBroker.listen([&uriDispatcher](const QUrl& uri) { return uriDispatcher.dispatchUri(uri); }))
+    if (!uriBroker.listen(
+            [&uriDispatcher](const QUrl& uri) { return uriDispatcher.dispatchUri(uri); }))
         qWarning("Could not start desktop URI routing.");
     QObject::connect(&uriDispatcher, &litecode::ui::NativeUriDispatcher::windowActivated,
                      &uriBroker, &litecode::ui::NativeUriBroker::activated);
-    for (const auto& uri : incomingUris) uriDispatcher.dispatchUri(uri);
+    for (const auto& uri : incomingUris)
+        uriDispatcher.dispatchUri(uri);
     litecode::core::SettingsService settings(settingsFile);
     application.setStyle(QStyleFactory::create(QStringLiteral("Fusion")));
     const bool darkTheme = settings.theme() != QStringLiteral("light");
@@ -100,9 +105,8 @@ int main(int argc, char* argv[]) {
         jumpListRefresh->setInterval(350);
         QObject::connect(&window, &litecode::ui::MainWindow::recentPathsChanged, jumpListRefresh,
                          qOverload<>(&QTimer::start));
-        QObject::connect(jumpListRefresh, &QTimer::timeout, &window, [&settings] {
-            litecode::app::publishWindowsJumpList(settings);
-        });
+        QObject::connect(jumpListRefresh, &QTimer::timeout, &window,
+                         [&settings] { litecode::app::publishWindowsJumpList(settings); });
         jumpListRefresh->start();
     }
 #endif

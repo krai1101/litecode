@@ -9,7 +9,8 @@ class QuickOpenDialog;
 class DebugConfigurationPicker final : public QObject {
     Q_OBJECT
   public:
-    DebugConfigurationPicker(extensions::ExtensionManager* manager, std::function<QString()> workspace, QWidget* parent);
+    DebugConfigurationPicker(extensions::ExtensionManager* manager,
+                             std::function<QString()> workspace, QWidget* parent);
     ~DebugConfigurationPicker() override;
     void createLaunch();
     void selectAndStart();
@@ -19,6 +20,7 @@ class DebugConfigurationPicker final : public QObject {
     void openConfiguration(const QString& path);
     void configurationSelected(const QJsonObject& configuration);
     void dynamicConfigurationSelected(const QJsonObject& configuration);
+
   private:
     enum class SelectionMode { CreateLaunch, StartDebugging, SelectConfiguration };
     void selectType(SelectionMode mode);

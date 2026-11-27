@@ -1,12 +1,12 @@
 #include "ui/extensions/WindowMessageService.h"
-#include "ui/extensions/ProgressNotification.h"
+#include "ui/ThemedIcon.h"
 #include "ui/components/Controls.h"
 #include "ui/components/DialogChrome.h"
 #include "ui/components/DialogHeader.h"
 #include "ui/components/ModalDialogQueue.h"
-#include "ui/ThemedIcon.h"
-#include <QDialog>
+#include "ui/extensions/ProgressNotification.h"
 #include <QAction>
+#include <QDialog>
 #include <QEvent>
 #include <QFrame>
 #include <QHBoxLayout>
@@ -21,12 +21,17 @@ namespace litecode::ui {
 namespace {
 QString title(int severity) {
     switch (severity) {
-    case 2: return WindowMessageService::tr("Warning");
-    case 3: return WindowMessageService::tr("Error");
-    default: return WindowMessageService::tr("Information");
+    case 2:
+        return WindowMessageService::tr("Warning");
+    case 3:
+        return WindowMessageService::tr("Error");
+    default:
+        return WindowMessageService::tr("Information");
     }
 }
-QString modalKey(const QString& owner, quint64 id) { return owner + QChar(0) + QString::number(id); }
+QString modalKey(const QString& owner, quint64 id) {
+    return owner + QChar(0) + QString::number(id);
+}
 QLabel* label(const QString& text, QWidget* parent) {
     auto* result = new QLabel(text, parent);
     result->setTextFormat(Qt::PlainText);
@@ -35,7 +40,8 @@ QLabel* label(const QString& text, QWidget* parent) {
     return result;
 }
 } // namespace
-WindowMessageService::WindowMessageService(extensions::WorkbenchMessages& messages, QWidget* owner, QObject* parent)
+WindowMessageService::WindowMessageService(extensions::WorkbenchMessages& messages, QWidget* owner,
+                                           QObject* parent)
     : QObject(parent), messages_(&messages), owner_(owner) {
     if (owner_) {
         modalQueue_ = &ModalDialogQueue::forWindow(*owner_);
@@ -56,49 +62,64 @@ WindowMessageService::WindowMessageService(extensions::WorkbenchMessages& messag
         notifications_->hide();
     }
     connect(messages_.data(), &extensions::WorkbenchMessages::requested, this,
-        [this](const extensions::WindowMessageRequest& request) { show(request); });
+            [this](const extensions::WindowMessageRequest& request) { show(request); });
     connect(messages_.data(), &extensions::WorkbenchMessages::dismissed, this,
-        [this](const QString& owner, quint64 id) { dismiss(owner, id); });
+            [this](const QString& owner, quint64 id) { dismiss(owner, id); });
 }
 WindowMessageService::~WindowMessageService() {
-    if (messages_) disconnect(messages_.data(), nullptr, this, nullptr);
+    if (messages_)
+        disconnect(messages_.data(), nullptr, this, nullptr);
     const auto views = std::exchange(views_, {});
-    for (const auto& view : views) if (view.widget) {
-        disconnect(view.widget, nullptr, this, nullptr);
-        delete view.widget.data();
-    }
+    for (const auto& view : views)
+        if (view.widget) {
+            disconnect(view.widget, nullptr, this, nullptr);
+            delete view.widget.data();
+        }
     delete notifications_.data();
 }
 void WindowMessageService::attachProgress(extensions::WorkbenchProgress& progress) {
-    if (progress_ == &progress) return;
-    if (progress_) disconnect(progress_.data(), nullptr, this, nullptr);
+    if (progress_ == &progress)
+        return;
+    if (progress_)
+        disconnect(progress_.data(), nullptr, this, nullptr);
     const auto oldViews = std::exchange(progressViews_, {});
-    for (const auto& view : oldViews) if (view) delete view.data();
+    for (const auto& view : oldViews)
+        if (view)
+            delete view.data();
     progress_ = &progress;
-    connect(&progress, &extensions::WorkbenchProgress::started, this, &WindowMessageService::showProgress);
-    connect(&progress, &extensions::WorkbenchProgress::changed, this, [this](const extensions::ProgressTaskInfo& task) {
-        const auto card = progressViews_.value(modalKey(task.owner, task.id));
-        // Dismissed or cancelled notifications must not reappear on reports.
-        if (card) {
-            auto presentation = task;
-            if (const auto* location = std::get_if<extensions::ProgressLocation>(&task.options.location);
-                location && *location == extensions::ProgressLocation::Window) presentation.total.reset();
-            card->updateTask(presentation);
-        }
-        positionNotifications();
-    });
-    connect(&progress, &extensions::WorkbenchProgress::ended, this, &WindowMessageService::dismissProgress);
+    connect(&progress, &extensions::WorkbenchProgress::started, this,
+            &WindowMessageService::showProgress);
+    connect(&progress, &extensions::WorkbenchProgress::changed, this,
+            [this](const extensions::ProgressTaskInfo& task) {
+                const auto card = progressViews_.value(modalKey(task.owner, task.id));
+                // Dismissed or cancelled notifications must not reappear on reports.
+                if (card) {
+                    auto presentation = task;
+                    if (const auto* location =
+                            std::get_if<extensions::ProgressLocation>(&task.options.location);
+                        location && *location == extensions::ProgressLocation::Window)
+                        presentation.total.reset();
+                    card->updateTask(presentation);
+                }
+                positionNotifications();
+            });
+    connect(&progress, &extensions::WorkbenchProgress::ended, this,
+            &WindowMessageService::dismissProgress);
     connect(&progress, &QObject::destroyed, this, [this] {
         const auto views = std::exchange(progressViews_, {});
-        for (const auto& view : views) if (view) delete view.data();
+        for (const auto& view : views)
+            if (view)
+                delete view.data();
         positionNotifications();
     });
     positionNotifications();
 }
 void WindowMessageService::revealProgress(const QString& owner, quint64 id) {
-    if (!progress_) return;
+    if (!progress_)
+        return;
     auto task = progress_->task(owner, id);
-    if (!task || task->cancellationRequested) return;
+    if (!task || task->cancellationRequested)
+        return;
     if (const auto* location = std::get_if<extensions::ProgressLocation>(&task->options.location);
         location && *location == extensions::ProgressLocation::Window) {
         task->options.location = extensions::ProgressLocation::Notification;
@@ -109,18 +130,22 @@ void WindowMessageService::revealProgress(const QString& owner, quint64 id) {
 }
 void WindowMessageService::showProgress(const extensions::ProgressTaskInfo& task) {
     const auto* location = std::get_if<extensions::ProgressLocation>(&task.options.location);
-    if (!location || *location != extensions::ProgressLocation::Notification || !notificationBody_) return;
+    if (!location || *location != extensions::ProgressLocation::Notification || !notificationBody_)
+        return;
     const auto key = modalKey(task.owner, task.id);
-    if (progressViews_.contains(key)) return;
+    if (progressViews_.contains(key))
+        return;
     auto* card = new ProgressNotification(task, notificationBody_);
     progressViews_.insert(key, card);
     connect(card, &ProgressNotification::manageExtensionRequested, this,
-        [this, owner = task.owner] { emit manageExtensionRequested(owner); });
+            [this, owner = task.owner] { emit manageExtensionRequested(owner); });
     connect(card, &ProgressNotification::dismissRequested, this,
-        [this, owner = task.owner, id = task.id] { dismissProgress(owner, id); });
-    connect(card, &ProgressNotification::cancelRequested, this, [this, owner = task.owner, id = task.id] {
-        if (progress_ && progress_->cancel(owner, id)) dismissProgress(owner, id);
-    });
+            [this, owner = task.owner, id = task.id] { dismissProgress(owner, id); });
+    connect(card, &ProgressNotification::cancelRequested, this,
+            [this, owner = task.owner, id = task.id] {
+                if (progress_ && progress_->cancel(owner, id))
+                    dismissProgress(owner, id);
+            });
     notificationLayout_->insertWidget(0, card);
     card->show();
     positionNotifications();
@@ -137,10 +162,16 @@ void WindowMessageService::dismissProgress(const QString& owner, quint64 id) {
     positionNotifications();
 }
 void WindowMessageService::show(const extensions::WindowMessageRequest& request) {
-    if (!owner_) { choose(request.owner, request.id, {}); return; }
+    if (!owner_) {
+        choose(request.owner, request.id, {});
+        return;
+    }
     if (request.options.modal.value_or(false)) {
-        if (modalQueue_) modalQueue_->enqueue(*this, modalKey(request.owner, request.id), [this, request] { showModal(request); });
-        else choose(request.owner, request.id, {});
+        if (modalQueue_)
+            modalQueue_->enqueue(*this, modalKey(request.owner, request.id),
+                                 [this, request] { showModal(request); });
+        else
+            choose(request.owner, request.id, {});
         return;
     }
     // Nonmodal messages are workbench children, not dialogs that block editor
@@ -163,7 +194,8 @@ void WindowMessageService::show(const extensions::WindowMessageRequest& request)
     manage->setToolTip(tr("Notification actions"));
     auto* menu = new components::Menu(manage);
     auto* action = menu->addAction(tr("Manage Extension"));
-    connect(action, &QAction::triggered, this, [this, owner = request.owner] { emit manageExtensionRequested(owner); });
+    connect(action, &QAction::triggered, this,
+            [this, owner = request.owner] { emit manageExtensionRequested(owner); });
     manage->setMenu(menu);
     manage->setPopupMode(QToolButton::InstantPopup);
     header->addWidget(manage);
@@ -172,14 +204,16 @@ void WindowMessageService::show(const extensions::WindowMessageRequest& request)
     setThemedIcon(close, QStringLiteral(":/icons/close.svg"));
     close->setAccessibleName(tr("Dismiss notification"));
     header->addWidget(close);
-    connect(close, &QToolButton::clicked, this, [this, request] { choose(request.owner, request.id, {}); });
+    connect(close, &QToolButton::clicked, this,
+            [this, request] { choose(request.owner, request.id, {}); });
     layout->addLayout(header);
     layout->addWidget(label(request.text, card));
     layout->addWidget(label(request.source, card));
     for (int index = 0; index < request.items.size(); ++index) {
         auto* button = new components::Button(request.items[index].title, card);
         button->setProperty("windowMessageAction", index);
-        connect(button, &QPushButton::clicked, this, [this, request, index] { choose(request.owner, request.id, index); });
+        connect(button, &QPushButton::clicked, this,
+                [this, request, index] { choose(request.owner, request.id, index); });
         layout->addWidget(button);
     }
     views_.append({request.owner, request.id, card, false});
@@ -188,7 +222,10 @@ void WindowMessageService::show(const extensions::WindowMessageRequest& request)
     positionNotifications();
 }
 void WindowMessageService::showModal(const extensions::WindowMessageRequest& request) {
-    if (!owner_) { choose(request.owner, request.id, {}); return; }
+    if (!owner_) {
+        choose(request.owner, request.id, {});
+        return;
+    }
     auto* dialog = new QDialog(owner_);
     // Reuse the common dialog shell and its existing feature styles.
     dialog->setObjectName(QStringLiteral("confirmationDialog"));
@@ -205,7 +242,8 @@ void WindowMessageService::showModal(const extensions::WindowMessageRequest& req
     layout->setContentsMargins(16, 16, 16, 14);
     layout->setSpacing(18);
     layout->addWidget(label(request.text, body));
-    if (request.options.detail) layout->addWidget(label(*request.options.detail, body));
+    if (request.options.detail)
+        layout->addWidget(label(*request.options.detail, body));
     auto* buttons = new QHBoxLayout;
     buttons->setSpacing(8);
     buttons->addStretch();
@@ -213,20 +251,30 @@ void WindowMessageService::showModal(const extensions::WindowMessageRequest& req
     int regularCount = 0;
     QPushButton* primary = nullptr;
     for (int index = 0; index < request.items.size(); ++index) {
-        if (request.items[index].isCloseAffordance.value_or(false)) { cancel = index; continue; }
+        if (request.items[index].isCloseAffordance.value_or(false)) {
+            cancel = index;
+            continue;
+        }
         auto* button = new components::Button(request.items[index].title, body);
         button->setProperty("windowMessageAction", index);
-        if (!primary) primary = button;
+        if (!primary)
+            primary = button;
         ++regularCount;
         buttons->addWidget(button);
-        connect(button, &QPushButton::clicked, this, [this, request, index] { choose(request.owner, request.id, index); });
+        connect(button, &QPushButton::clicked, this,
+                [this, request, index] { choose(request.owner, request.id, index); });
     }
-    auto* cancelButton = new components::Button(cancel ? request.items[*cancel].title : regularCount ? tr("Cancel") : tr("OK"), body);
+    auto* cancelButton = new components::Button(cancel         ? request.items[*cancel].title
+                                                : regularCount ? tr("Cancel")
+                                                               : tr("OK"),
+                                                body);
     cancelButton->setObjectName(QStringLiteral("windowMessageCancel"));
     buttons->addWidget(cancelButton);
     connect(cancelButton, &QPushButton::clicked, dialog, &QDialog::reject);
-    connect(dialog, &QDialog::rejected, this, [this, request, cancel] { choose(request.owner, request.id, cancel); });
-    if (!primary) primary = cancelButton;
+    connect(dialog, &QDialog::rejected, this,
+            [this, request, cancel] { choose(request.owner, request.id, cancel); });
+    if (!primary)
+        primary = cancelButton;
     DialogChrome::markPrimary(primary);
     primary->setDefault(true);
     layout->addLayout(buttons);
@@ -240,42 +288,54 @@ void WindowMessageService::dismiss(const QString& owner, quint64 id) {
     for (auto it = views_.begin(); it != views_.end();) {
         if (it->owner == owner && it->id == id) {
             if (it->widget) {
-                if (!it->modal && notificationLayout_) notificationLayout_->removeWidget(it->widget);
+                if (!it->modal && notificationLayout_)
+                    notificationLayout_->removeWidget(it->widget);
                 it->widget->hide();
                 it->widget->deleteLater();
             }
             it = views_.erase(it);
-        } else ++it;
+        } else
+            ++it;
     }
     positionNotifications();
-    if (modalQueue_) modalQueue_->release(*this, modalKey(owner, id));
+    if (modalQueue_)
+        modalQueue_->release(*this, modalKey(owner, id));
 }
 void WindowMessageService::choose(const QString& owner, quint64 id, std::optional<int> selection) {
-    if (messages_) messages_->select(owner, id, selection);
+    if (messages_)
+        messages_->select(owner, id, selection);
 }
 void WindowMessageService::positionNotifications() {
-    if (!owner_ || !notifications_) return;
+    if (!owner_ || !notifications_)
+        return;
     const int width = qMin(420, qMax(1, owner_->width() - 24));
     qint64 height = 0;
     int count = 0;
     for (int index = 0; index < notificationLayout_->count(); ++index) {
         const auto* widget = notificationLayout_->itemAt(index)->widget();
-        if (!widget || widget->isHidden()) continue;
+        if (!widget || widget->isHidden())
+            continue;
         const auto* layout = widget->layout();
-        height += layout && layout->hasHeightForWidth() ? layout->heightForWidth(width) : widget->sizeHint().height();
+        height += layout && layout->hasHeightForWidth() ? layout->heightForWidth(width)
+                                                        : widget->sizeHint().height();
         ++count;
     }
-    if (count == 0) { notifications_->hide(); return; }
+    if (count == 0) {
+        notifications_->hide();
+        return;
+    }
     height += (count - 1) * notificationLayout_->spacing();
-    const auto boundedHeight = static_cast<int>(qBound(qint64(1), height,
-        static_cast<qint64>(qMax(1, owner_->height() - 80))));
+    const auto boundedHeight = static_cast<int>(
+        qBound(qint64(1), height, static_cast<qint64>(qMax(1, owner_->height() - 80))));
     notifications_->resize(width, boundedHeight);
-    notifications_->move(qMax(0, owner_->width() - width - 12), qMax(0, owner_->height() - boundedHeight - 36));
+    notifications_->move(qMax(0, owner_->width() - width - 12),
+                         qMax(0, owner_->height() - boundedHeight - 36));
     notifications_->show();
     notifications_->raise();
 }
 bool WindowMessageService::eventFilter(QObject* watched, QEvent* event) {
-    if (watched == owner_ && event->type() == QEvent::Resize) positionNotifications();
+    if (watched == owner_ && event->type() == QEvent::Resize)
+        positionNotifications();
     return QObject::eventFilter(watched, event);
 }
 } // namespace litecode::ui

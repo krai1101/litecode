@@ -10,11 +10,13 @@ class WorkbenchEnvironment final {
     [[nodiscard]] const EnvironmentInfo& info() const { return info_; }
     [[nodiscard]] const QString& error() const { return error_; }
     bool setShell(const QString& value) {
-        if (info_.shell == value) return false;
+        if (info_.shell == value)
+            return false;
         info_.shell = value;
         return true;
     }
     void setLogLevel(LogLevel level) { info_.logLevel = level; }
+
   private:
     EnvironmentInfo info_;
     QString error_;

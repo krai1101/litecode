@@ -10,5 +10,6 @@ struct PreparedTextEdits final {
     QVector<core::DocumentEdit> edits;
 };
 std::optional<PreparedTextEdits> prepareTextEdits(const QByteArray& before,
-    QVector<core::DocumentEdit> edits, QString* error = nullptr);
+                                                  QVector<core::DocumentEdit> edits,
+                                                  QString* error = nullptr);
 } // namespace litecode::editor

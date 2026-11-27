@@ -1,26 +1,26 @@
 #pragma once
-#include "extensions/PrimitivesApi.h"
 #include "extensions/ChatApi.h"
 #include "extensions/CommandApi.h"
 #include "extensions/ConfigurationApi.h"
-#include "extensions/WorkspaceApi.h"
-#include "extensions/MarkdownApi.h"
-#include "extensions/ThemeApi.h"
-#include "extensions/WindowApi.h"
-#include "extensions/TextApi.h"
-#include "extensions/SnippetApi.h"
-#include "extensions/EnvironmentApi.h"
+#include "extensions/DebugApi.h"
 #include "extensions/DocumentApi.h"
 #include "extensions/EditorEditApi.h"
-#include "extensions/DebugApi.h"
+#include "extensions/EnvironmentApi.h"
+#include "extensions/MarkdownApi.h"
+#include "extensions/PrimitivesApi.h"
+#include "extensions/SnippetApi.h"
+#include "extensions/TextApi.h"
+#include "extensions/ThemeApi.h"
+#include "extensions/WindowApi.h"
+#include "extensions/WorkspaceApi.h"
 // Experimental API 20. This is not yet the complete VS Code extension API. Do not extend
 // these legacy context methods for new public capabilities; the replacement
 // contract is tracked in docs/extension-api-contract.md.
-#include <QObject>
 #include <QFuture>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QJsonValue>
+#include <QObject>
 #include <QString>
 #include <QStringList>
 #include <QTimer>
@@ -75,7 +75,9 @@ class GlobalMemento : public Memento {
   public:
     virtual void setKeysForSync(const QStringList& keys) = 0;
 };
-struct SecretStorageChangeEvent final { QString key; };
+struct SecretStorageChangeEvent final {
+    QString key;
+};
 class SecretStorage {
   public:
     virtual ~SecretStorage() = default;
@@ -117,8 +119,9 @@ class ExtensionContext : public QObject {
                                                      CommandHandler callback) = 0;
     // Called in the extension host. The workbench sends an immutable UTF-8 text
     // snapshot and applies the result only if the document has not changed.
-    [[nodiscard]] virtual Disposable registerDocumentFormatter(
-        const QString& languageId, std::function<QString(const QString&)> formatter) = 0;
+    [[nodiscard]] virtual Disposable
+    registerDocumentFormatter(const QString& languageId,
+                              std::function<QString(const QString&)> formatter) = 0;
     virtual void openFile(const QString& path) = 0;
     virtual void showInformationMessage(const QString& message) = 0;
     std::vector<Disposable> subscriptions;

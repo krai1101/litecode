@@ -30,11 +30,16 @@ QString decorationKey(const QString& path) {
 
 int decorationPriority(char kind) {
     switch (kind) {
-    case '!': return 5;
-    case 'D': return 4;
-    case 'M': return 3;
-    case 'R': return 2;
-    default: return 1;
+    case '!':
+        return 5;
+    case 'D':
+        return 4;
+    case 'M':
+        return 3;
+    case 'R':
+        return 2;
+    default:
+        return 1;
     }
 }
 
@@ -50,12 +55,18 @@ char decorationKind(const workspace::GitChange& change) {
 
 QColor decorationColor(char kind, const ThemeTokens& theme) {
     switch (kind) {
-    case '!': return theme.gitConflict;
-    case 'D': return theme.gitDeleted;
-    case 'M': return theme.gitModified;
-    case 'R': return theme.gitRenamed;
-    case 'A': return theme.gitAdded;
-    default: return theme.gitUntracked;
+    case '!':
+        return theme.gitConflict;
+    case 'D':
+        return theme.gitDeleted;
+    case 'M':
+        return theme.gitModified;
+    case 'R':
+        return theme.gitRenamed;
+    case 'A':
+        return theme.gitAdded;
+    default:
+        return theme.gitUntracked;
     }
 }
 
@@ -130,11 +141,11 @@ QVariant ExplorerFileSystemModel::data(const QModelIndex& proxyIndex, int role) 
     if (role == DirectoryRole)
         return isDir(proxyIndex);
     if (role == GitBadgeRole || role == GitColorRole || role == Qt::ForegroundRole) {
-        const auto decoration = gitDecoration(filePath(proxyIndex), qApp->property("litecodeDarkTheme").toBool());
+        const auto decoration =
+            gitDecoration(filePath(proxyIndex), qApp->property("litecodeDarkTheme").toBool());
         if (!decoration.badge.isEmpty()) {
             if (role == GitBadgeRole)
-                return isDir(proxyIndex) ? QStringLiteral("dot")
-                                         : decoration.badge;
+                return isDir(proxyIndex) ? QStringLiteral("dot") : decoration.badge;
             return role == Qt::ForegroundRole ? QVariant(QBrush(decoration.color))
                                               : QVariant(decoration.color);
         }

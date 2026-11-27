@@ -1,6 +1,6 @@
 #pragma once
-#include "extensions/DebugApi.h"
 #include "debug/DapProtocol.h"
+#include "extensions/DebugApi.h"
 #include <QLocalServer>
 #include <QLocalSocket>
 #include <QPointer>
@@ -14,6 +14,7 @@ class HostInlineDebugAdapter final : public QObject {
     ~HostInlineDebugAdapter() override;
     QString endpoint() const { return server_.fullServerName(); }
     void stop() noexcept;
+
   private:
     struct Delivery;
     void accept();

@@ -1,10 +1,10 @@
 #pragma once
 
 #include <QDialog>
-#include <QStringList>
-#include <QVector>
 #include <QIcon>
 #include <QSet>
+#include <QStringList>
+#include <QVector>
 
 class QLineEdit;
 class QListWidget;
@@ -42,7 +42,8 @@ class QuickOpenDialog final : public QDialog {
 
     [[nodiscard]] QString selectedItemId() const;
     [[nodiscard]] QStringList selectedItemIds() const;
-    void configureExtensionPicker(bool many, bool matchDescription, bool matchDetail, const QString& prompt);
+    void configureExtensionPicker(bool many, bool matchDescription, bool matchDetail,
+                                  const QString& prompt);
     void setPickerItems(QVector<QuickPickItem> items);
     void setBusy(bool busy);
 

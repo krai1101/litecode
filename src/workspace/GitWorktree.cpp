@@ -50,8 +50,7 @@ void GitService::deleteWorktree(const QString& path) {
     }
     const QString canonicalTarget = QDir::cleanPath(target.canonicalFilePath());
     run(repository_, {"worktree", "list", "--porcelain", "-z"},
-        [this, canonicalTarget](int code, const QByteArray& output,
-                                const QString& diagnostic) {
+        [this, canonicalTarget](int code, const QByteArray& output, const QString& diagnostic) {
             if (code != 0) {
                 emit error(diagnostic.isEmpty() ? tr("Could not verify the worktree.")
                                                 : diagnostic);
@@ -74,7 +73,8 @@ void GitService::deleteWorktree(const QString& path) {
                                         const QString& removeDiagnostic) {
                     if (removeCode != 0) {
                         emit error(removeDiagnostic.isEmpty()
-                                       ? tr("Git refused to remove the worktree. Check for uncommitted changes.")
+                                       ? tr("Git refused to remove the worktree. Check for "
+                                            "uncommitted changes.")
                                        : removeDiagnostic);
                         return;
                     }
@@ -85,8 +85,7 @@ void GitService::deleteWorktree(const QString& path) {
         });
 }
 
-void GitService::createWorktree(const QString& path, const QString& ref,
-                                const QString& newBranch) {
+void GitService::createWorktree(const QString& path, const QString& ref, const QString& newBranch) {
     if (busy_ || repository_.isEmpty())
         return;
     const QFileInfo destination(QDir::cleanPath(path));
@@ -103,9 +102,8 @@ void GitService::createWorktree(const QString& path, const QString& ref,
         emit error(tr("Create worktrees outside the current repository."));
         return;
     }
-    if (newBranch.isEmpty() &&
-        !(ref.startsWith("refs/heads/") || ref.startsWith("refs/remotes/") ||
-          ref.startsWith("refs/tags/"))) {
+    if (newBranch.isEmpty() && !(ref.startsWith("refs/heads/") || ref.startsWith("refs/remotes/") ||
+                                 ref.startsWith("refs/tags/"))) {
         emit error(tr("Select a branch or tag for the new worktree."));
         return;
     }
@@ -113,9 +111,9 @@ void GitService::createWorktree(const QString& path, const QString& ref,
         QStringList arguments{"worktree", "add"};
         if (!newBranch.isEmpty())
             arguments.append({"-b", newBranch});
-        const QString commitish = !newBranch.isEmpty()
-                                      ? QStringLiteral("HEAD")
-                                      : ref.startsWith("refs/heads/") ? ref.mid(11) : ref;
+        const QString commitish = !newBranch.isEmpty()            ? QStringLiteral("HEAD")
+                                  : ref.startsWith("refs/heads/") ? ref.mid(11)
+                                                                  : ref;
         arguments.append({"--", target, commitish});
         run(repository_, arguments,
             [this, target](int code, const QByteArray&, const QString& diagnostic) {

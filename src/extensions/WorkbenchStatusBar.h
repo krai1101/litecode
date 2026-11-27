@@ -1,7 +1,7 @@
 #pragma once
 #include "extensions/StatusBarWire.h"
-#include <QObject>
 #include <QHash>
+#include <QObject>
 #include <QVector>
 namespace litecode::extensions {
 struct StatusBarEntryInfo final {
@@ -22,10 +22,14 @@ class WorkbenchStatusBar final : public QObject {
     void changed();
     void commandRequested(const QString& command, const QJsonArray& arguments);
     void error(const QString& text);
+
   private:
-    struct Message { QString owner, text; quint64 token{}, order{}; };
+    struct Message {
+        QString owner, text;
+        quint64 token{}, order{};
+    };
     QHash<QString, StatusBarEntryInfo> entries_;
     QHash<QString, Message> messages_;
     quint64 nextOrder_{};
 };
-}
+} // namespace litecode::extensions

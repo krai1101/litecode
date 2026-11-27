@@ -15,6 +15,7 @@ class ProgressNotification final : public QFrame {
     void cancelRequested();
     void dismissRequested();
     void manageExtensionRequested();
+
   private:
     QLabel* text_{};
     QProgressBar* progress_{};

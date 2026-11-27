@@ -1,6 +1,6 @@
 #pragma once
-#include <QObject>
 #include <QByteArray>
+#include <QObject>
 #include <QString>
 
 class QIODevice;
@@ -22,6 +22,7 @@ class DapSocketConnection final : public QObject {
     void bytesReceived(const QByteArray& bytes);
     void closed();
     void errorOccurred(const QString& message);
+
   private:
     void drain();
     QIODevice* device_{};

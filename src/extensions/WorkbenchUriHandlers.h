@@ -1,10 +1,10 @@
 #pragma once
-#include <QObject>
-#include <QJsonObject>
-#include <QHash>
-#include <QUrl>
 #include <QElapsedTimer>
+#include <QHash>
+#include <QJsonObject>
+#include <QObject>
 #include <QTimer>
+#include <QUrl>
 #include <QVector>
 #include <functional>
 namespace litecode::extensions {
@@ -20,9 +20,17 @@ class WorkbenchUriHandlers final : public QObject {
     void activationRequested(const QString& owner);
     void dispatched(const QString& owner);
     void error(const QString& owner, const QString& text);
+
   private:
-    struct Handler { QString owner; quint64 token{}; Send send; };
-    struct Buffered { QUrl uri; qint64 timestamp{}; };
+    struct Handler {
+        QString owner;
+        quint64 token{};
+        Send send;
+    };
+    struct Buffered {
+        QUrl uri;
+        qint64 timestamp{};
+    };
     bool send(const Handler& handler, const QUrl& uri);
     void collect();
     QHash<QString, Handler> handlers_;
@@ -30,4 +38,4 @@ class WorkbenchUriHandlers final : public QObject {
     QElapsedTimer clock_;
     QTimer collectTimer_;
 };
-}
+} // namespace litecode::extensions

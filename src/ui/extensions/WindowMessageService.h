@@ -1,11 +1,11 @@
 #pragma once
 #include "extensions/WorkbenchMessages.h"
 #include "extensions/WorkbenchProgress.h"
+#include <QHash>
 #include <QObject>
 #include <QPointer>
-#include <QHash>
-#include <QVector>
 #include <QQueue>
+#include <QVector>
 
 class QWidget;
 class QScrollArea;
@@ -23,8 +23,10 @@ class WindowMessageService final : public QObject {
   signals:
     void manageExtensionRequested(const QString& id);
     void progressVisibilityChanged(const QString& owner, quint64 id, bool visible);
+
   protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
+
   private:
     void show(const extensions::WindowMessageRequest& request);
     void showModal(const extensions::WindowMessageRequest& request);
@@ -40,7 +42,12 @@ class WindowMessageService final : public QObject {
     QPointer<QScrollArea> notifications_;
     QPointer<QWidget> notificationBody_;
     QVBoxLayout* notificationLayout_{};
-    struct View { QString owner; quint64 id{}; QPointer<QWidget> widget; bool modal{}; };
+    struct View {
+        QString owner;
+        quint64 id{};
+        QPointer<QWidget> widget;
+        bool modal{};
+    };
     QVector<View> views_;
     QPointer<ModalDialogQueue> modalQueue_;
 };

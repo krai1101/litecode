@@ -1,12 +1,12 @@
 #pragma once
 
 #include "editor/EditorBackend.h"
+#include <QHash>
 #include <QJsonArray>
 #include <QPair>
-#include <QStringList>
 #include <QSet>
+#include <QStringList>
 #include <QVector>
-#include <QHash>
 #include <limits>
 #include <optional>
 
@@ -39,7 +39,9 @@ struct FindMatchStatus final {
     bool limitHit{};
 };
 
-struct EditorByteSelection final { qint64 anchor{}, active{}; };
+struct EditorByteSelection final {
+    qint64 anchor{}, active{};
+};
 struct EditorSelectionState final {
     QVector<EditorByteSelection> selections;
     int mainSelection{};
@@ -117,7 +119,9 @@ class ScintillaEditor final : public EditorBackend {
     void endExtensionEdit(bool undoStopAfter);
     void pushUndoStop();
     int beginLineEndingUndo(core::LineEnding before, core::LineEnding after);
-    [[nodiscard]] bool canRecordLineEndingUndo() const { return nextEolUndoToken_ <= std::numeric_limits<int>::max() - 2; }
+    [[nodiscard]] bool canRecordLineEndingUndo() const {
+        return nextEolUndoToken_ <= std::numeric_limits<int>::max() - 2;
+    }
     void endLineEndingUndo(int token);
     void convertLineEndings(core::LineEnding eol);
     void setHorizontalOffset(int offset);
@@ -205,7 +209,10 @@ class ScintillaEditor final : public EditorBackend {
     bool gutterPressHandled_{};
     bool breakpointEnabled_{true};
     int gutterDigits_{3};
-    struct EolUndoAction { core::LineEnding before, after; bool start; };
+    struct EolUndoAction {
+        core::LineEnding before, after;
+        bool start;
+    };
     QHash<int, EolUndoAction> eolUndoActions_;
     int nextEolUndoToken_{};
     bool replayingEol_{};

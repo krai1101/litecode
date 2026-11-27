@@ -38,9 +38,8 @@ SidebarService::SidebarService(QMainWindow& window, QToolBar* activityBar, QDock
             location == Location::Primary ? Qt::LeftDockWidgetArea : Qt::RightDockWidgetArea;
         part.dock->setAllowedAreas(area);
         if (!part.dock->titleBarWidget())
-            part.dock->setTitleBarWidget(
-                createWorkbenchDockHeader(part.dock, {}, nullptr,
-                                          location == Location::Secondary, true));
+            part.dock->setTitleBarWidget(createWorkbenchDockHeader(
+                part.dock, {}, nullptr, location == Location::Secondary, true));
         if (auto* old = part.dock->widget()) {
             old->hide();
             old->setParent(parking_);
@@ -58,17 +57,16 @@ SidebarService::SidebarService(QMainWindow& window, QToolBar* activityBar, QDock
         auto* headerLayout = qobject_cast<QHBoxLayout*>(part.dock->titleBarWidget()->layout());
         auto* options =
             part.dock->titleBarWidget()->findChild<QToolButton*>("workbenchViewActions");
-        headerLayout->insertWidget(options ? headerLayout->indexOf(options)
-                                          : headerLayout->count(),
+        headerLayout->insertWidget(options ? headerLayout->indexOf(options) : headerLayout->count(),
                                    part.actions);
         if (location == Location::Secondary) {
             part.empty = new QWidget(part.pages);
             part.empty->setObjectName("secondarySidebarEmpty");
             auto* emptyLayout = new QVBoxLayout(part.empty);
             emptyLayout->setContentsMargins(16, 16, 16, 16);
-            auto* message = new QLabel(
-                tr("No views are available here. Enable an extension in Extensions to open its view."),
-                part.empty);
+            auto* message = new QLabel(tr("No views are available here. Enable an extension in "
+                                          "Extensions to open its view."),
+                                       part.empty);
             message->setWordWrap(true);
             emptyLayout->addWidget(message);
             emptyLayout->addStretch();
@@ -298,7 +296,8 @@ void SidebarService::setVisible(Location place, bool visible) {
     part.desiredVisible = visible;
     selectFallback(place);
     part.dock->setVisible(visible && (!part.active.isEmpty() || part.empty));
-    if (visible) restoreCollapsedWidth(place);
+    if (visible)
+        restoreCollapsedWidth(place);
     refresh();
     emit changed();
 }
@@ -324,7 +323,8 @@ void SidebarService::refresh() {
                             part.tabs->setCurrentIndex(index);
                     }
                 part.tabs->setVisible(part.tabs->count() > 0);
-                if (auto* title = part.dock->titleBarWidget()->findChild<QLabel*>("dockHeaderTitle"))
+                if (auto* title =
+                        part.dock->titleBarWidget()->findChild<QLabel*>("dockHeaderTitle"))
                     title->setVisible(part.active.isEmpty());
             }
             if (entries_.contains(part.active)) {
@@ -334,7 +334,8 @@ void SidebarService::refresh() {
             }
             for (auto* action : part.dock->actions())
                 action->setVisible(canMove(part.active));
-            if (auto* options = part.dock->titleBarWidget()->findChild<QToolButton*>("workbenchViewActions"))
+            if (auto* options =
+                    part.dock->titleBarWidget()->findChild<QToolButton*>("workbenchViewActions"))
                 options->setVisible(canMove(part.active));
         }
         for (const auto& id : order_) {
@@ -395,7 +396,8 @@ QByteArray SidebarService::saveState() const {
         root.insert(
             place == Location::Primary ? "primary" : "secondary",
             QJsonObject{{"active", part.desiredActive.isEmpty() ? part.active : part.desiredActive},
-                        {"visible", part.desiredVisible}, {"collapsedWidth", part.collapsedWidth}});
+                        {"visible", part.desiredVisible},
+                        {"collapsedWidth", part.collapsedWidth}});
     }
     return QJsonDocument(root).toJson(QJsonDocument::Compact);
 }

@@ -1,9 +1,9 @@
 #include "ui/components/ComponentAccessibility.h"
+#include <QAbstractButton>
 #include <QAccessible>
 #include <QAccessibleWidget>
-#include <QAbstractButton>
-#include <QWidget>
 #include <QVariant>
+#include <QWidget>
 #include <mutex>
 
 namespace litecode::ui::components {
@@ -11,38 +11,51 @@ namespace litecode::ui::components {
 namespace {
 class AccessibleComponent final : public QAccessibleWidget {
   public:
-    explicit AccessibleComponent(QWidget* widget) : QAccessibleWidget(widget, QAccessible::Button) {}
+    explicit AccessibleComponent(QWidget* widget)
+        : QAccessibleWidget(widget, QAccessible::Button) {}
     QAccessible::Role role() const override {
         const auto value = widget()->property("accessibilityRole").toString();
-        if (value == "link") return QAccessible::Link;
-        if (value == "checkbox") return QAccessible::CheckBox;
-        if (value == "radio") return QAccessible::RadioButton;
-        if (value == "menuitem") return QAccessible::MenuItem;
-        if (value == "status") return QAccessible::StatusBar;
-        if (value == "text") return QAccessible::StaticText;
+        if (value == "link")
+            return QAccessible::Link;
+        if (value == "checkbox")
+            return QAccessible::CheckBox;
+        if (value == "radio")
+            return QAccessible::RadioButton;
+        if (value == "menuitem")
+            return QAccessible::MenuItem;
+        if (value == "status")
+            return QAccessible::StatusBar;
+        if (value == "text")
+            return QAccessible::StaticText;
         return QAccessible::Button;
     }
     QStringList actionNames() const override {
         auto result = QAccessibleWidget::actionNames();
-        if (widget()->property("statusBarInteractive").toBool() && widget()->isEnabled()) result.prepend(pressAction());
+        if (widget()->property("statusBarInteractive").toBool() && widget()->isEnabled())
+            result.prepend(pressAction());
         return result;
     }
     void doAction(const QString& action) override {
         if (action == pressAction() && widget()->property("statusBarInteractive").toBool()) {
-            if (auto* button = qobject_cast<QAbstractButton*>(widget()); button && button->isEnabled()) button->click();
-        } else QAccessibleWidget::doAction(action);
+            if (auto* button = qobject_cast<QAbstractButton*>(widget());
+                button && button->isEnabled())
+                button->click();
+        } else
+            QAccessibleWidget::doAction(action);
     }
     QStringList keyBindingsForAction(const QString& action) const override {
-        if (action == pressAction()) return {"Space", "Enter"};
+        if (action == pressAction())
+            return {"Space", "Enter"};
         return QAccessibleWidget::keyBindingsForAction(action);
     }
 };
 QAccessibleInterface* factory(const QString&, QObject* object) {
     auto* widget = qobject_cast<QWidget*>(object);
-    if (widget && widget->property("uiComponent") == "statusBarItem") return new AccessibleComponent(widget);
+    if (widget && widget->property("uiComponent") == "statusBarItem")
+        return new AccessibleComponent(widget);
     return nullptr;
 }
-}
+} // namespace
 #endif
 void installComponentAccessibility() {
 #if QT_CONFIG(accessibility)
@@ -50,4 +63,4 @@ void installComponentAccessibility() {
     std::call_once(once, [] { QAccessible::installFactory(factory); });
 #endif
 }
-}
+} // namespace litecode::ui::components

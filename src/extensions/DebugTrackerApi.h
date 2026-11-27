@@ -21,7 +21,7 @@ class DebugAdapterTracker {
 class DebugAdapterTrackerFactory {
   public:
     virtual ~DebugAdapterTrackerFactory() = default;
-    virtual ProviderResult<std::shared_ptr<DebugAdapterTracker>> createDebugAdapterTracker(
-        std::shared_ptr<DebugSession> session) = 0;
+    virtual ProviderResult<std::shared_ptr<DebugAdapterTracker>>
+    createDebugAdapterTracker(std::shared_ptr<DebugSession> session) = 0;
 };
 } // namespace litecode::extensions

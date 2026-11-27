@@ -70,7 +70,8 @@ void GitService::undoCommit() {
                     const auto count = QString::fromUtf8(parents).trimmed().split(' ').size();
                     if (count > 1)
                         run(repository_, {"reset", "--mixed", "HEAD~1"},
-                            [this, message](int resetCode, const QByteArray&, const QString& error) {
+                            [this, message](int resetCode, const QByteArray&,
+                                            const QString& error) {
                                 if (resetCode != 0)
                                     emit this->error(error);
                                 else
@@ -80,13 +81,15 @@ void GitService::undoCommit() {
                             });
                     else
                         run(repository_, {"update-ref", "-d", "HEAD"},
-                            [this, message](int deleteCode, const QByteArray&, const QString& error) {
+                            [this, message](int deleteCode, const QByteArray&,
+                                            const QString& error) {
                                 if (deleteCode != 0) {
                                     emit this->error(error);
                                     return;
                                 }
                                 run(repository_, {"read-tree", "--empty"},
-                                    [this, message](int clearCode, const QByteArray&, const QString& diagnostic) {
+                                    [this, message](int clearCode, const QByteArray&,
+                                                    const QString& diagnostic) {
                                         if (clearCode != 0)
                                             emit this->error(diagnostic);
                                         else

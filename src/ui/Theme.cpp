@@ -145,8 +145,7 @@ QString composeStyleSheet(const ThemeTokens& tokens) {
            ComponentStyleSheets::terminalAndPanel(tokens) +
            ComponentStyleSheets::dialogsMenusAndTooltips(tokens) +
            ComponentStyleSheets::scrollbarsAndStatus(tokens) +
-           ComponentStyleSheets::sourceControl(tokens) +
-           ComponentStyleSheets::runDebug(tokens);
+           ComponentStyleSheets::sourceControl(tokens) + ComponentStyleSheets::runDebug(tokens);
 }
 
 } // namespace

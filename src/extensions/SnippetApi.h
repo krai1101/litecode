@@ -18,6 +18,7 @@ class SnippetString final {
     SnippetString& appendChoice(const QStringList& values, std::optional<qint64> number = {});
     SnippetString& appendVariable(const QString& name, const QString& defaultValue = {});
     SnippetString& appendVariable(const QString& name, const Builder& builder);
+
   private:
     qint64 takeNumber(std::optional<qint64> number);
     QString buildNested(const Builder& builder);

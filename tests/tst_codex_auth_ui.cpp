@@ -1,6 +1,6 @@
 #include "extensions/ExtensionManager.h"
-#include "ui/extensions/NativeViewService.h"
 #include "ui/Theme.h"
+#include "ui/extensions/NativeViewService.h"
 #include <QAbstractButton>
 #include <QAction>
 #include <QDialog>
@@ -9,8 +9,8 @@
 #include <QLineEdit>
 #include <QMainWindow>
 #include <QMenu>
-#include <QTemporaryDir>
 #include <QStandardPaths>
+#include <QTemporaryDir>
 #include <QToolBar>
 #include <QtTest>
 
@@ -51,15 +51,19 @@ class CodexAuthUiTests final : public QObject {
         window.resize(540, 860);
         window.show();
         service.openView("litecode.codex.view");
-        QTRY_VERIFY_WITH_TIMEOUT(window.findChild<QAbstractButton*>("codex.settings") &&
-            window.findChild<QAbstractButton*>("codex.settings")->isEnabled(), 15000);
+        QTRY_VERIFY_WITH_TIMEOUT(
+            window.findChild<QAbstractButton*>("codex.settings") &&
+                window.findChild<QAbstractButton*>("codex.settings")->isEnabled(),
+            15000);
         const auto openLogout = [&] {
             auto* settings = window.findChild<QAbstractButton*>("codex.settings");
             settings->click();
             auto* menu = settings->findChild<QMenu*>();
-            if (!menu) return false;
+            if (!menu)
+                return false;
             auto* logout = menu->findChild<QAction*>("codex.menu.signOut");
-            if (!logout || !logout->isEnabled()) return false;
+            if (!logout || !logout->isEnabled())
+                return false;
             logout->trigger();
             menu->close();
             return true;

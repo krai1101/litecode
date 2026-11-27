@@ -1,11 +1,11 @@
 #pragma once
 #include "extensions/MessageApi.h"
-#include <QObject>
-#include <QJsonObject>
 #include <QFuture>
-#include <QPromise>
 #include <QHash>
+#include <QJsonObject>
 #include <QMutex>
+#include <QObject>
+#include <QPromise>
 #include <QVector>
 #include <functional>
 #include <memory>
@@ -16,9 +16,11 @@ class HostMessages final : public QObject {
     explicit HostMessages(std::function<void(const QJsonObject&)> send);
     ~HostMessages() override;
     QFuture<std::optional<int>> show(int severity, const QString& message,
-        const MessageOptions& options, const QVector<MessageItem>& items);
+                                     const MessageOptions& options,
+                                     const QVector<MessageItem>& items);
     void complete(quint64 id, const QJsonValue& selection, const QString& error);
     void shutdown();
+
   private:
     struct Pending {
         std::shared_ptr<QPromise<std::optional<int>>> promise;

@@ -76,8 +76,7 @@ SyntaxPalette loadPalette(bool dark) {
         cssColor(colors, "diffEditor.insertedTextBackground", dark ? "#9ccc2c33" : "#9ccc2c40"),
         cssColor(colors, "diffEditor.removedTextBackground", "#ff000033"),
         color(colors, "diffEditor.paddingBackground", dark ? "#252526" : "#f3f3f3"),
-        cssColor(colors, "editor.stackFrameHighlightBackground",
-                 dark ? "#ffff0040" : "#ffff0070"),
+        cssColor(colors, "editor.stackFrameHighlightBackground", dark ? "#ffff0040" : "#ffff0070"),
     };
 }
 

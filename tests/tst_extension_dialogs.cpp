@@ -13,16 +13,19 @@ class ExtensionDialogTests final : public QObject {
         WorkbenchDialogs workbench;
         HostDialogs* service = nullptr;
         HostDialogs host([&](const QJsonObject& request) {
-            QVERIFY(workbench.accept("fixture", request,
-                [&, id = request.value("requestId").toString().toULongLong()](std::optional<QVector<QUrl>> values, const QString& error) {
-                    QJsonValue result(QJsonValue::Null);
-                    if (values) {
-                        QJsonArray uris;
-                        for (const auto& uri : *values) uris.append(uri.toString(QUrl::FullyEncoded));
-                        result = uris;
-                    }
-                    service->complete(id, result, error);
-                }));
+            QVERIFY(
+                workbench.accept("fixture", request,
+                                 [&, id = request.value("requestId").toString().toULongLong()](
+                                     std::optional<QVector<QUrl>> values, const QString& error) {
+                                     QJsonValue result(QJsonValue::Null);
+                                     if (values) {
+                                         QJsonArray uris;
+                                         for (const auto& uri : *values)
+                                             uris.append(uri.toString(QUrl::FullyEncoded));
+                                         result = uris;
+                                     }
+                                     service->complete(id, result, error);
+                                 }));
         });
         service = &host;
         QSignalSpy requests(&workbench, &WorkbenchDialogs::requested);
@@ -32,7 +35,8 @@ class ExtensionDialogTests final : public QObject {
         QTRY_COMPARE(requests.size(), 1);
         auto request = requests.takeFirst().first().value<FileDialogRequest>();
         QVERIFY(std::get<OpenDialogOptions>(request.options).canSelectMany.value());
-        const QVector<QUrl> values{QUrl::fromLocalFile("/directory/a.py"), QUrl::fromLocalFile("/directory/b.py")};
+        const QVector<QUrl> values{QUrl::fromLocalFile("/directory/a.py"),
+                                   QUrl::fromLocalFile("/directory/b.py")};
         QVERIFY(!workbench.complete("other", request.id, values));
         QVERIFY(workbench.complete("fixture", request.id, values));
         QTRY_VERIFY(opened.isFinished());
@@ -59,7 +63,9 @@ class ExtensionDialogTests final : public QObject {
     }
     void invalidResultAndShutdown() {
         quint64 id = 0;
-        HostDialogs host([&](const QJsonObject& request) { id = request.value("requestId").toString().toULongLong(); });
+        HostDialogs host([&](const QJsonObject& request) {
+            id = request.value("requestId").toString().toULongLong();
+        });
         auto empty = host.showOpenDialog();
         QTRY_VERIFY(id != 0);
         host.complete(id, QJsonArray{}, {});

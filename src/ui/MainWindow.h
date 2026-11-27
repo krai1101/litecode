@@ -45,7 +45,10 @@ struct SearchResult;
 } // namespace litecode::workspace
 
 namespace litecode::ui {
-namespace components { class PanelHeader; class WorkbenchTabs; }
+namespace components {
+class PanelHeader;
+class WorkbenchTabs;
+} // namespace components
 
 class EditorArea;
 class KeyboardShortcutsDialog;

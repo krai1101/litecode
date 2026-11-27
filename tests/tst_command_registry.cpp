@@ -36,8 +36,7 @@ void CommandRegistryTest::distinguishesDefaultFromExplicitUnassignment() {
 
     QVERIFY(defaultAction);
     QVERIFY(unassignedAction);
-    QCOMPARE(registry.registeredIds(),
-             QStringList({"default", "unassigned"}));
+    QCOMPARE(registry.registeredIds(), QStringList({"default", "unassigned"}));
     QCOMPARE(defaultAction->shortcut(), defaultShortcut);
     QVERIFY(unassignedAction->shortcut().isEmpty());
 

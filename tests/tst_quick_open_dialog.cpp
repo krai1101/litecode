@@ -28,7 +28,8 @@ void QuickOpenDialogTest::singleClickAcceptsStaticItem() {
 
     auto* results = dialog.findChild<QListWidget*>(QStringLiteral("quickOpenResults"));
     auto* query = dialog.findChild<QLineEdit*>(QStringLiteral("quickOpenQuery"));
-    if (const auto capture = qEnvironmentVariable("LITECODE_QUICK_PICK_CAPTURE"); !capture.isEmpty())
+    if (const auto capture = qEnvironmentVariable("LITECODE_QUICK_PICK_CAPTURE");
+        !capture.isEmpty())
         QVERIFY(dialog.grab().save(capture));
     QVERIFY(query);
     QCOMPARE(query->height(), 28);

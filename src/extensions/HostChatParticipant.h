@@ -1,7 +1,7 @@
 #pragma once
 #include "extensions/ChatApi.h"
-#include <QObject>
 #include <QJsonValue>
+#include <QObject>
 #include <memory>
 namespace litecode::extensions {
 // Private registration facade: public contracts stay in ChatApi.h.
@@ -9,7 +9,7 @@ class HostChatParticipant final : public ChatParticipant {
   public:
     using MetadataChanged = std::function<void(const QJsonValue&, bool)>;
     HostChatParticipant(QObject& dispatcher, QString id, ChatRequestHandler handler,
-        std::function<void()> dispose, MetadataChanged metadataChanged);
+                        std::function<void()> dispose, MetadataChanged metadataChanged);
     ~HostChatParticipant() override;
     QString id() const override;
     ChatRequestHandler requestHandler() const override;
@@ -21,9 +21,10 @@ class HostChatParticipant final : public ChatParticipant {
     Event<ChatResultFeedback> onDidReceiveFeedback() const override;
     void fireFeedback(const ChatResultFeedback& feedback);
     void dispose() override;
+
   private:
     struct Runtime;
     static void scheduleMetadata(const std::shared_ptr<Runtime>& runtime);
     std::shared_ptr<Runtime> runtime_;
 };
-}
+} // namespace litecode::extensions

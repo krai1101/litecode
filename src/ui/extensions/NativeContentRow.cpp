@@ -5,7 +5,8 @@
 namespace litecode::ui {
 QSize NativeContentRow::minimumSizeHint() const {
     auto size = QWidget::minimumSizeHint();
-    if (property("nativeTrailingActions").toBool()) size.setWidth(0);
+    if (property("nativeTrailingActions").toBool())
+        size.setWidth(0);
     return size;
 }
 bool NativeContentRow::event(QEvent* event) {
@@ -16,7 +17,8 @@ bool NativeContentRow::event(QEvent* event) {
         // rather than becoming the minimum width of the entire card.
         auto bounds = contentsRect();
         bounds.setWidth(qMax(bounds.width(), layout()->minimumSize().width()));
-        if (layout()->geometry() != bounds) layout()->setGeometry(bounds);
+        if (layout()->geometry() != bounds)
+            layout()->setGeometry(bounds);
     }
     return handled;
 }

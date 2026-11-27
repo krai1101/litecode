@@ -1,6 +1,6 @@
 #include "extensions/HostProgress.h"
-#include "extensions/WorkbenchProgress.h"
 #include "extensions/ProgressWire.h"
+#include "extensions/WorkbenchProgress.h"
 #include <QSignalSpy>
 #include <QtTest>
 #include <limits>
@@ -12,13 +12,12 @@ QJsonObject start(quint64 id, ProgressLocation location, bool cancellable = fals
     ProgressOptions options;
     options.location = location;
     options.cancellable = cancellable;
-    return {{"operation", "start"}, {"id", QString::number(id)},
-        {"options", wire::encodeProgressOptions(options)}};
+    return {{"operation", "start"},
+            {"id", QString::number(id)},
+            {"options", wire::encodeProgressOptions(options)}};
 }
-QJsonObject end(quint64 id) {
-    return {{"operation", "end"}, {"id", QString::number(id)}};
-}
-}
+QJsonObject end(quint64 id) { return {{"operation", "end"}, {"id", QString::number(id)}}; }
+} // namespace
 class ExtensionProgressTests final : public QObject {
     Q_OBJECT
   private slots:
@@ -61,7 +60,7 @@ class ExtensionProgressTests final : public QObject {
             QVERIFY(workbench.accept("fixture", "Fixture", value));
         });
         connect(&workbench, &WorkbenchProgress::cancelRequested, &host,
-            [&](const QString&, quint64 taskId) { host.cancel(taskId); });
+                [&](const QString&, quint64 taskId) { host.cancel(taskId); });
         ProgressOptions options;
         options.location = ProgressLocation::Notification;
         options.cancellable = true;
@@ -77,7 +76,8 @@ class ExtensionProgressTests final : public QObject {
         // A cancellation request does not complete the extension's task.
         QVERIFY(workbench.task("fixture", id));
         session.progress->report({QStringLiteral("Cleaning up"), {}});
-        QTRY_COMPARE(workbench.task("fixture", id)->message.value_or(QString()), QStringLiteral("Cleaning up"));
+        QTRY_COMPARE(workbench.task("fixture", id)->message.value_or(QString()),
+                     QStringLiteral("Cleaning up"));
         workbench.removeOwner("fixture");
         QVERIFY(!workbench.task("fixture", id));
         session.finish();
@@ -89,13 +89,15 @@ class ExtensionProgressTests final : public QObject {
         WorkbenchProgress workbench;
         QVERIFY(workbench.accept("fixture", "Fixture", start(1, ProgressLocation::Window, true)));
         QVERIFY(!workbench.cancel("fixture", 1));
-        QVERIFY(workbench.accept("fixture", "Fixture", start(2, ProgressLocation::SourceControl, true)));
+        QVERIFY(workbench.accept("fixture", "Fixture",
+                                 start(2, ProgressLocation::SourceControl, true)));
         QVERIFY(!workbench.cancel("fixture", 2));
         QVERIFY(!workbench.accept("fixture", "Fixture", start(2, ProgressLocation::Notification)));
         auto invalid = start(3, ProgressLocation::Notification);
         invalid.insert("id", "03");
         QVERIFY(!workbench.accept("fixture", "Fixture", invalid));
-        QVERIFY(!workbench.accept("fixture", "Fixture", {{"operation", "report"}, {"id", "1"}, {"report", true}}));
+        QVERIFY(!workbench.accept("fixture", "Fixture",
+                                  {{"operation", "report"}, {"id", "1"}, {"report", true}}));
         QVERIFY(workbench.accept("fixture", "Fixture", end(1)));
         QVERIFY(workbench.accept("fixture", "Fixture", end(1)));
         workbench.removeOwner("fixture");
@@ -104,14 +106,17 @@ class ExtensionProgressTests final : public QObject {
     }
     void reentrantCancellationDoesNotUpdateEndedTask() {
         WorkbenchProgress workbench;
-        QVERIFY(workbench.accept("fixture", "Fixture", start(1, ProgressLocation::Notification, true)));
+        QVERIFY(
+            workbench.accept("fixture", "Fixture", start(1, ProgressLocation::Notification, true)));
         QStringList events;
         connect(&workbench, &WorkbenchProgress::changed, &workbench,
-            [&](const ProgressTaskInfo&) { events.append("changed"); });
+                [&](const ProgressTaskInfo&) { events.append("changed"); });
         connect(&workbench, &WorkbenchProgress::ended, &workbench,
-            [&](const QString&, quint64) { events.append("ended"); });
+                [&](const QString&, quint64) { events.append("ended"); });
         connect(&workbench, &WorkbenchProgress::cancelRequested, &workbench,
-            [&](const QString& owner, quint64 id) { QVERIFY(workbench.accept(owner, "Fixture", end(id))); });
+                [&](const QString& owner, quint64 id) {
+                    QVERIFY(workbench.accept(owner, "Fixture", end(id)));
+                });
         QVERIFY(workbench.cancel("fixture", 1));
         QCOMPARE(events, QStringList({"changed", "ended"}));
         QVERIFY(!workbench.task("fixture", 1));
@@ -123,7 +128,9 @@ class ExtensionProgressTests final : public QObject {
         options.location = ProgressLocation::Notification;
         options.cancellable = true;
         auto session = host.begin(options);
-        QVERIFY_EXCEPTION_THROWN(session.progress->report({{}, std::numeric_limits<double>::infinity()}), std::invalid_argument);
+        QVERIFY_EXCEPTION_THROWN(
+            session.progress->report({{}, std::numeric_limits<double>::infinity()}),
+            std::invalid_argument);
         host.shutdown();
         QVERIFY(session.token.isCancellationRequested());
         session.progress->report({QStringLiteral("late"), 1.0});

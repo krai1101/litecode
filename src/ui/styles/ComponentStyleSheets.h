@@ -18,8 +18,8 @@ class ComponentStyleSheets final {
     [[nodiscard]] static QString terminalAndPanel(const ThemeTokens& tokens);
     [[nodiscard]] static QString dialogsMenusAndTooltips(const ThemeTokens& tokens);
     [[nodiscard]] static QString scrollbarsAndStatus(const ThemeTokens& tokens);
-    [[nodiscard]] static QString iconLabelButtonColors(const QColor& foreground,
-        const QColor& background, const QColor& hover);
+    [[nodiscard]] static QString
+    iconLabelButtonColors(const QColor& foreground, const QColor& background, const QColor& hover);
 };
 
 } // namespace litecode::ui

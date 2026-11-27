@@ -10,6 +10,7 @@ class TextDocumentContentProvider {
   public:
     virtual ~TextDocumentContentProvider() = default;
     std::optional<Event<QUrl>> onDidChange;
-    virtual ProviderResult<QString> provideTextDocumentContent(const QUrl& uri, CancellationToken token) = 0;
+    virtual ProviderResult<QString> provideTextDocumentContent(const QUrl& uri,
+                                                               CancellationToken token) = 0;
 };
 } // namespace litecode::extensions

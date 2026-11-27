@@ -1,7 +1,9 @@
 #pragma once
 
 class QWidget;
-namespace litecode::workspace { class GitService; }
+namespace litecode::workspace {
+class GitService;
+}
 
 namespace litecode::ui {
 enum class GitTransferAction { PullFrom, PushTo, PushToForce };

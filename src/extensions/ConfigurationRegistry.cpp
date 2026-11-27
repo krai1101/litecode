@@ -8,27 +8,39 @@ namespace litecode::extensions {
 namespace {
 
 SettingScope scope(const QString& value) {
-    if (value == "application") return SettingScope::Application;
-    if (value == "machine") return SettingScope::Machine;
-    if (value == "resource") return SettingScope::Resource;
-    if (value == "language-overridable") return SettingScope::LanguageOverridable;
-    if (value == "machine-overridable") return SettingScope::MachineOverridable;
+    if (value == "application")
+        return SettingScope::Application;
+    if (value == "machine")
+        return SettingScope::Machine;
+    if (value == "resource")
+        return SettingScope::Resource;
+    if (value == "language-overridable")
+        return SettingScope::LanguageOverridable;
+    if (value == "machine-overridable")
+        return SettingScope::MachineOverridable;
     return SettingScope::Window;
 }
 
 QJsonValue typeDefault(const QJsonValue& type) {
     const auto name = type.isArray() && !type.toArray().isEmpty()
-        ? type.toArray().first().toString() : type.toString();
-    if (name == "boolean") return false;
-    if (name == "integer" || name == "number") return 0;
-    if (name == "string") return QString{};
-    if (name == "array") return QJsonArray{};
-    if (name == "object") return QJsonObject{};
+                          ? type.toArray().first().toString()
+                          : type.toString();
+    if (name == "boolean")
+        return false;
+    if (name == "integer" || name == "number")
+        return 0;
+    if (name == "string")
+        return QString{};
+    if (name == "array")
+        return QJsonArray{};
+    if (name == "object")
+        return QJsonObject{};
     return QJsonValue::Null;
 }
 
 QJsonValue mergeDefault(const QJsonValue& lower, const QJsonValue& higher) {
-    if (!lower.isObject() || !higher.isObject()) return higher;
+    if (!lower.isObject() || !higher.isObject())
+        return higher;
     auto result = lower.toObject();
     const auto incoming = higher.toObject();
     for (auto it = incoming.begin(); it != incoming.end(); ++it)
@@ -38,13 +50,17 @@ QJsonValue mergeDefault(const QJsonValue& lower, const QJsonValue& higher) {
 
 QVector<QJsonObject> groups(const QJsonValue& configuration) {
     QVector<QJsonObject> result;
-    if (configuration.isObject()) result.append(configuration.toObject());
-    else for (const auto& group : configuration.toArray()) result.append(group.toObject());
+    if (configuration.isObject())
+        result.append(configuration.toObject());
+    else
+        for (const auto& group : configuration.toArray())
+            result.append(group.toObject());
     return result;
 }
 
 QString validateGroup(const QJsonObject& group, int depth) {
-    if (depth > 32) return "Configuration contribution nesting is too deep.";
+    if (depth > 32)
+        return "Configuration contribution nesting is too deep.";
     if (group.contains("properties") && !group.value("properties").isObject())
         return "Expected configuration properties object.";
     const auto properties = group.value("properties").toObject();
@@ -52,7 +68,8 @@ QString validateGroup(const QJsonObject& group, int depth) {
         if (it.key().trimmed().isEmpty() || it.key() != it.key().trimmed() ||
             it.key().split('.').contains(QString{}) || it.key().contains(QChar('\0')))
             return "Invalid configuration property key: " + it.key();
-        if (!it.value().isObject()) return "Expected configuration property schema: " + it.key();
+        if (!it.value().isObject())
+            return "Expected configuration property schema: " + it.key();
         const auto schema = it.value().toObject();
         if (schema.contains("scope") && !schema.value("scope").isString())
             return "Expected configuration property scope string: " + it.key();
@@ -60,20 +77,25 @@ QString validateGroup(const QJsonObject& group, int depth) {
         if (!type.isUndefined() && !type.isString() && !type.isArray())
             return "Expected configuration property type string or array: " + it.key();
         const auto types = type.isArray() ? type.toArray() : QJsonArray{type};
-        static const QSet<QString> validTypes{"boolean", "integer", "number", "string", "array", "object", "null"};
+        static const QSet<QString> validTypes{"boolean", "integer", "number", "string",
+                                              "array",   "object",  "null"};
         if (!type.isUndefined()) {
-            if (types.isEmpty()) return "Configuration property type array is empty: " + it.key();
+            if (types.isEmpty())
+                return "Configuration property type array is empty: " + it.key();
             for (const auto& candidate : types)
                 if (!candidate.isString() || !validTypes.contains(candidate.toString()))
                     return "Invalid configuration property type: " + it.key();
         }
     }
     if (group.contains("allOf")) {
-        if (!group.value("allOf").isArray()) return "Expected configuration allOf array.";
+        if (!group.value("allOf").isArray())
+            return "Expected configuration allOf array.";
         for (const auto& child : group.value("allOf").toArray()) {
-            if (!child.isObject()) return "Expected configuration allOf group object.";
+            if (!child.isObject())
+                return "Expected configuration allOf group object.";
             const auto error = validateGroup(child.toObject(), depth + 1);
-            if (!error.isEmpty()) return error;
+            if (!error.isEmpty())
+                return error;
         }
     }
     return {};
@@ -81,7 +103,7 @@ QString validateGroup(const QJsonObject& group, int depth) {
 
 bool permitsDefault(const ConfigurationProperty& property) {
     return !property.schema.value("disallowConfigurationDefault").toBool() &&
-        property.scope != SettingScope::Application && property.scope != SettingScope::Machine;
+           property.scope != SettingScope::Application && property.scope != SettingScope::Machine;
 }
 
 } // namespace
@@ -93,10 +115,12 @@ QString ConfigurationRegistry::validateContribution(const QJsonObject& contribut
             return "Expected contributes.configuration object or array.";
         if (configuration.isArray())
             for (const auto& group : configuration.toArray())
-                if (!group.isObject()) return "Expected configuration group object.";
+                if (!group.isObject())
+                    return "Expected configuration group object.";
         for (const auto& group : groups(configuration)) {
             const auto error = validateGroup(group, 0);
-            if (!error.isEmpty()) return error;
+            if (!error.isEmpty())
+                return error;
         }
     }
     const auto defaults = contributes.value("configurationDefaults");
@@ -116,7 +140,8 @@ void ConfigurationRegistry::replace(const QVector<ConfigurationContribution>& co
         next.contributions_.append(contribution);
         std::function<void(const QJsonObject&, SettingScope)> visit;
         visit = [&](const QJsonObject& group, SettingScope inherited) {
-            if (group.contains("scope")) inherited = scope(group.value("scope").toString());
+            if (group.contains("scope"))
+                inherited = scope(group.value("scope").toString());
             const auto properties = group.value("properties").toObject();
             for (auto it = properties.begin(); it != properties.end(); ++it) {
                 const auto schema = it.value().toObject();
@@ -130,15 +155,18 @@ void ConfigurationRegistry::replace(const QVector<ConfigurationContribution>& co
                         "Configuration property is already registered: " + it.key());
                     continue;
                 }
-                if (schema.contains("included") && !schema.value("included").toBool()) continue;
-                const auto declaredScope = schema.contains("scope")
-                    ? scope(schema.value("scope").toString()) : inherited;
+                if (schema.contains("included") && !schema.value("included").toBool())
+                    continue;
+                const auto declaredScope =
+                    schema.contains("scope") ? scope(schema.value("scope").toString()) : inherited;
                 const auto declaredDefault = schema.contains("default")
-                    ? schema.value("default") : typeDefault(schema.value("type"));
-                next.properties_.insert(it.key(), {it.key(), contribution.extensionId,
-                    schema, declaredScope, declaredDefault});
+                                                 ? schema.value("default")
+                                                 : typeDefault(schema.value("type"));
+                next.properties_.insert(it.key(), {it.key(), contribution.extensionId, schema,
+                                                   declaredScope, declaredDefault});
             }
-            for (const auto& child : group.value("allOf").toArray()) visit(child.toObject(), inherited);
+            for (const auto& child : group.value("allOf").toArray())
+                visit(child.toObject(), inherited);
         };
         for (const auto& group : groups(contribution.contributes.value("configuration")))
             visit(group, SettingScope::Window);
@@ -149,8 +177,9 @@ void ConfigurationRegistry::replace(const QVector<ConfigurationContribution>& co
         const auto overrides = contribution.contributes.value("configurationDefaults").toObject();
         for (auto it = overrides.begin(); it != overrides.end(); ++it) {
             if (!configurationOverrideIdentifiers(it.key()).isEmpty()) {
-                if (!it.value().isObject()) next.diagnostics_[contribution.extensionId].append(
-                    "Language configuration default must be an object: " + it.key());
+                if (!it.value().isObject())
+                    next.diagnostics_[contribution.extensionId].append(
+                        "Language configuration default must be an object: " + it.key());
                 continue;
             }
             const auto property = next.properties_.constFind(it.key());
@@ -164,14 +193,16 @@ void ConfigurationRegistry::replace(const QVector<ConfigurationContribution>& co
 
 ConfigurationLayer ConfigurationRegistry::defaults() const {
     QMap<QString, QJsonValue> values;
-    for (auto it = properties_.begin(); it != properties_.end(); ++it) values.insert(it.key(), it->defaultValue);
+    for (auto it = properties_.begin(); it != properties_.end(); ++it)
+        values.insert(it.key(), it->defaultValue);
     QVector<std::pair<QStringList, QJsonObject>> languageGroups;
     for (const auto& contribution : contributions_) {
         const auto overrides = contribution.contributes.value("configurationDefaults").toObject();
         for (auto it = overrides.begin(); it != overrides.end(); ++it) {
             const auto languages = configurationOverrideIdentifiers(it.key());
             if (!languages.isEmpty()) {
-                if (!it.value().isObject()) continue;
+                if (!it.value().isObject())
+                    continue;
                 QJsonObject accepted;
                 const auto settings = it.value().toObject();
                 for (auto setting = settings.begin(); setting != settings.end(); ++setting) {
@@ -185,27 +216,33 @@ ConfigurationLayer ConfigurationRegistry::defaults() const {
                 // performs its separate recursive layer merge.
                 bool found = false;
                 for (auto& group : languageGroups) {
-                    if (group.first != languages) continue;
+                    if (group.first != languages)
+                        continue;
                     for (auto setting = accepted.begin(); setting != accepted.end(); ++setting)
-                        group.second.insert(setting.key(),
+                        group.second.insert(
+                            setting.key(),
                             mergeDefault(group.second.value(setting.key()), setting.value()));
                     found = true;
                     break;
                 }
-                if (!found) languageGroups.append({languages, accepted});
+                if (!found)
+                    languageGroups.append({languages, accepted});
             } else {
                 const auto property = properties_.constFind(it.key());
                 if (property != properties_.cend() && permitsDefault(*property)) {
                     const auto updated = property->schema.value("type") == QJsonValue("object")
-                        ? mergeDefault(values.value(it.key()), it.value()) : it.value();
+                                             ? mergeDefault(values.value(it.key()), it.value())
+                                             : it.value();
                     values.insert(it.key(), updated);
                 }
             }
         }
     }
     ConfigurationLayer result;
-    for (auto it = values.begin(); it != values.end(); ++it) result.addSetting(it.key(), it.value());
-    for (const auto& [languages, settings] : languageGroups) result.addOverride(languages, settings);
+    for (auto it = values.begin(); it != values.end(); ++it)
+        result.addSetting(it.key(), it.value());
+    for (const auto& [languages, settings] : languageGroups)
+        result.addOverride(languages, settings);
     return result;
 }
 

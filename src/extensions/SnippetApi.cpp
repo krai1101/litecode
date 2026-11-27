@@ -11,7 +11,8 @@ QString escape(const QString& text, QStringView characters) {
     QString result;
     result.reserve(text.size());
     for (const QChar character : text) {
-        if (characters.contains(character)) result += QLatin1Char('\\');
+        if (characters.contains(character))
+            result += QLatin1Char('\\');
         result += character;
     }
     return result;
@@ -22,7 +23,8 @@ SnippetString::SnippetString(QString initial) : value(std::move(initial)) {}
 
 qint64 SnippetString::takeNumber(std::optional<qint64> number) {
     // Explicit numbers never consume the automatic sequence, including zero.
-    if (number) return *number;
+    if (number)
+        return *number;
     if (tabstop_ == std::numeric_limits<qint64>::max())
         throw std::overflow_error("Snippet tabstop exceeds the native integer range.");
     return tabstop_++;
@@ -49,7 +51,8 @@ SnippetString& SnippetString::appendTabstop(std::optional<qint64> number) {
 }
 
 SnippetString& SnippetString::appendPlaceholderValue(QString text, qint64 number) {
-    value += QStringLiteral("${") + QString::number(number) + QLatin1Char(':') + text + QLatin1Char('}');
+    value +=
+        QStringLiteral("${") + QString::number(number) + QLatin1Char(':') + text + QLatin1Char('}');
     return *this;
 }
 
@@ -58,23 +61,28 @@ SnippetString& SnippetString::appendPlaceholder(const QString& text, std::option
     return appendPlaceholderValue(escape(text, u"$}\\"), index);
 }
 
-SnippetString& SnippetString::appendPlaceholder(const Builder& builder, std::optional<qint64> number) {
+SnippetString& SnippetString::appendPlaceholder(const Builder& builder,
+                                                std::optional<qint64> number) {
     const auto index = takeNumber(number);
     return appendPlaceholderValue(buildNested(builder), index);
 }
 
-SnippetString& SnippetString::appendChoice(const QStringList& choices, std::optional<qint64> number) {
+SnippetString& SnippetString::appendChoice(const QStringList& choices,
+                                           std::optional<qint64> number) {
     const auto index = takeNumber(number);
     QStringList escaped;
     escaped.reserve(choices.size());
-    for (const auto& choice : choices) escaped.append(escape(choice, u"|\\,"));
-    value += QStringLiteral("${") + QString::number(index) + QLatin1Char('|') + escaped.join(QLatin1Char(',')) + QStringLiteral("|}");
+    for (const auto& choice : choices)
+        escaped.append(escape(choice, u"|\\,"));
+    value += QStringLiteral("${") + QString::number(index) + QLatin1Char('|') +
+             escaped.join(QLatin1Char(',')) + QStringLiteral("|}");
     return *this;
 }
 
 SnippetString& SnippetString::appendVariableValue(const QString& name, QString text) {
     value += QStringLiteral("${") + name;
-    if (!text.isEmpty()) value += QLatin1Char(':') + text;
+    if (!text.isEmpty())
+        value += QLatin1Char(':') + text;
     value += QLatin1Char('}');
     return *this;
 }

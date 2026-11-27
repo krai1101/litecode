@@ -1,8 +1,8 @@
 #pragma once
-#include "extensions/UriApi.h"
 #include "extensions/EventApi.h"
-#include <QObject>
+#include "extensions/UriApi.h"
 #include <QJsonObject>
+#include <QObject>
 namespace litecode::extensions {
 struct UriHandlerRuntime;
 class HostUriHandlers final : public QObject {
@@ -12,8 +12,9 @@ class HostUriHandlers final : public QObject {
     Disposable registerUriHandler(std::shared_ptr<UriHandler> handler);
     bool accept(const QJsonObject& message);
     void shutdown();
+
   private:
     void reportError(const QString& error);
     std::shared_ptr<UriHandlerRuntime> runtime_;
 };
-}
+} // namespace litecode::extensions

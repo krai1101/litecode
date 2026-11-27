@@ -1,5 +1,5 @@
-#include "ui/styles/ComponentStyleSheets.h"
 #include "ui/Theme.h"
+#include "ui/styles/ComponentStyleSheets.h"
 #include "ui/styles/StyleTemplate.h"
 namespace litecode::ui {
 QString ComponentStyleSheets::runDebug(const ThemeTokens& tokens) {
@@ -53,7 +53,9 @@ QString ComponentStyleSheets::runDebug(const ThemeTokens& tokens) {
             border-radius: 3px; padding: 2px 5px;
         }
         QLabel#runDebugNotice { color: @error; background: transparent; }
-    )QSS"), tokens).replace("@debugCheckIcon", tokens.sidebarSurface.lightness() < 128
-        ? "check.svg" : "check-neutral.svg");
+    )QSS"),
+                            tokens)
+        .replace("@debugCheckIcon",
+                 tokens.sidebarSurface.lightness() < 128 ? "check.svg" : "check-neutral.svg");
 }
 } // namespace litecode::ui

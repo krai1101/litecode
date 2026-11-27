@@ -1,10 +1,10 @@
 #pragma once
 #include "extensions/EnvironmentApi.h"
-#include <QObject>
-#include <QJsonObject>
-#include <QPromise>
 #include <QHash>
+#include <QJsonObject>
 #include <QMutex>
+#include <QObject>
+#include <QPromise>
 #include <functional>
 #include <memory>
 
@@ -17,8 +17,12 @@ class HostClipboard final : public QObject, public Clipboard {
     QFuture<void> writeText(const QString& value) override;
     void complete(quint64 id, const QJsonValue& result, const QString& error);
     void shutdown();
+
   private:
-    struct Pending { std::shared_ptr<QPromise<QJsonValue>> promise; bool write{}; };
+    struct Pending {
+        std::shared_ptr<QPromise<QJsonValue>> promise;
+        bool write{};
+    };
     QFuture<QJsonValue> request(bool write, const QString& text = {});
     std::function<void(const QJsonObject&)> send_;
     QMutex mutex_;

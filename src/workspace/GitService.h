@@ -59,7 +59,7 @@ class GitService final : public QObject {
     QString repository() const { return repository_; }
     bool busy() const { return busy_; }
     bool gitInstalled() const { return gitInstalled_; }
-    bool supportsStagedStash();
+    bool supportsStagedStash() const;
     quint64 workspaceGeneration() const { return epoch_; }
     const GitStatus& status() const { return status_; }
     void setPreferences(const core::GitPreferences& preferences) { preferences_ = preferences; }
@@ -67,8 +67,7 @@ class GitService final : public QObject {
     void initializeRepository();
     void cloneRepository(const QString& url, const QString& parentDirectory);
     void cancelClone();
-    void createWorktree(const QString& path, const QString& ref,
-                        const QString& newBranch = {});
+    void createWorktree(const QString& path, const QString& ref, const QString& newBranch = {});
     void listWorktrees();
     void deleteWorktree(const QString& path);
     void stage(const QStringList& paths);
@@ -103,8 +102,7 @@ class GitService final : public QObject {
     void listRemoteTags(const QString& remote);
     void deleteRemoteTag(const QString& remote, const QString& name);
     void pushTags(const QString& remote);
-    void stash(bool includeUntracked = false, bool stagedOnly = false,
-               const QString& message = {});
+    void stash(bool includeUntracked = false, bool stagedOnly = false, const QString& message = {});
     void listStashes();
     void applyStash(const QString& ref = "stash@{0}", bool pop = false);
     void dropStash(const QString& ref);
@@ -189,8 +187,8 @@ class GitService final : public QObject {
     void finish(int code, const QString& diagnostic);
     void checkoutCommand(const QStringList& arguments, const QString& ref, bool detached,
                          GitCheckoutRecovery recovery);
-    void pullWithMode(std::optional<bool> rebase, bool pushAfter,
-                      const QString& remote = {}, const QString& branch = {});
+    void pullWithMode(std::optional<bool> rebase, bool pushAfter, const QString& remote = {},
+                      const QString& branch = {});
     void pushWithOptions(const QString& remote, bool setUpstream, bool force);
     void pushToWithMode(const QString& remote, bool force);
 };

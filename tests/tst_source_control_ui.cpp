@@ -1,4 +1,3 @@
-#include "ui/components/WorkbenchTabs.h"
 #include "core/SettingsService.h"
 #include "editor/ScintillaEditor.h"
 #include "ui/ConfirmationDialog.h"
@@ -20,6 +19,7 @@
 #include "ui/components/Controls.h"
 #include "ui/components/QuickInputDialog.h"
 #include "ui/components/SidebarView.h"
+#include "ui/components/WorkbenchTabs.h"
 #include "ui/controllers/WorkbenchController.h"
 #include "workspace/GitService.h"
 #include "workspace/WorkspaceReplace.h"
@@ -38,6 +38,7 @@
 #include <QLineEdit>
 #include <QListView>
 #include <QListWidget>
+#include <QMouseEvent>
 #include <QPlainTextEdit>
 #include <QProcess>
 #include <QProcessEnvironment>
@@ -57,22 +58,22 @@
 #include <QTreeWidget>
 #include <QUuid>
 #include <QVBoxLayout>
+#include <QtTest>
 #include <ScintillaEditBase.h>
 #include <ScintillaMessages.h>
-#include <QtTest>
 #include <algorithm>
-#ifdef Q_OS_WIN
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#endif
 using namespace litecode;
 // UI regression driver only. Real native provider/host integration is covered
 // separately by tst_extension_debug.cpp, not by a launch.json adapter override.
-static void installTestAdapter(ui::RunDebugPanel& panel, const QString& command, const QStringList& arguments) {
+static void installTestAdapter(ui::RunDebugPanel& panel, const QString& command,
+                               const QStringList& arguments) {
     QObject::disconnect(&panel, &ui::RunDebugPanel::debugAdapterRequested, nullptr, nullptr);
-    QJsonArray args; for (const auto& argument : arguments) args.append(argument);
+    QJsonArray args;
+    for (const auto& argument : arguments)
+        args.append(argument);
     const QJsonObject descriptor{{"type", "executable"}, {"command", command}, {"args", args}};
-    QObject::connect(&panel, &ui::RunDebugPanel::debugAdapterRequested, &panel,
+    QObject::connect(
+        &panel, &ui::RunDebugPanel::debugAdapterRequested, &panel,
         [&panel, descriptor](quint64 id, const QString&, const QJsonObject&, const QString&) {
             panel.completeDebugAdapterRequest(id, descriptor, {});
         });
@@ -97,8 +98,8 @@ class SourceControlUiTests : public QObject {
         // Verify the command reaches the shared start flow, rather than opening
         // its own launch.json-only dialog. Provider picker coverage lives in
         // tst_python_debugger.cpp with a real installed debugger extension.
-        QObject::disconnect(panel, &ui::RunDebugPanel::selectDebugConfigurationRequested,
-                            nullptr, nullptr);
+        QObject::disconnect(panel, &ui::RunDebugPanel::selectDebugConfigurationRequested, nullptr,
+                            nullptr);
         QSignalSpy selectDebugger(panel, &ui::RunDebugPanel::selectDebugConfigurationRequested);
         QSignalSpy createLaunch(panel, &ui::RunDebugPanel::configurationRequested);
         action->trigger();
@@ -125,13 +126,15 @@ class SourceControlUiTests : public QObject {
         QTest::qWait(50);
         window.resizeDocks({dock}, {170}, Qt::Horizontal);
         QTRY_VERIFY2(dock->width() <= 172, qPrintable(QString("Sidebar width: %1, minimum hint: %2")
-            .arg(dock->width()).arg(dock->minimumSizeHint().width())));
+                                                          .arg(dock->width())
+                                                          .arg(dock->minimumSizeHint().width())));
         QVERIFY(dock->width() >= 170);
         // A saved long configuration must not raise the minimum either.
         QDir().mkpath(workspace.filePath(".vscode"));
         QFile launch(workspace.filePath(".vscode/launch.json"));
         QVERIFY(launch.open(QIODevice::WriteOnly));
-        launch.write(R"({"version":"0.2.0","configurations":[{"name":"A very long debugger configuration name","type":"fixture","request":"launch"}]})");
+        launch.write(
+            R"({"version":"0.2.0","configurations":[{"name":"A very long debugger configuration name","type":"fixture","request":"launch"}]})");
         launch.close();
         panel->setWorkspace(workspace.path());
         window.resizeDocks({dock}, {170}, Qt::Horizontal);
@@ -168,7 +171,8 @@ class SourceControlUiTests : public QObject {
     }
     void realDebugpySessionExitsWithoutAdapterCrashNotice() {
         const QString sample = qEnvironmentVariable("LITECODE_REAL_DEBUG_WORKSPACE");
-        if (sample.isEmpty()) QSKIP("Set LITECODE_REAL_DEBUG_WORKSPACE to run debugpy integration.");
+        if (sample.isEmpty())
+            QSKIP("Set LITECODE_REAL_DEBUG_WORKSPACE to run debugpy integration.");
         QTemporaryDir workspace;
         QVERIFY(workspace.isValid());
         QVERIFY(QDir(workspace.path()).mkdir(".vscode"));
@@ -177,11 +181,13 @@ class SourceControlUiTests : public QObject {
         QFile launch(workspace.filePath(".vscode/launch.json"));
         QVERIFY(launch.open(QIODevice::WriteOnly));
         const QJsonObject configuration{
-            {"name", "Python console test"}, {"type", "debugpy"}, {"request", "launch"},
-            {"program", source}, {"cwd", workspace.path()},
-            {"console", "internalConsole"}, {"redirectOutput", true}};
+            {"name", "Python console test"}, {"type", "debugpy"},
+            {"request", "launch"},           {"program", source},
+            {"cwd", workspace.path()},       {"console", "internalConsole"},
+            {"redirectOutput", true}};
         launch.write(QJsonDocument(QJsonObject{{"version", "0.2.0"},
-                                         {"configurations", QJsonArray{configuration}}}).toJson());
+                                               {"configurations", QJsonArray{configuration}}})
+                         .toJson());
         launch.close();
         ui::Theme::apply(*qApp, false);
         ui::RunDebugPanel panel;
@@ -199,15 +205,16 @@ class SourceControlUiTests : public QObject {
             QVERIFY(panel.grab().save(capture));
         }
         panel.continueDebugging();
-        QTRY_VERIFY_WITH_TIMEOUT(panel.outputText().contains(
-            QStringLiteral("Process exited with code 0")), 30000);
+        QTRY_VERIFY_WITH_TIMEOUT(
+            panel.outputText().contains(QStringLiteral("Process exited with code 0")), 30000);
         QTest::qWait(1000);
         QVERIFY2(!panel.outputText().contains(QStringLiteral("Debug adapter crashed")),
                  qPrintable(panel.outputText()));
     }
     void realDebugpyUsesIntegratedTerminal() {
         const QString sample = qEnvironmentVariable("LITECODE_REAL_DEBUG_WORKSPACE");
-        if (sample.isEmpty()) QSKIP("Set LITECODE_REAL_DEBUG_WORKSPACE to run debugpy integration.");
+        if (sample.isEmpty())
+            QSKIP("Set LITECODE_REAL_DEBUG_WORKSPACE to run debugpy integration.");
         QTemporaryDir folder;
         QVERIFY(folder.isValid());
         QVERIFY(QDir(folder.path()).mkdir(".vscode"));
@@ -215,12 +222,15 @@ class SourceControlUiTests : public QObject {
         QVERIFY(QFile::copy(QDir(sample).filePath("example.py"), source));
         QFile launch(folder.filePath(".vscode/launch.json"));
         QVERIFY(launch.open(QIODevice::WriteOnly));
-        const QJsonObject configuration{
-            {"name", "Python terminal test"}, {"type", "debugpy"}, {"request", "launch"},
-            {"program", source}, {"cwd", folder.path()},
-            {"console", "integratedTerminal"}};
+        const QJsonObject configuration{{"name", "Python terminal test"},
+                                        {"type", "debugpy"},
+                                        {"request", "launch"},
+                                        {"program", source},
+                                        {"cwd", folder.path()},
+                                        {"console", "integratedTerminal"}};
         launch.write(QJsonDocument(QJsonObject{{"version", "0.2.0"},
-                                         {"configurations", QJsonArray{configuration}}}).toJson());
+                                               {"configurations", QJsonArray{configuration}}})
+                         .toJson());
         launch.close();
         core::SettingsService settings(folder.filePath("settings.ini"));
         workspace::WorkspaceService workspaceService;
@@ -248,8 +258,7 @@ class SourceControlUiTests : public QObject {
             foundDebugTerminal |= terminals->item(index)->text().contains("Python Debug Console");
         QVERIFY(foundDebugTerminal);
         panel->continueDebugging();
-        QTRY_VERIFY_WITH_TIMEOUT(panel->outputText().contains("Process exited with code 0"),
-                                 30000);
+        QTRY_VERIFY_WITH_TIMEOUT(panel->outputText().contains("Process exited with code 0"), 30000);
         QTest::qWait(200);
         QCOMPARE(shellCompleted.size(), 0);
     }
@@ -260,9 +269,11 @@ class SourceControlUiTests : public QObject {
         QFile tasks(workspace.filePath(".vscode/tasks.json"));
         QVERIFY(tasks.open(QIODevice::WriteOnly));
 #ifdef Q_OS_WIN
-        tasks.write(R"({"version":"2.0.0","tasks":[{"label":"Prepare","type":"process","command":"cmd.exe","args":["/c","echo build-ready"]},{"label":"After","type":"process","command":"cmd.exe","args":["/c","echo post-ready"]}]})");
+        tasks.write(
+            R"({"version":"2.0.0","tasks":[{"label":"Prepare","type":"process","command":"cmd.exe","args":["/c","echo build-ready"]},{"label":"After","type":"process","command":"cmd.exe","args":["/c","echo post-ready"]}]})");
 #else
-        tasks.write(R"({"version":"2.0.0","tasks":[{"label":"Prepare","type":"process","command":"/bin/echo","args":["build-ready"]},{"label":"After","type":"process","command":"/bin/echo","args":["post-ready"]}]})");
+        tasks.write(
+            R"({"version":"2.0.0","tasks":[{"label":"Prepare","type":"process","command":"/bin/echo","args":["build-ready"]},{"label":"After","type":"process","command":"/bin/echo","args":["post-ready"]}]})");
 #endif
         tasks.close();
         QFile launch(workspace.filePath(".vscode/launch.json"));
@@ -298,13 +309,18 @@ class SourceControlUiTests : public QObject {
         QVERIFY(QDir(workspace.path()).mkdir(QStringLiteral(".vscode")));
         QFile launch(workspace.filePath(QStringLiteral(".vscode/launch.json")));
         QVERIFY(launch.open(QIODevice::WriteOnly));
-        launch.write(R"({"version":"0.2.0","configurations":[{"name":"Fixture","type":"fixture","request":"launch","interpreter":["python"]}]})");
+        launch.write(
+            R"({"version":"0.2.0","configurations":[{"name":"Fixture","type":"fixture","request":"launch","interpreter":["python"]}]})");
         launch.close();
         ui::RunDebugPanel panel;
-        panel.setDebuggerSchemas({{QStringLiteral("fixture"), QJsonObject{
-            {QStringLiteral("launch"), QJsonObject{
-                {QStringLiteral("properties"), QJsonObject{
-                    {QStringLiteral("interpreter"), QJsonObject{{QStringLiteral("type"), QStringLiteral("string")}}}}}}}}}});
+        panel.setDebuggerSchemas(
+            {{QStringLiteral("fixture"),
+              QJsonObject{
+                  {QStringLiteral("launch"),
+                   QJsonObject{{QStringLiteral("properties"),
+                                QJsonObject{{QStringLiteral("interpreter"),
+                                             QJsonObject{{QStringLiteral("type"),
+                                                          QStringLiteral("string")}}}}}}}}}});
         panel.setWorkspace(workspace.path());
         panel.startDebugging();
         auto* notice = panel.findChild<QLabel*>(QStringLiteral("runDebugNotice"));
@@ -318,8 +334,7 @@ class SourceControlUiTests : public QObject {
         QFile launch(workspace.filePath(".vscode/launch.json"));
         QVERIFY(launch.open(QIODevice::WriteOnly));
         QJsonObject configuration{{"name", "Fixture"}, {"type", "fixture"}, {"request", "launch"}};
-        QJsonObject root{{"version", "0.2.0"},
-                         {"configurations", QJsonArray{configuration}}};
+        QJsonObject root{{"version", "0.2.0"}, {"configurations", QJsonArray{configuration}}};
         launch.write(QJsonDocument(root).toJson());
         launch.close();
         core::SettingsService settings(workspace.filePath("settings.ini"));
@@ -351,9 +366,11 @@ class SourceControlUiTests : public QObject {
         auto* variables = panel.findChild<QTreeWidget*>("debugVariables");
         QVERIFY(frames && variables);
         QTRY_COMPARE_WITH_TIMEOUT(frames->topLevelItemCount(), 1, 10000);
-        QCOMPARE(frames->topLevelItem(0)->text(0), QString("fixtureFrame"));
-        QCOMPARE(frames->topLevelItem(0)->text(1), QString("fixture.cpp"));
-        QCOMPARE(frames->topLevelItem(0)->text(2), QString("7"));
+        QCOMPARE(frames->topLevelItem(0)->childCount(), 1);
+        auto* frame = frames->topLevelItem(0)->child(0);
+        QCOMPARE(frame->text(0), QString("fixtureFrame"));
+        QCOMPARE(frame->text(1), QString("fixture.cpp"));
+        QCOMPARE(frame->text(2), QString("7"));
         QTRY_VERIFY_WITH_TIMEOUT(!locationSpy.isEmpty(), 10000);
         QCOMPARE(locationSpy.last().at(0).toString(), QString("fixture.cpp"));
         QCOMPARE(locationSpy.last().at(1).toInt(), 7);
@@ -374,10 +391,9 @@ class SourceControlUiTests : public QObject {
         QVERIFY(QDir(workspace.path()).mkdir(".vscode"));
         QFile launch(workspace.filePath(".vscode/launch.json"));
         QVERIFY(launch.open(QIODevice::WriteOnly));
-        const QJsonObject configuration{{"name", "Fixture"}, {"type", "fixture"},
-                                        {"request", "launch"}};
-        const QJsonObject root{{"version", "0.2.0"},
-                               {"configurations", QJsonArray{configuration}}};
+        const QJsonObject configuration{
+            {"name", "Fixture"}, {"type", "fixture"}, {"request", "launch"}};
+        const QJsonObject root{{"version", "0.2.0"}, {"configurations", QJsonArray{configuration}}};
         launch.write(QJsonDocument(root).toJson());
         launch.close();
         ui::RunDebugPanel panel;
@@ -388,8 +404,9 @@ class SourceControlUiTests : public QObject {
         QCOMPARE(requested.at(0).at(1).toString(), QString("fixture"));
         const auto firstId = requested.at(0).at(0).toULongLong();
         panel.stop();
-        const QJsonObject descriptor{{"type", "executable"}, {"command", LITECODE_DAP_ADAPTER_FIXTURE},
-            {"args", QJsonArray{"--session"}}};
+        const QJsonObject descriptor{{"type", "executable"},
+                                     {"command", LITECODE_DAP_ADAPTER_FIXTURE},
+                                     {"args", QJsonArray{"--session"}}};
         panel.completeDebugAdapterRequest(firstId, descriptor, {});
         panel.startDebugging();
         QCOMPARE(requested.size(), 2);
@@ -408,7 +425,8 @@ class SourceControlUiTests : public QObject {
         QVERIFY(QDir(workspace.path()).mkdir(".vscode"));
         QFile launch(workspace.filePath(".vscode/launch.json"));
         QVERIFY(launch.open(QIODevice::WriteOnly));
-        launch.write(R"({"version":"0.2.0","configurations":[{"name":"Demo","type":"test","request":"launch","program":"demo"}]})");
+        launch.write(
+            R"({"version":"0.2.0","configurations":[{"name":"Demo","type":"test","request":"launch","program":"demo"}]})");
         launch.close();
         core::SettingsService settings(workspace.filePath("settings.ini"));
         workspace::WorkspaceService workspaceService;
@@ -461,8 +479,8 @@ class SourceControlUiTests : public QObject {
         sourceFile.close();
         QFile launch(workspace.filePath(".vscode/launch.json"));
         QVERIFY(launch.open(QIODevice::WriteOnly));
-        const QJsonObject configuration{{"name", "Fixture"}, {"type", "fixture"},
-                                        {"request", "launch"}, {"program", source}};
+        const QJsonObject configuration{
+            {"name", "Fixture"}, {"type", "fixture"}, {"request", "launch"}, {"program", source}};
         launch.write(QJsonDocument(QJsonObject{{"version", "0.2.0"},
                                                {"configurations", QJsonArray{configuration}}})
                          .toJson());
@@ -492,8 +510,10 @@ class SourceControlUiTests : public QObject {
         auto* frames = panel->findChild<QTreeWidget*>("debugCallStack");
         QVERIFY(frames);
         QTRY_COMPARE_WITH_TIMEOUT(frames->topLevelItemCount(), 1, 10000);
-        QCOMPARE(frames->topLevelItem(0)->text(1), QString("sample.cpp"));
-        QCOMPARE(frames->topLevelItem(0)->text(2), QString("7"));
+        QCOMPARE(frames->topLevelItem(0)->childCount(), 1);
+        auto* frame = frames->topLevelItem(0)->child(0);
+        QCOMPARE(frame->text(1), QString("sample.cpp"));
+        QCOMPARE(frame->text(2), QString("7"));
         QCOMPARE(editorArea->currentFile(), source);
         QCOMPARE(bottomTabs->currentWidget()->objectName(), QString("debugConsolePage"));
         QVERIFY(!bottomTabs->tabBar()->isHidden());
@@ -526,8 +546,8 @@ class SourceControlUiTests : public QObject {
         QVERIFY(QDir(fixture.path()).mkdir(QStringLiteral("workspace")));
         const QString workspacePath = fixture.filePath(QStringLiteral("workspace"));
         const QString source = qEnvironmentVariable("LITECODE_GUTTER_SOURCE").isEmpty()
-            ? fixture.filePath(QStringLiteral("example.py"))
-            : qEnvironmentVariable("LITECODE_GUTTER_SOURCE");
+                                   ? fixture.filePath(QStringLiteral("example.py"))
+                                   : qEnvironmentVariable("LITECODE_GUTTER_SOURCE");
         if (qEnvironmentVariable("LITECODE_GUTTER_SOURCE").isEmpty()) {
             QFile file(source);
             QVERIFY(file.open(QIODevice::WriteOnly));
@@ -557,60 +577,44 @@ class SourceControlUiTests : public QObject {
         QTRY_VERIFY_WITH_TIMEOUT(window.isActiveWindow(), 5000);
         ScintillaEditBase* control = nullptr;
         QTRY_VERIFY_WITH_TIMEOUT((control = editorArea->findChild<ScintillaEditBase*>(
-                                      QStringLiteral("scintillaControl"))), 5000);
+                                      QStringLiteral("scintillaControl"))),
+                                 5000);
         QTRY_VERIFY_WITH_TIMEOUT(control->isVisible(), 5000);
         auto* editor = editorArea->findChild<editor::ScintillaEditor*>();
         QVERIFY(editor);
         QVERIFY(!editor->isReadOnly());
         const int lineHeight = editor->diffLineHeight();
-        const int glyphWidth = static_cast<int>(control->send(
-            static_cast<unsigned int>(Scintilla::Message::GetMarginWidthN), 0));
-        const int numberWidth = static_cast<int>(control->send(
-            static_cast<unsigned int>(Scintilla::Message::GetMarginWidthN), 1));
-        const int decorationsWidth = static_cast<int>(control->send(
-            static_cast<unsigned int>(Scintilla::Message::GetMarginWidthN), 2));
+        const int glyphWidth = static_cast<int>(
+            control->send(static_cast<unsigned int>(Scintilla::Message::GetMarginWidthN), 0));
+        const int numberWidth = static_cast<int>(
+            control->send(static_cast<unsigned int>(Scintilla::Message::GetMarginWidthN), 1));
+        const int decorationsWidth = static_cast<int>(
+            control->send(static_cast<unsigned int>(Scintilla::Message::GetMarginWidthN), 2));
         QCOMPARE(decorationsWidth, 26);
         const QPoint gutterPoint(8, lineHeight * 4 + lineHeight / 2);
-        QCursor::setPos(control->mapToGlobal(QPoint(160, gutterPoint.y())));
-        QTest::qWait(100);
-        QCursor::setPos(control->mapToGlobal(gutterPoint));
-        QTRY_VERIFY(control->send(
-            static_cast<unsigned int>(Scintilla::Message::MarkerGet), 4) & (1 << 19));
+        QTRY_VERIFY(control->send(static_cast<unsigned int>(Scintilla::Message::GetLineCount)) >=
+                    5);
+        auto* viewport = control->viewport();
+        const QPoint hoverPoint = viewport->mapFrom(control, gutterPoint);
+        QMouseEvent hover(QEvent::MouseMove, hoverPoint, viewport->mapToGlobal(hoverPoint),
+                          Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+        QApplication::sendEvent(viewport, &hover);
+        QTRY_VERIFY(control->send(static_cast<unsigned int>(Scintilla::Message::MarkerGet), 4) &
+                    (1 << 19));
         const QString capturePath = qEnvironmentVariable("LITECODE_GUTTER_WINDOW_CAPTURE");
         if (!capturePath.isEmpty())
             QVERIFY(window.grab().save(capturePath + QStringLiteral(".hover.png")));
-#ifdef Q_OS_WIN
-        if (QGuiApplication::platformName() == QStringLiteral("windows")) {
-            // Exercise Windows' actual pointer dispatch, not QTest's direct
-            // widget delivery: Scintilla routes native clicks to its viewport.
-            INPUT press{};
-            press.type = INPUT_MOUSE;
-            press.mi.dwFlags = MOUSEEVENTF_LEFTDOWN;
-            INPUT release = press;
-            release.mi.dwFlags = MOUSEEVENTF_LEFTUP;
-            QCOMPARE(QApplication::widgetAt(control->mapToGlobal(gutterPoint)),
-                     control->viewport());
-            QCOMPARE(SendInput(1, &press, sizeof(INPUT)), UINT(1));
-            QCOMPARE(SendInput(1, &release, sizeof(INPUT)), UINT(1));
-        } else {
-            QTest::mouseClick(control->viewport(), Qt::LeftButton, Qt::NoModifier,
-                              control->viewport()->mapFrom(control, gutterPoint));
-        }
-#else
-        QTest::mouseClick(control->viewport(), Qt::LeftButton, Qt::NoModifier,
-                          control->viewport()->mapFrom(control, gutterPoint));
-#endif
+        QTest::mouseClick(viewport, Qt::LeftButton, Qt::NoModifier, hoverPoint);
         QTRY_VERIFY(panel->hasBreakpoint(source, 5));
-        QTRY_VERIFY(control->send(
-            static_cast<unsigned int>(Scintilla::Message::MarkerGet), 4) & (1 << 22));
+        QTRY_VERIFY(control->send(static_cast<unsigned int>(Scintilla::Message::MarkerGet), 4) &
+                    (1 << 22));
         if (!capturePath.isEmpty())
             QVERIFY(window.grab().save(capturePath + QStringLiteral(".set.png")));
         QTest::mouseClick(control, Qt::LeftButton, Qt::NoModifier,
                           QPoint(glyphWidth + numberWidth / 2, gutterPoint.y()));
         QTRY_VERIFY(!panel->hasBreakpoint(source, 5));
         QTest::mouseClick(control, Qt::LeftButton, Qt::NoModifier,
-                          QPoint(glyphWidth + numberWidth + decorationsWidth + 8,
-                                 gutterPoint.y()));
+                          QPoint(glyphWidth + numberWidth + decorationsWidth + 8, gutterPoint.y()));
         QTRY_VERIFY(panel->hasBreakpoint(source, 5));
     }
     void openingRepositoryFolderUsesTheSharedWorkspacePath() {
@@ -625,12 +629,10 @@ class SourceControlUiTests : public QObject {
         ui::MainWindow window(settings, workspace, {search, quick, replace}, false);
         QString diagnostic;
         QVERIFY(window.openWorkspaceFolder(checkout, &diagnostic));
-        QCOMPARE(QDir::fromNativeSeparators(workspace.rootPath()),
-                 QDir(checkout).canonicalPath());
+        QCOMPARE(QDir::fromNativeSeparators(workspace.rootPath()), QDir(checkout).canonicalPath());
         QVERIFY(!window.openWorkspaceFolder(directory.filePath("missing"), &diagnostic));
         QVERIFY(!diagnostic.isEmpty());
-        QCOMPARE(QDir::fromNativeSeparators(workspace.rootPath()),
-                 QDir(checkout).canonicalPath());
+        QCOMPARE(QDir::fromNativeSeparators(workspace.rootPath()), QDir(checkout).canonicalPath());
     }
     void changesAndGraphUseTheSameSidebarWrapper() {
         for (bool dark : {false, true}) {
@@ -738,9 +740,10 @@ class SourceControlUiTests : public QObject {
                                                     "Discard All Changes"};
                     if (action->text() == "Pull, Push")
                         nestedPullPush =
-                            children == QStringList{"Sync", "Sync (Rebase)", "Pull",
-                                                    "Pull (Rebase)", "Pull From...", "Push",
-                                                    "Push To...", "Fetch",
+                            children == QStringList{"Sync",          "Sync (Rebase)",
+                                                    "Pull",          "Pull (Rebase)",
+                                                    "Pull From...",  "Push",
+                                                    "Push To...",    "Fetch",
                                                     "Fetch (Prune)", "Fetch All Remotes"};
                     if (action->text() == "Branch")
                         nestedBranch = children.size() == 8 && children[0].startsWith("Merge") &&
@@ -762,8 +765,7 @@ class SourceControlUiTests : public QObject {
                                          children[1].startsWith("Replace Conflicting Tag") &&
                                          children[2].startsWith("Restore Tag Backup");
                     if (action->text() == "Tags")
-                        nestedTags = children.size() == 4 &&
-                                     children[0].startsWith("Create Tag") &&
+                        nestedTags = children.size() == 4 && children[0].startsWith("Create Tag") &&
                                      children[1].startsWith("Delete Tag") &&
                                      children[2].startsWith("Delete Remote Tag") &&
                                      children[3] == "Push Tags";
@@ -772,10 +774,9 @@ class SourceControlUiTests : public QObject {
                     if (action->text() == "Views")
                         unchangedViewChoices = children == QStringList{"Changes", "Graph"};
                     if (action->text() == "Commit")
-                        noVerifyHidden = std::none_of(children.cbegin(), children.cend(),
-                                                      [](const QString& label) {
-                                                          return label.contains("No Verify");
-                                                      });
+                        noVerifyHidden = std::none_of(
+                            children.cbegin(), children.cend(),
+                            [](const QString& label) { return label.contains("No Verify"); });
                 }
                 for (auto* action : menu->actions())
                     if (action->text() == "Show Git Output")
@@ -784,9 +785,8 @@ class SourceControlUiTests : public QObject {
             });
             more->click();
             QVERIFY(nestedChanges && nestedBranch && nestedRecovery && nestedTags &&
-                    nestedWorktrees && nestedStash &&
-                    nestedPullPush &&
-                    unchangedViewChoices && noVerifyHidden);
+                    nestedWorktrees && nestedStash && nestedPullPush && unchangedViewChoices &&
+                    noVerifyHidden);
             QVERIFY(!topLevel.contains("Stage All Changes"));
             QVERIFY(!topLevel.contains("Unstage All Changes"));
             QVERIFY(topLevel.contains("Clone..."));
@@ -811,8 +811,8 @@ class SourceControlUiTests : public QObject {
                 for (auto* item : action->menu()->actions())
                     if (!item->isSeparator())
                         labels.append(item->text());
-                forceItemsVisible = labels.contains("Push (Force)") &&
-                                    labels.contains("Push to... (Force)");
+                forceItemsVisible =
+                    labels.contains("Push (Force)") && labels.contains("Push to... (Force)");
             }
             menu->close();
         });
@@ -853,12 +853,12 @@ class SourceControlUiTests : public QObject {
         QVERIFY(file.open(QIODevice::WriteOnly));
         QCOMPARE(file.write("base\n"), qint64(5));
         file.close();
-        for (const QStringList arguments : {
-                 QStringList{"-c", "user.name=Test", "-c", "user.email=test@example.invalid",
-                             "add", "base.txt"},
-                 QStringList{"-c", "user.name=Test", "-c", "user.email=test@example.invalid",
-                             "commit", "-m", "base"},
-                 QStringList{"worktree", "add", "-b", "linked", parent.filePath("linked")}}) {
+        for (const QStringList arguments :
+             {QStringList{"-c", "user.name=Test", "-c", "user.email=test@example.invalid", "add",
+                          "base.txt"},
+              QStringList{"-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit",
+                          "-m", "base"},
+              QStringList{"worktree", "add", "-b", "linked", parent.filePath("linked")}}) {
             git.start("git", arguments);
             QVERIFY(git.waitForFinished(10000));
             QCOMPARE(git.exitCode(), 0);
@@ -867,8 +867,8 @@ class SourceControlUiTests : public QObject {
         panel.resize(430, 600);
         panel.show();
         panel.setWorkspace(parent.filePath("linked"));
-        auto* service = panel.findChild<workspace::GitService*>(
-            QString{}, Qt::FindDirectChildrenOnly);
+        auto* service =
+            panel.findChild<workspace::GitService*>(QString{}, Qt::FindDirectChildrenOnly);
         QTRY_VERIFY(service && !service->busy() && !service->repository().isEmpty());
         QStringList worktreeActions;
         QTimer::singleShot(30, &panel, [&] {
@@ -885,9 +885,8 @@ class SourceControlUiTests : public QObject {
             menu->close();
         });
         panel.findChild<QToolButton*>("scmMore")->click();
-        QCOMPARE(worktreeActions,
-                 (QStringList{"Open Worktree", "Open Worktree in New Window",
-                              "Delete Worktree..."}));
+        QCOMPARE(worktreeActions, (QStringList{"Open Worktree", "Open Worktree in New Window",
+                                               "Delete Worktree..."}));
     }
     void divergenceRowsKeepRevisionPairsDistinct() {
         ui::GitHistoryWidget graph;
@@ -1270,7 +1269,7 @@ class SourceControlUiTests : public QObject {
             QCOMPARE(qApp->palette().color(QPalette::WindowText), theme.foreground);
             QCOMPARE(qApp->palette().color(QPalette::PlaceholderText), theme.placeholderForeground);
             QCOMPARE(qApp->palette().color(QPalette::Base), theme.inputSurface);
-            QVERIFY(qApp->styleSheet().contains("color: " + theme.inactiveTabForeground.name()));
+            QCOMPARE(theme.inactiveTabForeground, QColor(dark ? "#9d9d9d" : "#616161"));
             QVERIFY(!qApp->styleSheet().contains("@"));
         }
     }
@@ -1523,8 +1522,9 @@ class SourceControlUiTests : public QObject {
             const auto sourceButton = rail->widgetForAction(sourceAction)->grab().toImage();
             // A borderless rail button is transparent over the toolbar surface.
             QCOMPARE(sourceButton.pixelColor(0, sourceButton.height() / 2).alpha(), 0);
-            QCOMPARE(sourceButton.pixelColor(sourceButton.width() - 1,
-                                            sourceButton.height() / 2).alpha(), 0);
+            QCOMPARE(sourceButton.pixelColor(sourceButton.width() - 1, sourceButton.height() / 2)
+                         .alpha(),
+                     0);
             QCOMPARE(rail->widgetForAction(sourceAction)->width(),
                      rail->widgetForAction(rail->actions().first())->width());
             QCOMPARE(panel->grab().toImage().pixelColor(2, 2),
@@ -1553,13 +1553,16 @@ class SourceControlUiTests : public QObject {
             QVERIFY(sidebar->titleBarWidget()->height() > 0);
             QVERIFY(extensionAction->isChecked());
             QVERIFY(!sourceAction->isChecked());
-            QCOMPARE(sidebar->titleBarWidget()->findChild<QLabel*>("dockHeaderTitle")->text(), QString("Extensions"));
+            QCOMPARE(sidebar->titleBarWidget()->findChild<QLabel*>("dockHeaderTitle")->text(),
+                     QString("Extensions"));
             auto* extensionPanel = window.findChild<ui::ExtensionsPanel*>();
             QTest::qWait(30);
             const auto extensionButton = rail->widgetForAction(extensionAction)->grab().toImage();
             QCOMPARE(extensionButton.pixelColor(0, extensionButton.height() / 2).alpha(), 0);
-            QCOMPARE(extensionButton.pixelColor(extensionButton.width() - 1,
-                                               extensionButton.height() / 2).alpha(), 0);
+            QCOMPARE(extensionButton
+                         .pixelColor(extensionButton.width() - 1, extensionButton.height() / 2)
+                         .alpha(),
+                     0);
             QCOMPARE(rail->widgetForAction(extensionAction)->width(),
                      rail->widgetForAction(rail->actions().first())->width());
             QCOMPARE(extensionPanel->grab().toImage().pixelColor(2, 2),

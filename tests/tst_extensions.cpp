@@ -1,11 +1,11 @@
 #include "extensions/ExtensionManager.h"
+#include <QCoreApplication>
+#include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
-#include <QDir>
 #include <QHash>
 #include <QJsonArray>
-#include <QCoreApplication>
-#include <QElapsedTimer>
 #include <QSignalSpy>
 #include <QSysInfo>
 #include <QTemporaryDir>
@@ -17,100 +17,152 @@ class ExtensionTests : public QObject {
     Q_OBJECT
   private slots:
     void optionalChatHandlerResultsCrossSeparateHost() {
-        QTemporaryDir directory; QVERIFY(directory.isValid());
-        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN, directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
-        ExtensionManager manager(directory.path()); manager.setHostExecutablePath(LITECODE_EXTENSION_HOST); manager.discover();
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN,
+                            directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
+        ExtensionManager manager(directory.path());
+        manager.setHostExecutablePath(LITECODE_EXTENSION_HOST);
+        manager.discover();
         QVERIFY(manager.setEnabled("tests.native", true));
         QSignalSpy finished(&manager, &ExtensionManager::chatRequestFinished);
         QSignalSpy followups(&manager, &ExtensionManager::chatFollowupsReady);
-        const QStringList forms{"absentResult", "optionalResult", "asyncAbsentResult", "asyncOptionalResult"};
+        const QStringList forms{"absentResult", "optionalResult", "asyncAbsentResult",
+                                "asyncOptionalResult"};
         for (int index = 0; index < forms.size(); ++index) {
-            const auto request = manager.requestChat("optional-result-" + QString::number(index), "tests.native.assistant", {{"prompt", forms.at(index)}});
-            QVERIFY(request != 0); QTRY_COMPARE(finished.size(), index + 1); QTRY_COMPARE(followups.size(), index + 1);
-            QCOMPARE(finished.last().at(0).toULongLong(), request); QVERIFY(finished.last().at(2).toString().isEmpty());
-            QCOMPARE(finished.last().at(1).value<QJsonObject>().value("metadata").toObject().value("optional").toBool(),
-                !forms.at(index).contains("Absent", Qt::CaseInsensitive));
+            const auto request =
+                manager.requestChat("optional-result-" + QString::number(index),
+                                    "tests.native.assistant", {{"prompt", forms.at(index)}});
+            QVERIFY(request != 0);
+            QTRY_COMPARE(finished.size(), index + 1);
+            QTRY_COMPARE(followups.size(), index + 1);
+            QCOMPARE(finished.last().at(0).toULongLong(), request);
+            QVERIFY(finished.last().at(2).toString().isEmpty());
+            QCOMPARE(finished.last()
+                         .at(1)
+                         .value<QJsonObject>()
+                         .value("metadata")
+                         .toObject()
+                         .value("optional")
+                         .toBool(),
+                     !forms.at(index).contains("Absent", Qt::CaseInsensitive));
         }
         QVERIFY(manager.setEnabled("tests.native", false));
     }
     void participantPropertiesAndOptionalFollowupsCrossSeparateHost() {
-        QTemporaryDir directory; QVERIFY(directory.isValid());
-        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN, directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
-        ExtensionManager manager(directory.path()); manager.setHostExecutablePath(LITECODE_EXTENSION_HOST); manager.discover();
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN,
+                            directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
+        ExtensionManager manager(directory.path());
+        manager.setHostExecutablePath(LITECODE_EXTENSION_HOST);
+        manager.discover();
         QVERIFY(manager.setEnabled("tests.native", true));
         QSignalSpy commands(&manager, &ExtensionManager::commandResult);
         QVERIFY(manager.requestCommand("tests.native.participantProperties") != 0);
-        QTRY_COMPARE(commands.size(), 1); QVERIFY(commands.first().at(2).toString().isEmpty());
+        QTRY_COMPARE(commands.size(), 1);
+        QVERIFY(commands.first().at(2).toString().isEmpty());
         const auto properties = commands.first().at(1).value<QJsonValue>().toObject();
         QCOMPARE(properties.value("id").toString(), QString("tests.native.assistant"));
-        QVERIFY(properties.value("requestHandler").toBool()); QVERIFY(properties.value("followupProvider").toBool());
+        QVERIFY(properties.value("requestHandler").toBool());
+        QVERIFY(properties.value("followupProvider").toBool());
         QVERIFY(properties.value("iconPath").toBool());
         QTRY_VERIFY(manager.chatParticipantContributions().first().hasFollowups);
         QSignalSpy followups(&manager, &ExtensionManager::chatFollowupsReady);
         QSignalSpy finished(&manager, &ExtensionManager::chatRequestFinished);
-        const QStringList forms{"absentFollowups", "optionalFollowups", "asyncAbsentFollowups", "asyncOptionalFollowups"};
+        const QStringList forms{"absentFollowups", "optionalFollowups", "asyncAbsentFollowups",
+                                "asyncOptionalFollowups"};
         for (int index = 0; index < forms.size(); ++index) {
-            const auto request = manager.requestChat("optional-followups-" + QString::number(index), "tests.native.assistant", {{"prompt", forms.at(index)}});
+            const auto request =
+                manager.requestChat("optional-followups-" + QString::number(index),
+                                    "tests.native.assistant", {{"prompt", forms.at(index)}});
             QVERIFY(request != 0);
-            QTRY_COMPARE(finished.size(), index + 1); QTRY_COMPARE(followups.size(), index + 1);
-            QCOMPARE(followups.last().at(0).toULongLong(), request); QVERIFY(followups.last().at(2).toString().isEmpty());
-            QCOMPARE(followups.last().at(1).value<QJsonArray>().size(), forms.at(index).contains("Absent", Qt::CaseInsensitive) ? 0 : 1);
+            QTRY_COMPARE(finished.size(), index + 1);
+            QTRY_COMPARE(followups.size(), index + 1);
+            QCOMPARE(followups.last().at(0).toULongLong(), request);
+            QVERIFY(followups.last().at(2).toString().isEmpty());
+            QCOMPARE(followups.last().at(1).value<QJsonArray>().size(),
+                     forms.at(index).contains("Absent", Qt::CaseInsensitive) ? 0 : 1);
         }
         QVERIFY(manager.requestCommand("tests.native.clearFollowupProvider") != 0);
-        QTRY_COMPARE(commands.size(), 2); QTRY_VERIFY(!manager.chatParticipantContributions().first().hasFollowups);
+        QTRY_COMPARE(commands.size(), 2);
+        QTRY_VERIFY(!manager.chatParticipantContributions().first().hasFollowups);
         QVERIFY(manager.setEnabled("tests.native", false));
     }
     void windowStateInitializationAndEventsCrossSeparateHost() {
-        QTemporaryDir directory; QVERIFY(directory.isValid());
-        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN, directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
-        ExtensionManager manager(directory.path()); manager.setHostExecutablePath(LITECODE_EXTENSION_HOST); manager.discover();
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN,
+                            directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
+        ExtensionManager manager(directory.path());
+        manager.setHostExecutablePath(LITECODE_EXTENSION_HOST);
+        manager.discover();
         manager.setWindowState({false, false});
         QVERIFY(manager.setEnabled("tests.native", true));
         QSignalSpy results(&manager, &ExtensionManager::commandResult);
         QVERIFY(manager.requestCommand("tests.native.windowState") != 0);
-        QTRY_COMPARE(results.size(), 1); QVERIFY(results.last().at(2).toString().isEmpty());
+        QTRY_COMPARE(results.size(), 1);
+        QVERIFY(results.last().at(2).toString().isEmpty());
         const auto initial = results.last().at(1).value<QJsonValue>().toObject();
-        QCOMPARE(initial.value("focused"), QJsonValue(false)); QCOMPARE(initial.value("active"), QJsonValue(false));
+        QCOMPARE(initial.value("focused"), QJsonValue(false));
+        QCOMPARE(initial.value("active"), QJsonValue(false));
         QVERIFY(initial.value("events").toArray().isEmpty());
-        manager.setWindowState({true, false}); manager.setWindowState({true, true}); manager.setWindowState({true, true});
+        manager.setWindowState({true, false});
+        manager.setWindowState({true, true});
+        manager.setWindowState({true, true});
         QVERIFY(manager.requestCommand("tests.native.windowState") != 0);
-        QTRY_COMPARE(results.size(), 2); QVERIFY(results.last().at(2).toString().isEmpty());
+        QTRY_COMPARE(results.size(), 2);
+        QVERIFY(results.last().at(2).toString().isEmpty());
         const auto updated = results.last().at(1).value<QJsonValue>().toObject();
-        QCOMPARE(updated.value("events").toArray(), (QJsonArray{
-            QJsonObject{{"focused", true}, {"active", false}}, QJsonObject{{"focused", true}, {"active", true}}}));
-        QCOMPARE(updated.value("focused"), QJsonValue(true)); QCOMPARE(updated.value("active"), QJsonValue(true));
+        QCOMPARE(updated.value("events").toArray(),
+                 (QJsonArray{QJsonObject{{"focused", true}, {"active", false}},
+                             QJsonObject{{"focused", true}, {"active", true}}}));
+        QCOMPARE(updated.value("focused"), QJsonValue(true));
+        QCOMPARE(updated.value("active"), QJsonValue(true));
         QVERIFY(manager.setEnabled("tests.native", false));
     }
     void uriResolutionAndDeliveryCrossSeparateHost() {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
-        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN, directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
-        ExtensionManager manager(directory.path()); manager.setHostExecutablePath(LITECODE_EXTENSION_HOST); manager.discover();
-        connect(&manager.externalUris(), &WorkbenchExternalUris::requested, &manager, [&](const ExternalUriRequest& request) {
-            QVERIFY(!request.open);
-            QVERIFY(manager.externalUris().complete(request.owner, request.id, request.uri.toString(QUrl::FullyEncoded)));
-        });
+        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN,
+                            directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
+        ExtensionManager manager(directory.path());
+        manager.setHostExecutablePath(LITECODE_EXTENSION_HOST);
+        manager.discover();
+        connect(&manager.externalUris(), &WorkbenchExternalUris::requested, &manager,
+                [&](const ExternalUriRequest& request) {
+                    QVERIFY(!request.open);
+                    QVERIFY(manager.externalUris().complete(
+                        request.owner, request.id, request.uri.toString(QUrl::FullyEncoded)));
+                });
         QVERIFY(manager.setEnabled("tests.native", true));
-        const QUrl callback("litecode://tests.native/auth?token=fixture-token&state=a%26b#fragment");
+        const QUrl callback(
+            "litecode://tests.native/auth?token=fixture-token&state=a%26b#fragment");
         QSignalSpy dispatched(&manager, &ExtensionManager::uriDispatched);
         QVERIFY(manager.dispatchUri(callback));
         QTRY_COMPARE(dispatched.size(), 1);
         QSignalSpy results(&manager, &ExtensionManager::commandResult);
         QVERIFY(manager.requestCommand("tests.native.receivedUris", {}) != 0);
         QTRY_COMPARE(results.size(), 1);
-        QVERIFY2(results.first().at(2).toString().isEmpty(), qPrintable(results.first().at(2).toString()));
+        QVERIFY2(results.first().at(2).toString().isEmpty(),
+                 qPrintable(results.first().at(2).toString()));
         QVERIFY(!results.first().at(1).value<QJsonValue>().toArray().isEmpty());
-        QCOMPARE(results.first().at(1).value<QJsonValue>().toArray().first().toString(), callback.toString(QUrl::FullyEncoded));
-        QVERIFY(manager.requestCommand("tests.native.resolveUri", {"https://example.invalid/resource"}) != 0);
+        QCOMPARE(results.first().at(1).value<QJsonValue>().toArray().first().toString(),
+                 callback.toString(QUrl::FullyEncoded));
+        QVERIFY(manager.requestCommand("tests.native.resolveUri",
+                                       {"https://example.invalid/resource"}) != 0);
         QTRY_COMPARE(results.size(), 2);
         QVERIFY(results.last().at(2).toString().isEmpty());
-        QCOMPARE(results.last().at(1).value<QJsonValue>().toString(), QString("https://example.invalid/resource"));
-        QVERIFY(manager.setEnabled("tests.native", false)); QVERIFY(!manager.uriTarget(callback));
+        QCOMPARE(results.last().at(1).value<QJsonValue>().toString(),
+                 QString("https://example.invalid/resource"));
+        QVERIFY(manager.setEnabled("tests.native", false));
+        QVERIFY(!manager.uriTarget(callback));
     }
     void statusBarUpdatesAndCommandArgumentsCrossSeparateHost() {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
-        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN, directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
+        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN,
+                            directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
         ExtensionManager manager(directory.path());
         manager.setHostExecutablePath(LITECODE_EXTENSION_HOST);
         manager.discover();
@@ -118,8 +170,10 @@ class ExtensionTests : public QObject {
         QSignalSpy results(&manager, &ExtensionManager::commandResult);
         QVERIFY(manager.requestCommand("tests.native.statusBar", {}) != 0);
         QTRY_COMPARE(results.size(), 1);
-        QVERIFY2(results.first().at(2).toString().isEmpty(), qPrintable(results.first().at(2).toString()));
-        QCOMPARE(results.first().at(1).value<QJsonValue>().toObject().value("id").toString(), QString("fixture"));
+        QVERIFY2(results.first().at(2).toString().isEmpty(),
+                 qPrintable(results.first().at(2).toString()));
+        QCOMPARE(results.first().at(1).value<QJsonValue>().toObject().value("id").toString(),
+                 QString("fixture"));
         QTRY_COMPARE(manager.statusBar().entries().size(), 1);
         const auto entry = manager.statusBar().entries().first();
         QCOMPARE(entry.id, QString("tests.native.fixture"));
@@ -127,7 +181,8 @@ class ExtensionTests : public QObject {
         QCOMPARE(entry.state.alignment, StatusBarAlignment::Right);
         QVERIFY(manager.statusBar().invoke(entry.key));
         QTRY_COMPARE(results.size(), 2);
-        QVERIFY2(results.last().at(2).toString().isEmpty(), qPrintable(results.last().at(2).toString()));
+        QVERIFY2(results.last().at(2).toString().isEmpty(),
+                 qPrintable(results.last().at(2).toString()));
         QCOMPARE(results.last().at(1).value<QJsonValue>().toInt(), 42);
         QVERIFY(manager.setEnabled("tests.native", false));
         QVERIFY(manager.statusBar().entries().isEmpty());
@@ -135,55 +190,67 @@ class ExtensionTests : public QObject {
     void quickPickPreservesTypedPayloadAcrossSeparateHost() {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
-        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN, directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
+        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN,
+                            directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
         ExtensionManager manager(directory.path());
         manager.setHostExecutablePath(LITECODE_EXTENSION_HOST);
         manager.discover();
         connect(&manager.quickPick(), &WorkbenchQuickPick::itemsChanged, &manager,
-            [&](const QString& owner, quint64 id, const QVector<QuickPickItem>& items) {
-                QCOMPARE(items.size(), 2); QCOMPARE(items.first().label, items.last().label);
-                QVERIFY(manager.quickPick().complete(owner, id, QVector<int>{1}));
-            });
+                [&](const QString& owner, quint64 id, const QVector<QuickPickItem>& items) {
+                    QCOMPARE(items.size(), 2);
+                    QCOMPARE(items.first().label, items.last().label);
+                    QVERIFY(manager.quickPick().complete(owner, id, QVector<int>{1}));
+                });
         QVERIFY(manager.setEnabled("tests.native", true));
         QSignalSpy results(&manager, &ExtensionManager::commandResult);
         QVERIFY(manager.requestCommand("tests.native.quickPick", {}) != 0);
         QTRY_COMPARE(results.size(), 1);
-        QVERIFY2(results.first().at(2).toString().isEmpty(), qPrintable(results.first().at(2).toString()));
+        QVERIFY2(results.first().at(2).toString().isEmpty(),
+                 qPrintable(results.first().at(2).toString()));
         QCOMPARE(results.first().at(1).value<QJsonValue>().toInt(), 22);
         QVERIFY(manager.setEnabled("tests.native", false));
     }
     void inputBoxValidationAndResultCrossSeparateHost() {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
-        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN, directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
+        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN,
+                            directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
         ExtensionManager manager(directory.path());
         manager.setHostExecutablePath(LITECODE_EXTENSION_HOST);
         manager.discover();
         InputBoxRequest request;
-        connect(&manager.inputBox(), &WorkbenchInputBox::requested, &manager, [&](const InputBoxRequest& value) {
-            request = value;
-            QVERIFY(value.hasValidation);
-            QVERIFY(manager.inputBox().validate(value.owner, value.id, value.options.value.value_or(QString{})) != 0);
-        });
+        connect(&manager.inputBox(), &WorkbenchInputBox::requested, &manager,
+                [&](const InputBoxRequest& value) {
+                    request = value;
+                    QVERIFY(value.hasValidation);
+                    QVERIFY(manager.inputBox().validate(value.owner, value.id,
+                                                        value.options.value.value_or(QString{})) !=
+                            0);
+                });
         connect(&manager.inputBox(), &WorkbenchInputBox::validated, &manager,
-            [&](const QString& owner, quint64 id, quint64, const InputBoxValidationResult& value, const QString& error) {
-                QVERIFY(error.isEmpty());
-                const auto* message = std::get_if<InputBoxValidationMessage>(&value); QVERIFY(message);
-                QCOMPARE(message->severity, InputBoxValidationSeverity::Warning);
-                QVERIFY(manager.inputBox().complete(owner, id, request.options.value.value_or(QString{})));
-            });
+                [&](const QString& owner, quint64 id, quint64,
+                    const InputBoxValidationResult& value, const QString& error) {
+                    QVERIFY(error.isEmpty());
+                    const auto* message = std::get_if<InputBoxValidationMessage>(&value);
+                    QVERIFY(message);
+                    QCOMPARE(message->severity, InputBoxValidationSeverity::Warning);
+                    QVERIFY(manager.inputBox().complete(owner, id,
+                                                        request.options.value.value_or(QString{})));
+                });
         QVERIFY(manager.setEnabled("tests.native", true));
         QSignalSpy results(&manager, &ExtensionManager::commandResult);
         QVERIFY(manager.requestCommand("tests.native.inputBox", {"  warning  "}) != 0);
         QTRY_COMPARE(results.size(), 1);
-        QVERIFY2(results.first().at(2).toString().isEmpty(), qPrintable(results.first().at(2).toString()));
+        QVERIFY2(results.first().at(2).toString().isEmpty(),
+                 qPrintable(results.first().at(2).toString()));
         QCOMPARE(results.first().at(1).value<QJsonValue>().toString(), QString("  warning  "));
         QVERIFY(manager.setEnabled("tests.native", false));
     }
     void stablePrimitivesWorkInsideSeparateNativeHost() {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
-        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN, directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
+        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN,
+                            directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
         ExtensionManager manager(directory.path());
         manager.setHostExecutablePath(LITECODE_EXTENSION_HOST);
         manager.discover();
@@ -191,21 +258,24 @@ class ExtensionTests : public QObject {
         QSignalSpy results(&manager, &ExtensionManager::commandResult);
         QVERIFY(manager.requestCommand("tests.native.primitives", {}) != 0);
         QTRY_COMPARE(results.size(), 1);
-        QVERIFY2(results.first().at(2).toString().isEmpty(), qPrintable(results.first().at(2).toString()));
+        QVERIFY2(results.first().at(2).toString().isEmpty(),
+                 qPrintable(results.first().at(2).toString()));
         const auto value = results.first().at(1).value<QJsonValue>().toObject();
         QVERIFY(value.value("fixedNone").toBool());
         QCOMPARE(value.value("oldCalls").toInt(), 0);
         QCOMPARE(value.value("newCalls").toInt(), 1);
         QVERIFY(value.value("cancelled").toBool());
         QVERIFY(value.value("disposedCopies").toBool());
-        QCOMPARE(value.value("events").toArray(), QJsonArray({"first:1", "second:1", "first:2", "second:2"}));
+        QCOMPARE(value.value("events").toArray(),
+                 QJsonArray({"first:1", "second:1", "first:2", "second:2"}));
         QVERIFY(manager.setEnabled("tests.native", false));
     }
     void gracefulShutdownDeactivatesBeforeSubscriptionsDespiteExceptions() {
         for (const bool throwing : {false, true}) {
             QTemporaryDir directory;
             QVERIFY(directory.isValid());
-            QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN, directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
+            QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN,
+                                directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
             ExtensionManager manager(directory.path());
             manager.setHostExecutablePath(LITECODE_EXTENSION_HOST);
             manager.discover();
@@ -214,19 +284,23 @@ class ExtensionTests : public QObject {
             const auto marker = directory.filePath("lifecycle.txt");
             QVERIFY(manager.requestCommand("tests.native.lifecycle", {marker, throwing}) != 0);
             QTRY_COMPARE(results.size(), 1);
-            QVERIFY2(results.first().at(2).toString().isEmpty(), qPrintable(results.first().at(2).toString()));
+            QVERIFY2(results.first().at(2).toString().isEmpty(),
+                     qPrintable(results.first().at(2).toString()));
             QVERIFY(manager.setEnabled("tests.native", false));
             const auto contents = [&] {
                 QFile file(marker);
                 return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray{};
             };
-            QTRY_COMPARE(contents(), QByteArray("deactivate\ncontext:available\nsubscription:1\nsubscription:2\n"));
+            QTRY_COMPARE(
+                contents(),
+                QByteArray("deactivate\ncontext:available\nsubscription:1\nsubscription:2\n"));
         }
     }
     void environmentIdentitySurvivesSeparateHostRestart() {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
-        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN, directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
+        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN,
+                            directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
         ExtensionManager manager(directory.path());
         manager.setHostExecutablePath(LITECODE_EXTENSION_HOST);
         manager.setDefaultShell("/fixture/first-shell");
@@ -259,32 +333,46 @@ class ExtensionTests : public QObject {
         QTRY_COMPARE(results.size(), 1);
         result = results.takeFirst();
         QVERIFY(result.at(2).toString().isEmpty());
-        QCOMPARE(result.at(1).value<QJsonValue>().toObject().value("shell").toString(), QString("/fixture/second-shell"));
-        QCOMPARE(result.at(1).value<QJsonValue>().toObject().value("shellChanges").toArray(), QJsonArray{"/fixture/second-shell"});
+        QCOMPARE(result.at(1).value<QJsonValue>().toObject().value("shell").toString(),
+                 QString("/fixture/second-shell"));
+        QCOMPARE(result.at(1).value<QJsonValue>().toObject().value("shellChanges").toArray(),
+                 QJsonArray{"/fixture/second-shell"});
         manager.outputs().setGlobalLogLevel(LogLevel::Trace);
         QVERIFY(manager.requestCommand("tests.native.environment", {}) != 0);
         QTRY_COMPARE(results.size(), 1);
         result = results.takeFirst();
         QVERIFY(result.at(2).toString().isEmpty());
-        QCOMPARE(result.at(1).value<QJsonValue>().toObject().value("logLevel").toInt(), static_cast<int>(LogLevel::Trace));
-        QCOMPARE(result.at(1).value<QJsonValue>().toObject().value("logLevelChanges").toArray(), QJsonArray{static_cast<int>(LogLevel::Trace)});
+        QCOMPARE(result.at(1).value<QJsonValue>().toObject().value("logLevel").toInt(),
+                 static_cast<int>(LogLevel::Trace));
+        QCOMPARE(result.at(1).value<QJsonValue>().toObject().value("logLevelChanges").toArray(),
+                 QJsonArray{static_cast<int>(LogLevel::Trace)});
         manager.setDefaultShell("/fixture/second-shell");
         QVERIFY(manager.requestCommand("tests.native.environment", {}) != 0);
         QTRY_COMPARE(results.size(), 1);
         result = results.takeFirst();
         QVERIFY(result.at(2).toString().isEmpty());
-        QCOMPARE(result.at(1).value<QJsonValue>().toObject().value("shellChanges").toArray(), QJsonArray{"/fixture/second-shell"});
+        QCOMPARE(result.at(1).value<QJsonValue>().toObject().value("shellChanges").toArray(),
+                 QJsonArray{"/fixture/second-shell"});
         QVERIFY(manager.setEnabled("tests.native", false));
     }
     void clipboardUsesWorkbenchBackendAcrossSeparateHost() {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
-        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN, directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
+        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN,
+                            directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
         QString clipboard = "original";
         int reads = 0, writes = 0;
         ExtensionManager manager(directory.path());
         manager.setHostExecutablePath(LITECODE_EXTENSION_HOST);
-        manager.clipboard().setBackend([&] { ++reads; return clipboard; }, [&](const QString& text) { ++writes; clipboard = text; });
+        manager.clipboard().setBackend(
+            [&] {
+                ++reads;
+                return clipboard;
+            },
+            [&](const QString& text) {
+                ++writes;
+                clipboard = text;
+            });
         manager.discover();
         QVERIFY(manager.setEnabled("tests.native", true));
         QSignalSpy results(&manager, &ExtensionManager::commandResult);
@@ -309,14 +397,17 @@ class ExtensionTests : public QObject {
         QCOMPARE(reads, 2);
         // Construct large content inside the plugin so the test also isolates
         // clipboard transport from the separate command-argument/result limit.
-        const auto large = QString(9 * 1024 * 1024, QLatin1Char('x')) + QString::fromUtf8("\n\xf0\x9f\x98\x80");
-        QVERIFY(manager.requestCommand("tests.native.clipboard", {QJsonObject{{"length", 9 * 1024 * 1024}}}) != 0);
+        const auto large =
+            QString(9 * 1024 * 1024, QLatin1Char('x')) + QString::fromUtf8("\n\xf0\x9f\x98\x80");
+        QVERIFY(manager.requestCommand("tests.native.clipboard",
+                                       {QJsonObject{{"length", 9 * 1024 * 1024}}}) != 0);
         QTRY_COMPARE(results.size(), 1);
         result = results.takeFirst();
         QVERIFY2(result.at(2).toString().isEmpty(), qPrintable(result.at(2).toString()));
         QVERIFY(result.at(1).value<QJsonValue>().toBool());
         QCOMPARE(clipboard, large);
-        QVERIFY(manager.requestCommand("tests.native.clipboard", {QJsonObject{{"measure", true}}}) != 0);
+        QVERIFY(manager.requestCommand("tests.native.clipboard",
+                                       {QJsonObject{{"measure", true}}}) != 0);
         QTRY_COMPARE(results.size(), 1);
         result = results.takeFirst();
         QVERIFY2(result.at(2).toString().isEmpty(), qPrintable(result.at(2).toString()));
@@ -328,7 +419,8 @@ class ExtensionTests : public QObject {
     void documentOpeningResolvesToSynchronizedHostObject() {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
-        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN, directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
+        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN,
+                            directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
         int opens = 0;
         QString openingOwner;
         QStringList removedOwners;
@@ -336,12 +428,14 @@ class ExtensionTests : public QObject {
         manager.setHostExecutablePath(LITECODE_EXTENSION_HOST);
         manager.discover();
         manager.documents().setOpenDelegate(
-            [&manager, &opens, &openingOwner](const QString& owner, const QUrl& uri, const TextDocumentOpenOptions&) {
+            [&manager, &opens, &openingOwner](const QString& owner, const QUrl& uri,
+                                              const TextDocumentOpenOptions&) {
                 ++opens;
                 openingOwner = owner;
                 QPromise<TextDocumentSnapshot> promise;
                 promise.start();
-                TextDocumentSnapshot snapshot{"73", uri, "python", "utf8", "fixture text", 1, false, EndOfLine::LF};
+                TextDocumentSnapshot snapshot{"73",           uri, "python", "utf8",
+                                              "fixture text", 1,   false,    EndOfLine::LF};
                 manager.documents().update(snapshot);
                 promise.addResult(snapshot);
                 promise.finish();
@@ -350,24 +444,36 @@ class ExtensionTests : public QObject {
             [&manager](const QString&, const UntitledTextDocumentOptions& options) {
                 QPromise<TextDocumentSnapshot> promise;
                 promise.start();
-                TextDocumentSnapshot snapshot{"74", QUrl("untitled:Untitled-74"), options.language.value_or("plaintext"),
-                    options.encoding.value_or("utf8"), options.content.value_or(QString()), 1, true, EndOfLine::LF};
+                TextDocumentSnapshot snapshot{"74",
+                                              QUrl("untitled:Untitled-74"),
+                                              options.language.value_or("plaintext"),
+                                              options.encoding.value_or("utf8"),
+                                              options.content.value_or(QString()),
+                                              1,
+                                              true,
+                                              EndOfLine::LF};
                 manager.documents().update(snapshot);
                 promise.addResult(snapshot);
                 promise.finish();
                 return promise.future();
-            }, [&removedOwners](const QString& owner) { removedOwners.append(owner); });
+            },
+            [&removedOwners](const QString& owner) { removedOwners.append(owner); });
         QVERIFY(manager.setEnabled("tests.native", true));
         QSignalSpy results(&manager, &ExtensionManager::commandResult);
-        QVERIFY(manager.requestCommand("tests.native.openDocument", {QUrl::fromLocalFile(directory.filePath("fixture.py")).toString()}) != 0);
+        QVERIFY(manager.requestCommand(
+                    "tests.native.openDocument",
+                    {QUrl::fromLocalFile(directory.filePath("fixture.py")).toString()}) != 0);
         QTRY_COMPARE(results.size(), 1);
         auto result = results.takeFirst();
         QVERIFY2(result.at(2).toString().isEmpty(), qPrintable(result.at(2).toString()));
         QVERIFY(result.at(1).value<QJsonValue>().toObject().value("sameInstance").toBool());
-        QCOMPARE(result.at(1).value<QJsonValue>().toObject().value("text").toString(), QString("fixture text"));
+        QCOMPARE(result.at(1).value<QJsonValue>().toObject().value("text").toString(),
+                 QString("fixture text"));
         QCOMPARE(opens, 1);
         QCOMPARE(openingOwner, QString("tests.native"));
-        QVERIFY(manager.requestCommand("tests.native.openDocument", {QUrl::fromLocalFile(directory.filePath("fixture.py")).toString()}) != 0);
+        QVERIFY(manager.requestCommand(
+                    "tests.native.openDocument",
+                    {QUrl::fromLocalFile(directory.filePath("fixture.py")).toString()}) != 0);
         QTRY_COMPARE(results.size(), 1);
         result = results.takeFirst();
         QVERIFY(result.at(2).toString().isEmpty());
@@ -387,7 +493,8 @@ class ExtensionTests : public QObject {
     void progressAcrossHostBoundary() {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
-        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN, directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
+        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN,
+                            directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
         ExtensionManager manager(directory.path());
         manager.setHostExecutablePath(LITECODE_EXTENSION_HOST);
         manager.discover();
@@ -443,7 +550,8 @@ class ExtensionTests : public QObject {
     void fileDialogsAcrossHostBoundary() {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
-        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN, directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
+        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN,
+                            directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
         ExtensionManager manager(directory.path());
         manager.setHostExecutablePath(LITECODE_EXTENSION_HOST);
         manager.discover();
@@ -458,7 +566,8 @@ class ExtensionTests : public QObject {
         QVERIFY(options.canSelectMany.value());
         QCOMPARE(options.filters->first().first, QString("Python"));
         QVERIFY(results.isEmpty());
-        const QVector<QUrl> selected{QUrl::fromLocalFile(directory.filePath("one.py")), QUrl::fromLocalFile(directory.filePath("two.py"))};
+        const QVector<QUrl> selected{QUrl::fromLocalFile(directory.filePath("one.py")),
+                                     QUrl::fromLocalFile(directory.filePath("two.py"))};
         QVERIFY(manager.dialogs().complete(request.owner, request.id, selected));
         QTRY_COMPARE(results.size(), 1);
         const auto openResult = results.takeFirst();
@@ -470,7 +579,8 @@ class ExtensionTests : public QObject {
         QVERIFY(manager.requestCommand("tests.native.fileDialog", {"save"}) != 0);
         QTRY_COMPARE(requests.size(), 1);
         request = requests.takeFirst().first().value<FileDialogRequest>();
-        QCOMPARE(std::get<SaveDialogOptions>(request.options).saveLabel.value(), QString("Fixture Save"));
+        QCOMPARE(std::get<SaveDialogOptions>(request.options).saveLabel.value(),
+                 QString("Fixture Save"));
         QVERIFY(manager.dialogs().complete(request.owner, request.id, {}));
         QTRY_COMPARE(results.size(), 1);
         const auto cancelled = results.takeFirst();
@@ -487,7 +597,8 @@ class ExtensionTests : public QObject {
     void windowMessagesAcrossHostBoundary() {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
-        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN, directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
+        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN,
+                            directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
         ExtensionManager manager(directory.path());
         manager.setHostExecutablePath(LITECODE_EXTENSION_HOST);
         manager.discover();
@@ -510,7 +621,8 @@ class ExtensionTests : public QObject {
         const auto selected = results.takeFirst();
         QCOMPARE(selected.at(0).toULongLong(), commandId);
         QVERIFY(selected.at(2).toString().isEmpty());
-        QCOMPARE(selected.at(1).value<QJsonValue>().toObject().value("title").toString(), QString("Close"));
+        QCOMPARE(selected.at(1).value<QJsonValue>().toObject().value("title").toString(),
+                 QString("Close"));
         QVERIFY(selected.at(1).value<QJsonValue>().toObject().value("close").toBool());
         QVERIFY(manager.requestCommand("tests.native.message", {false}) != 0);
         QTRY_COMPARE(requests.size(), 1);
@@ -531,7 +643,8 @@ class ExtensionTests : public QObject {
     void outputChannelsAcrossHostBoundary() {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
-        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN, directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
+        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN,
+                            directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
         ExtensionManager manager(directory.path());
         manager.setHostExecutablePath(LITECODE_EXTENSION_HOST);
         manager.discover();
@@ -547,8 +660,10 @@ class ExtensionTests : public QObject {
         QString outputId, logId;
         for (const auto& channel : manager.outputs().channels()) {
             QCOMPARE(channel.owner, QString("tests.native"));
-            if (channel.log) logId = channel.id;
-            else outputId = channel.id;
+            if (channel.log)
+                logId = channel.id;
+            else
+                outputId = channel.id;
         }
         QVERIFY(!outputId.isEmpty());
         QVERIFY(!logId.isEmpty());
@@ -560,8 +675,10 @@ class ExtensionTests : public QObject {
         QTRY_COMPARE(results.size(), 1);
         const auto levelResult = results.takeFirst();
         QVERIFY(levelResult.at(2).toString().isEmpty());
-        QCOMPARE(levelResult.at(1).value<QJsonValue>().toObject().value("level").toInt(), static_cast<int>(LogLevel::Error));
-        QCOMPARE(levelResult.at(1).value<QJsonValue>().toObject().value("eventLevel").toInt(), static_cast<int>(LogLevel::Error));
+        QCOMPARE(levelResult.at(1).value<QJsonValue>().toObject().value("level").toInt(),
+                 static_cast<int>(LogLevel::Error));
+        QCOMPARE(levelResult.at(1).value<QJsonValue>().toObject().value("eventLevel").toInt(),
+                 static_cast<int>(LogLevel::Error));
         manager.outputs().clear(logId);
         QVERIFY(manager.requestCommand("tests.native.output", {"error"}) != 0);
         QTRY_COMPARE(results.size(), 1);
@@ -639,19 +756,24 @@ class ExtensionTests : public QObject {
             {"command", "tests.example.hello"}, {"title", "Hello"}, {"category", "Example"}};
         manifest["contributes"] = QJsonObject{{"commands", QJsonArray{command}}};
         QVERIFY(ExtensionManager::validateManifest(manifest).isEmpty());
-        manifest["contributes"] = QJsonObject{{"commands", QJsonArray{
-            QJsonObject{{"command", "unprefixed-command"}, {"title", "Other"}}}}};
+        manifest["contributes"] = QJsonObject{
+            {"commands",
+             QJsonArray{QJsonObject{{"command", "unprefixed-command"}, {"title", "Other"}}}}};
         QVERIFY(ExtensionManager::validateManifest(manifest).isEmpty());
-        manifest["contributes"] = QJsonObject{{"formatters", QJsonArray{
-            QJsonObject{{"language", "python"}}}}};
+        manifest["contributes"] =
+            QJsonObject{{"formatters", QJsonArray{QJsonObject{{"language", "python"}}}}};
         QVERIFY(ExtensionManager::validateManifest(manifest).isEmpty());
-        manifest["contributes"] = QJsonObject{{"formatters", QJsonArray{
-            QJsonObject{{"language", "python"}}, QJsonObject{{"language", "python"}}}}};
+        manifest["contributes"] =
+            QJsonObject{{"formatters", QJsonArray{QJsonObject{{"language", "python"}},
+                                                  QJsonObject{{"language", "python"}}}}};
         QVERIFY(!ExtensionManager::validateManifest(manifest).isEmpty());
-        const QJsonObject debugger{{"type", "fixture"},
-                                   {"configurationAttributes", QJsonObject{
-                                        {"launch", QJsonObject{{"properties", QJsonObject{
-                                             {"interpreter", QJsonObject{{"type", "string"}}}}}}}}}};
+        const QJsonObject debugger{
+            {"type", "fixture"},
+            {"configurationAttributes",
+             QJsonObject{
+                 {"launch",
+                  QJsonObject{{"properties",
+                               QJsonObject{{"interpreter", QJsonObject{{"type", "string"}}}}}}}}}};
         manifest["contributes"] = QJsonObject{{"debuggers", QJsonArray{debugger}}};
         QVERIFY(ExtensionManager::validateManifest(manifest).isEmpty());
         manifest["contributes"] = QJsonObject{{"debuggers", QJsonArray{debugger, debugger}}};
@@ -660,16 +782,16 @@ class ExtensionTests : public QObject {
         QVERIFY(!ExtensionManager::validateManifest(manifest).isEmpty());
         manifest["contributes"] = QJsonObject{{"commands", "not an array"}};
         QVERIFY(!ExtensionManager::validateManifest(manifest).isEmpty());
-        const QJsonObject participant{{"id", "tests.example.chat"},
-                                      {"name", "my-chat"},
-                                      {"fullName", "My Chat"}};
+        const QJsonObject participant{
+            {"id", "tests.example.chat"}, {"name", "my-chat"}, {"fullName", "My Chat"}};
         manifest["contributes"] = QJsonObject{{"chatParticipants", QJsonArray{participant}}};
         QVERIFY(ExtensionManager::validateManifest(manifest).isEmpty());
-        manifest["contributes"] = QJsonObject{{"chatParticipants",
-            QJsonArray{participant, participant}}};
+        manifest["contributes"] =
+            QJsonObject{{"chatParticipants", QJsonArray{participant, participant}}};
         QVERIFY(!ExtensionManager::validateManifest(manifest).isEmpty());
-        manifest["contributes"] = QJsonObject{{"chatParticipants", QJsonArray{
-            QJsonObject{{"id", "tests.example.chat"}, {"name", "invalid name"}}}}};
+        manifest["contributes"] = QJsonObject{
+            {"chatParticipants",
+             QJsonArray{QJsonObject{{"id", "tests.example.chat"}, {"name", "invalid name"}}}}};
         QVERIFY(!ExtensionManager::validateManifest(manifest).isEmpty());
     }
     void emptyDiscovery() {
@@ -683,8 +805,8 @@ class ExtensionTests : public QObject {
     void contributedCommandCollisionRecoversAfterDisable() {
         QTemporaryDir directory;
         const QString first = directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName());
-        const QString second = directory.filePath(
-            QFileInfo(LITECODE_CONFLICTING_COMMAND_TEST_PLUGIN).fileName());
+        const QString second =
+            directory.filePath(QFileInfo(LITECODE_CONFLICTING_COMMAND_TEST_PLUGIN).fileName());
         QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN, first));
         QVERIFY(QFile::copy(LITECODE_CONFLICTING_COMMAND_TEST_PLUGIN, second));
         ExtensionManager manager(directory.path());
@@ -707,8 +829,8 @@ class ExtensionTests : public QObject {
     void chatParticipantCollisionRecoversAfterDisable() {
         QTemporaryDir directory;
         const QString first = directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName());
-        const QString second = directory.filePath(
-            QFileInfo(LITECODE_CONFLICTING_CHAT_TEST_PLUGIN).fileName());
+        const QString second =
+            directory.filePath(QFileInfo(LITECODE_CONFLICTING_CHAT_TEST_PLUGIN).fileName());
         QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN, first));
         QVERIFY(QFile::copy(LITECODE_CONFLICTING_CHAT_TEST_PLUGIN, second));
         ExtensionManager manager(directory.path());
@@ -755,12 +877,13 @@ class ExtensionTests : public QObject {
         QSignalSpy finished(&manager, &ExtensionManager::chatRequestFinished);
         QSignalSpy followups(&manager, &ExtensionManager::chatFollowupsReady);
         QSignalSpy messages(&manager, &ExtensionManager::informationMessage);
-        QCOMPARE(manager.requestChat("session", "tests.native.missing",
-                                     {{"prompt", "hello"}}), quint64(0));
-        const auto first = manager.requestChat("session", "tests.native.assistant",
-            {{"prompt", "first"}, {"command", "explain"},
-             {"references", QJsonArray{QJsonObject{{"id", "file"},
-                                                    {"value", "fixture.txt"}}}}});
+        QCOMPARE(manager.requestChat("session", "tests.native.missing", {{"prompt", "hello"}}),
+                 quint64(0));
+        const auto first = manager.requestChat(
+            "session", "tests.native.assistant",
+            {{"prompt", "first"},
+             {"command", "explain"},
+             {"references", QJsonArray{QJsonObject{{"id", "file"}, {"value", "fixture.txt"}}}}});
         QVERIFY(first != 0);
         QTRY_VERIFY([&] {
             return std::any_of(finished.cbegin(), finished.cend(), [first](const auto& item) {
@@ -774,8 +897,14 @@ class ExtensionTests : public QObject {
         }
         QCOMPARE(parts.at(0).at(2).value<QJsonObject>().value("kind").toString(),
                  QString("progress"));
-        QCOMPARE(parts.at(1).at(2).value<QJsonObject>().value("value").toObject()
-                     .value("value").toString(), QString("history=0 prompt=first"));
+        QCOMPARE(parts.at(1)
+                     .at(2)
+                     .value<QJsonObject>()
+                     .value("value")
+                     .toObject()
+                     .value("value")
+                     .toString(),
+                 QString("history=0 prompt=first"));
         QCOMPARE(parts.at(2).at(2).value<QJsonObject>().value("kind").toString(),
                  QString("anchor"));
         QCOMPARE(parts.at(3).at(2).value<QJsonObject>().value("kind").toString(),
@@ -795,8 +924,7 @@ class ExtensionTests : public QObject {
         const auto firstFollowup = followups.first().at(1).value<QJsonArray>().first().toObject();
         QCOMPARE(firstFollowup.value("prompt").toString(), QString("Ask another question"));
         QCOMPARE(firstFollowup.value("label").toString(), QString("Ask again"));
-        QCOMPARE(firstFollowup.value("participant").toString(),
-                 QString("tests.native.assistant"));
+        QCOMPARE(firstFollowup.value("participant").toString(), QString("tests.native.assistant"));
         QCOMPARE(firstFollowup.value("command").toString(), QString("explain"));
         QVERIFY(manager.sendChatFeedback(first, ChatResultFeedbackKind::Helpful));
         QTRY_VERIFY([&] {
@@ -804,35 +932,43 @@ class ExtensionTests : public QObject {
                 return item.at(0).toString() == "Chat feedback 1 command=explain";
             });
         }());
-        QVERIFY(!manager.sendChatFeedback(first,
-            static_cast<ChatResultFeedbackKind>(17)));
+        QVERIFY(!manager.sendChatFeedback(first, static_cast<ChatResultFeedbackKind>(17)));
         const auto history = manager.chatHistory("session", "tests.native.assistant");
         QCOMPARE(history.size(), 2);
         QCOMPARE(history.at(1).toObject().value("response").toArray().size(), 4);
         QCOMPARE(history.at(1).toObject().value("result").toObject(), firstResult);
         QVERIFY(manager.chatHistory("other", "tests.native.assistant").isEmpty());
 
-        const auto second = manager.requestChat("session", "tests.native.assistant",
-                                                {{"prompt", "async"}});
+        const auto second =
+            manager.requestChat("session", "tests.native.assistant", {{"prompt", "async"}});
         QVERIFY(second > first);
         QTRY_COMPARE(finished.size(), 2);
         QCOMPARE(finished.at(1).at(0).toULongLong(), second);
         QCOMPARE(finished.at(1).at(2).toString(), QString());
-        QCOMPARE(finished.at(1).at(1).value<QJsonObject>()
-                     .value("metadata").toObject().value("async").toBool(), true);
+        QCOMPARE(finished.at(1)
+                     .at(1)
+                     .value<QJsonObject>()
+                     .value("metadata")
+                     .toObject()
+                     .value("async")
+                     .toBool(),
+                 true);
         QTRY_COMPARE(followups.size(), 2);
         QCOMPARE(followups.at(1).at(0).toULongLong(), second);
         QVERIFY(followups.at(1).at(2).toString().isEmpty());
         QCOMPARE(manager.chatHistory("session", "tests.native.assistant").size(), 4);
         QVERIFY(std::any_of(parts.cbegin(), parts.cend(), [second](const auto& item) {
-            return item.at(0).toULongLong() == second &&
-                   item.at(2).template value<QJsonObject>().value("value").toObject()
-                       .value("value").toString()
-                       .startsWith("history=2");
+            return item.at(0).toULongLong() == second && item.at(2)
+                                                             .template value<QJsonObject>()
+                                                             .value("value")
+                                                             .toObject()
+                                                             .value("value")
+                                                             .toString()
+                                                             .startsWith("history=2");
         }));
 
-        const auto cancelled = manager.requestChat("session", "tests.native.assistant",
-                                                   {{"prompt", "cancel"}});
+        const auto cancelled =
+            manager.requestChat("session", "tests.native.assistant", {{"prompt", "cancel"}});
         QVERIFY(cancelled > second);
         QTRY_VERIFY([&] {
             return std::any_of(parts.cbegin(), parts.cend(), [cancelled](const auto& item) {
@@ -853,15 +989,15 @@ class ExtensionTests : public QObject {
         QCOMPARE(finished.size(), 3);
         QCOMPARE(manager.chatHistory("session", "tests.native.assistant").size(), 4);
 
-        const auto failure = manager.requestChat("session", "tests.native.assistant",
-                                                 {{"prompt", "throw"}});
+        const auto failure =
+            manager.requestChat("session", "tests.native.assistant", {{"prompt", "throw"}});
         QVERIFY(failure > cancelled);
         QTRY_COMPARE(finished.size(), 4);
         QCOMPARE(finished.at(3).at(0).toULongLong(), failure);
         QCOMPARE(finished.at(3).at(2).toString(), QString("chat fixture failure"));
         const auto partsBeforeLate = parts.size();
-        const auto late = manager.requestChat("session", "tests.native.assistant",
-                                              {{"prompt", "late"}});
+        const auto late =
+            manager.requestChat("session", "tests.native.assistant", {{"prompt", "late"}});
         QVERIFY(late > failure);
         QTRY_COMPARE(finished.size(), 5);
         QTRY_VERIFY([&] {
@@ -875,21 +1011,20 @@ class ExtensionTests : public QObject {
         QVERIFY(foreign > late);
         QTRY_COMPARE(finished.size(), 6);
         QTRY_VERIFY([&] {
-            return std::any_of(followups.cbegin(), followups.cend(),
-                               [foreign](const auto& item) {
+            return std::any_of(followups.cbegin(), followups.cend(), [foreign](const auto& item) {
                 return item.at(0).toULongLong() == foreign;
             });
         }());
-        const auto rejectedFollowup = std::find_if(
-            followups.cbegin(), followups.cend(), [foreign](const auto& item) {
+        const auto rejectedFollowup =
+            std::find_if(followups.cbegin(), followups.cend(), [foreign](const auto& item) {
                 return item.at(0).toULongLong() == foreign;
             });
         QVERIFY(rejectedFollowup != followups.cend());
         QVERIFY(rejectedFollowup->at(1).value<QJsonArray>().isEmpty());
         QVERIFY(rejectedFollowup->at(2).toString().contains("same extension"));
 
-        const auto slow = manager.requestChat("session", "tests.native.assistant",
-                                              {{"prompt", "slowFollowup"}});
+        const auto slow =
+            manager.requestChat("session", "tests.native.assistant", {{"prompt", "slowFollowup"}});
         QVERIFY(slow > foreign);
         QTRY_COMPARE(finished.size(), 7);
         manager.closeChatSession("session");
@@ -910,8 +1045,8 @@ class ExtensionTests : public QObject {
         QVERIFY(manager.setEnabled("tests.native", true));
         QSignalSpy parts(&manager, &ExtensionManager::chatResponsePart);
         QSignalSpy finished(&manager, &ExtensionManager::chatRequestFinished);
-        const auto id = manager.requestChat("session", "tests.native.assistant",
-                                            {{"prompt", "typed"}});
+        const auto id =
+            manager.requestChat("session", "tests.native.assistant", {{"prompt", "typed"}});
         QVERIFY(id != 0);
         QTRY_COMPARE(finished.size(), 1);
         QCOMPARE(finished.first().at(2).toString(), QString());
@@ -922,17 +1057,22 @@ class ExtensionTests : public QObject {
         QCOMPARE(markdownValue.value("value").toString(), QString("[source](./fixture.txt)"));
         QCOMPARE(markdownValue.value("baseUri").toString(), QString("file:///workspace/"));
         QVERIFY(markdownValue.value("supportThemeIcons").toBool());
-        QCOMPARE(markdownValue.value("isTrusted").toObject()
-                     .value("enabledCommands").toArray().first().toString(),
+        QCOMPARE(markdownValue.value("isTrusted")
+                     .toObject()
+                     .value("enabledCommands")
+                     .toArray()
+                     .first()
+                     .toString(),
                  QString("tests.native.hello"));
         const auto anchor = parts.at(3).at(2).value<QJsonObject>();
         QCOMPARE(anchor.value("title").toString(), QString("Located"));
         const auto location = anchor.value("value").toObject();
         QCOMPARE(location.value("uri").toString(), QString("file:///fixture.txt"));
-        QCOMPARE(location.value("range").toObject().value("start").toObject()
-                     .value("line").toInt(), 2);
-        QCOMPARE(location.value("range").toObject().value("end").toObject()
-                     .value("character").toInt(), 9);
+        QCOMPARE(location.value("range").toObject().value("start").toObject().value("line").toInt(),
+                 2);
+        QCOMPARE(
+            location.value("range").toObject().value("end").toObject().value("character").toInt(),
+            9);
         const auto button = parts.at(4).at(2).value<QJsonObject>().value("value").toObject();
         QCOMPARE(button.value("command").toString(), QString("tests.native.hello"));
         QCOMPARE(button.value("tooltip").toString(), QString("Run hello"));
@@ -945,10 +1085,10 @@ class ExtensionTests : public QObject {
         QVERIFY(child.value("children").toArray().isEmpty());
         const auto reference = parts.at(6).at(2).value<QJsonObject>();
         QCOMPARE(reference.value("kind").toString(), QString("reference"));
-        QCOMPARE(reference.value("iconPath").toObject().value("id").toString(),
-                 QString("file"));
-        QCOMPARE(reference.value("iconPath").toObject().value("color").toObject()
-                     .value("id").toString(), QString("charts.blue"));
+        QCOMPARE(reference.value("iconPath").toObject().value("id").toString(), QString("file"));
+        QCOMPARE(
+            reference.value("iconPath").toObject().value("color").toObject().value("id").toString(),
+            QString("charts.blue"));
         const auto history = manager.chatHistory("session", "tests.native.assistant");
         QCOMPARE(history.size(), 2);
         QCOMPARE(history.at(1).toObject().value("response").toArray().size(), 5);
@@ -962,31 +1102,31 @@ class ExtensionTests : public QObject {
         manager.discover();
         QVERIFY(manager.setEnabled("tests.native", true));
         QSignalSpy finished(&manager, &ExtensionManager::chatRequestFinished);
-        const QJsonObject sourceRange{
-            {"start", QJsonObject{{"line", 2}, {"character", 1}}},
-            {"end", QJsonObject{{"line", 2}, {"character", 4}}}};
-        const QJsonObject locationValue{{"uri", "file:///b.py"},
-                                        {"range", sourceRange}};
+        const QJsonObject sourceRange{{"start", QJsonObject{{"line", 2}, {"character", 1}}},
+                                      {"end", QJsonObject{{"line", 2}, {"character", 4}}}};
+        const QJsonObject locationValue{{"uri", "file:///b.py"}, {"range", sourceRange}};
         const QJsonArray references{
-            QJsonObject{{"id", "a"}, {"range", QJsonArray{0, 2}},
-                        {"$litecodeValueType", "uri"}, {"value", "file:///a.py"}},
+            QJsonObject{{"id", "a"},
+                        {"range", QJsonArray{0, 2}},
+                        {"$litecodeValueType", "uri"},
+                        {"value", "file:///a.py"}},
             QJsonObject{{"id", "attachment"}, {"value", QJsonObject{{"data", 7}}}},
-            QJsonObject{{"id", "b"}, {"range", QJsonArray{3, 5}},
-                        {"$litecodeValueType", "location"}, {"value", locationValue}}};
+            QJsonObject{{"id", "b"},
+                        {"range", QJsonArray{3, 5}},
+                        {"$litecodeValueType", "location"},
+                        {"value", locationValue}}};
         const QJsonArray toolReferences{
             QJsonObject{{"name", "first"}, {"range", QJsonArray{0, 2}}},
             QJsonObject{{"name", "second"}, {"range", QJsonArray{3, 5}}}};
-        const QJsonObject request{{"prompt", "#a #b"},
-                                  {"references", references},
-                                  {"toolReferences", toolReferences}};
+        const QJsonObject request{
+            {"prompt", "#a #b"}, {"references", references}, {"toolReferences", toolReferences}};
         const auto id = manager.requestChat("session", "tests.native.assistant", request);
         QVERIFY(id != 0);
         QTRY_COMPARE(finished.size(), 1);
         QCOMPARE(finished.first().at(2).toString(), QString());
-        const auto metadata = finished.first().at(1).value<QJsonObject>()
-                                  .value("metadata").toObject();
-        QCOMPARE(metadata.value("referenceIds").toArray(),
-                 QJsonArray({"b", "a", "attachment"}));
+        const auto metadata =
+            finished.first().at(1).value<QJsonObject>().value("metadata").toObject();
+        QCOMPARE(metadata.value("referenceIds").toArray(), QJsonArray({"b", "a", "attachment"}));
         QCOMPARE(metadata.value("toolNames").toArray(), QJsonArray({"second", "first"}));
         QCOMPARE(metadata.value("firstRangeStart").toInt(), 3);
         QVERIFY(metadata.value("firstIsLocation").toBool());
@@ -994,13 +1134,20 @@ class ExtensionTests : public QObject {
         QCOMPARE(metadata.value("attachedValue").toObject().value("data").toInt(), 7);
         const auto history = manager.chatHistory("session", "tests.native.assistant");
         QCOMPARE(history.size(), 2);
-        QCOMPARE(history.first().toObject().value("references").toArray().first()
-                     .toObject().value("id").toString(), QString("b"));
+        QCOMPARE(history.first()
+                     .toObject()
+                     .value("references")
+                     .toArray()
+                     .first()
+                     .toObject()
+                     .value("id")
+                     .toString(),
+                 QString("b"));
         QJsonObject invalid = request;
-        invalid.insert("references", QJsonArray{QJsonObject{{"id", "bad"},
-            {"range", QJsonArray{0, 6}}, {"value", "outside"}}});
-        QCOMPARE(manager.requestChat("session", "tests.native.assistant", invalid),
-                 quint64(0));
+        invalid.insert("references",
+                       QJsonArray{QJsonObject{
+                           {"id", "bad"}, {"range", QJsonArray{0, 6}}, {"value", "outside"}}});
+        QCOMPARE(manager.requestChat("session", "tests.native.assistant", invalid), quint64(0));
         QCOMPARE(manager.chatHistory("session", "tests.native.assistant").size(), 2);
     }
     void typedChatHistoryCrossesHostWithContentAndResult() {
@@ -1012,28 +1159,28 @@ class ExtensionTests : public QObject {
         manager.discover();
         QVERIFY(manager.setEnabled("tests.native", true));
         QSignalSpy finished(&manager, &ExtensionManager::chatRequestFinished);
-        const auto first = manager.requestChat("session", "tests.native.assistant",
-            {{"prompt", "first"}, {"command", "explain"},
-             {"references", QJsonArray{QJsonObject{{"id", "file"},
-                                                    {"value", "fixture.txt"}}}}});
+        const auto first = manager.requestChat(
+            "session", "tests.native.assistant",
+            {{"prompt", "first"},
+             {"command", "explain"},
+             {"references", QJsonArray{QJsonObject{{"id", "file"}, {"value", "fixture.txt"}}}}});
         QVERIFY(first != 0);
         QTRY_COMPARE(finished.size(), 1);
         QCOMPARE(finished.first().at(2).toString(), QString());
-        const auto second = manager.requestChat("session", "tests.native.assistant",
-                                                {{"prompt", "history-check"}});
+        const auto second =
+            manager.requestChat("session", "tests.native.assistant", {{"prompt", "history-check"}});
         QVERIFY(second > first);
         QTRY_COMPARE(finished.size(), 2);
         QCOMPARE(finished.at(1).at(2).toString(), QString());
-        const auto metadata = finished.at(1).at(1).value<QJsonObject>()
-                                  .value("metadata").toObject();
+        const auto metadata =
+            finished.at(1).at(1).value<QJsonObject>().value("metadata").toObject();
         QVERIFY(metadata.value("requestTyped").toBool());
         QVERIFY(metadata.value("responseTyped").toBool());
         QCOMPARE(metadata.value("firstPrompt").toString(), QString("first"));
         QCOMPARE(metadata.value("firstCommand").toString(), QString("explain"));
         QCOMPARE(metadata.value("firstReference").toString(), QString("file"));
         QCOMPARE(metadata.value("contentCount").toInt(), 4);
-        QCOMPARE(metadata.value("firstMarkdown").toString(),
-                 QString("history=0 prompt=first"));
+        QCOMPARE(metadata.value("firstMarkdown").toString(), QString("history=0 prompt=first"));
         QCOMPARE(metadata.value("firstResultCommand").toString(), QString("explain"));
         QCOMPARE(manager.chatHistory("session", "tests.native.assistant").size(), 4);
     }
@@ -1046,16 +1193,16 @@ class ExtensionTests : public QObject {
         manager.discover();
         QVERIFY(manager.setEnabled("tests.native", true));
         QSignalSpy finished(&manager, &ExtensionManager::chatRequestFinished);
-        const auto pending = manager.requestChat("session", "tests.native.assistant",
-                                                 {{"prompt", "cancel"}});
+        const auto pending =
+            manager.requestChat("session", "tests.native.assistant", {{"prompt", "cancel"}});
         QVERIFY(pending != 0);
         QVERIFY(manager.setEnabled("tests.native", false));
         QTRY_COMPARE(finished.size(), 1);
         QCOMPARE(finished.first().at(0).toULongLong(), pending);
         QCOMPARE(finished.first().at(2).toString(), QString("Extension disabled."));
         QVERIFY(manager.setEnabled("tests.native", true));
-        const auto inFlight = manager.requestChat("session", "tests.native.assistant",
-                                                  {{"prompt", "cancel"}});
+        const auto inFlight =
+            manager.requestChat("session", "tests.native.assistant", {{"prompt", "cancel"}});
         QVERIFY(inFlight > pending);
         QSignalSpy parts(&manager, &ExtensionManager::chatResponsePart);
         QTRY_VERIFY([&] {
@@ -1081,13 +1228,13 @@ class ExtensionTests : public QObject {
         QVERIFY(manager.setEnabled("tests.native", true));
         QSignalSpy finished(&manager, &ExtensionManager::chatRequestFinished);
         QSignalSpy parts(&manager, &ExtensionManager::chatResponsePart);
-        const auto completed = manager.requestChat("session", "tests.native.assistant",
-                                                    {{"prompt", "first"}});
+        const auto completed =
+            manager.requestChat("session", "tests.native.assistant", {{"prompt", "first"}});
         QVERIFY(completed != 0);
         QTRY_COMPARE(finished.size(), 1);
         QVERIFY(manager.sendChatFeedback(completed, ChatResultFeedbackKind::Helpful));
-        const auto active = manager.requestChat("session", "tests.native.assistant",
-                                                 {{"prompt", "cancel"}});
+        const auto active =
+            manager.requestChat("session", "tests.native.assistant", {{"prompt", "cancel"}});
         QVERIFY(active > completed);
         QTRY_VERIFY([&] {
             return std::any_of(parts.cbegin(), parts.cend(), [active](const auto& item) {
@@ -1097,8 +1244,7 @@ class ExtensionTests : public QObject {
         QVERIFY(manager.executeCommand("tests.native.disposeParticipant"));
         QTRY_COMPARE(finished.size(), 2);
         QCOMPARE(finished.at(1).at(0).toULongLong(), active);
-        QCOMPARE(finished.at(1).at(2).toString(),
-                 QString("Chat participant was disposed."));
+        QCOMPARE(finished.at(1).at(2).toString(), QString("Chat participant was disposed."));
         QVERIFY(!manager.sendChatFeedback(completed, ChatResultFeedbackKind::Helpful));
         QTest::qWait(350);
         QCOMPARE(finished.size(), 2);
@@ -1114,8 +1260,8 @@ class ExtensionTests : public QObject {
         QVERIFY(manager.setEnabled("tests.native", true));
         QSignalSpy finished(&manager, &ExtensionManager::chatRequestFinished);
         QSignalSpy followups(&manager, &ExtensionManager::chatFollowupsReady);
-        const auto id = manager.requestChat("session", "tests.native.assistant",
-                                            {{"prompt", "slowFollowup"}});
+        const auto id =
+            manager.requestChat("session", "tests.native.assistant", {{"prompt", "slowFollowup"}});
         QVERIFY(id != 0);
         QTRY_COMPARE(finished.size(), 1);
         QVERIFY(finished.first().at(2).toString().isEmpty());
@@ -1138,42 +1284,57 @@ class ExtensionTests : public QObject {
         QSignalSpy parts(&manager, &ExtensionManager::chatResponsePart);
         QSignalSpy finished(&manager, &ExtensionManager::chatRequestFinished);
         QSignalSpy followups(&manager, &ExtensionManager::chatFollowupsReady);
-        const auto first = manager.requestChat("session", "tests.native.assistant",
-                                                {{"prompt", "before"}});
+        const auto first =
+            manager.requestChat("session", "tests.native.assistant", {{"prompt", "before"}});
         QVERIFY(first != 0);
         QTRY_COMPARE(finished.size(), 1);
         QTRY_VERIFY(manager.chatParticipantContributions().first().iconPath.isObject());
-        QCOMPARE(manager.chatParticipantContributions().first().iconPath.toObject()
-                     .value("dark").toString(), QString("file:///fixture-dark.svg"));
+        QCOMPARE(manager.chatParticipantContributions()
+                     .first()
+                     .iconPath.toObject()
+                     .value("dark")
+                     .toString(),
+                 QString("file:///fixture-dark.svg"));
         QVERIFY(manager.executeCommand("tests.native.replaceParticipantHandler"));
         QTRY_COMPARE(manager.chatParticipantContributions().first().iconPath.toString(),
                      QString("file:///replacement.svg"));
         QVERIFY(manager.executeCommand("tests.native.themeParticipantIcon"));
-        QTRY_COMPARE(manager.chatParticipantContributions().first().iconPath.toObject()
-                         .value("id").toString(), QString("chat"));
-        const auto second = manager.requestChat("session", "tests.native.assistant",
-                                                 {{"prompt", "after"}});
+        QTRY_COMPARE(manager.chatParticipantContributions()
+                         .first()
+                         .iconPath.toObject()
+                         .value("id")
+                         .toString(),
+                     QString("chat"));
+        const auto second =
+            manager.requestChat("session", "tests.native.assistant", {{"prompt", "after"}});
         QVERIFY(second > first);
         QTRY_COMPARE(finished.size(), 2);
-        QCOMPARE(finished.at(1).at(1).value<QJsonObject>()
-                     .value("metadata").toObject().value("replaced").toBool(), true);
+        QCOMPARE(finished.at(1)
+                     .at(1)
+                     .value<QJsonObject>()
+                     .value("metadata")
+                     .toObject()
+                     .value("replaced")
+                     .toBool(),
+                 true);
         QVERIFY(std::any_of(parts.cbegin(), parts.cend(), [second](const auto& item) {
-            return item.at(0).toULongLong() == second &&
-                   item.at(2).template value<QJsonObject>().value("value").toObject()
-                       .value("value").toString() ==
-                       "replacement:after";
+            return item.at(0).toULongLong() == second && item.at(2)
+                                                                 .template value<QJsonObject>()
+                                                                 .value("value")
+                                                                 .toObject()
+                                                                 .value("value")
+                                                                 .toString() == "replacement:after";
         }));
         QSignalSpy commandResults(&manager, &ExtensionManager::commandResult);
         const auto clearId = manager.requestCommand("tests.native.clearFollowupProvider");
         QVERIFY(clearId != 0);
         QTRY_VERIFY([&] {
-            return std::any_of(commandResults.cbegin(), commandResults.cend(),
-                               [clearId](const auto& item) {
-                return item.at(0).toULongLong() == clearId;
-            });
+            return std::any_of(
+                commandResults.cbegin(), commandResults.cend(),
+                [clearId](const auto& item) { return item.at(0).toULongLong() == clearId; });
         }());
-        const auto third = manager.requestChat("session", "tests.native.assistant",
-                                               {{"prompt", "no-followups"}});
+        const auto third =
+            manager.requestChat("session", "tests.native.assistant", {{"prompt", "no-followups"}});
         QVERIFY(third > second);
         QTRY_COMPARE(finished.size(), 3);
         QTRY_VERIFY([&] {
@@ -1181,10 +1342,9 @@ class ExtensionTests : public QObject {
                 return item.at(0).toULongLong() == third;
             });
         }());
-        const auto emptyFollowups = std::find_if(
-            followups.cbegin(), followups.cend(), [third](const auto& item) {
-                return item.at(0).toULongLong() == third;
-            });
+        const auto emptyFollowups =
+            std::find_if(followups.cbegin(), followups.cend(),
+                         [third](const auto& item) { return item.at(0).toULongLong() == third; });
         QVERIFY(emptyFollowups != followups.cend());
         QVERIFY(emptyFollowups->at(1).value<QJsonArray>().isEmpty());
         QVERIFY(emptyFollowups->at(2).toString().isEmpty());
@@ -1192,8 +1352,8 @@ class ExtensionTests : public QObject {
     void commandServiceRoutesAcrossSeparateHosts() {
         QTemporaryDir directory;
         const QString first = directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName());
-        const QString second = directory.filePath(
-            QFileInfo(LITECODE_OTHER_FORMATTER_TEST_PLUGIN).fileName());
+        const QString second =
+            directory.filePath(QFileInfo(LITECODE_OTHER_FORMATTER_TEST_PLUGIN).fileName());
         QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN, first));
         QVERIFY(QFile::copy(LITECODE_OTHER_FORMATTER_TEST_PLUGIN, second));
         ExtensionManager manager(directory.path());
@@ -1206,11 +1366,13 @@ class ExtensionTests : public QObject {
         QVERIFY(bridgeId != 0);
         QTRY_VERIFY([&] {
             for (const auto& item : results)
-                if (item.at(0).toULongLong() == bridgeId) return true;
+                if (item.at(0).toULongLong() == bridgeId)
+                    return true;
             return false;
         }());
         for (const auto& item : results) {
-            if (item.at(0).toULongLong() != bridgeId) continue;
+            if (item.at(0).toULongLong() != bridgeId)
+                continue;
             QCOMPARE(item.at(1).value<QJsonValue>(), QJsonValue("cross-host"));
             QVERIFY(item.at(2).toString().isEmpty());
         }
@@ -1218,11 +1380,13 @@ class ExtensionTests : public QObject {
         QVERIFY(listId != 0);
         QTRY_VERIFY([&] {
             for (const auto& item : results)
-                if (item.at(0).toULongLong() == listId) return true;
+                if (item.at(0).toULongLong() == listId)
+                    return true;
             return false;
         }());
         for (const auto& item : results) {
-            if (item.at(0).toULongLong() != listId) continue;
+            if (item.at(0).toULongLong() != listId)
+                continue;
             const auto values = item.at(1).value<QJsonValue>().toArray();
             QVERIFY(values.contains("tests.native.bridge"));
             QVERIFY(values.contains("tests.otherFormatter.echo"));
@@ -1233,7 +1397,8 @@ class ExtensionTests : public QObject {
         QVERIFY(missingId != 0);
         QTRY_VERIFY([&] {
             for (const auto& item : results)
-                if (item.at(0).toULongLong() == missingId) return true;
+                if (item.at(0).toULongLong() == missingId)
+                    return true;
             return false;
         }());
         for (const auto& item : results)
@@ -1249,7 +1414,10 @@ class ExtensionTests : public QObject {
         manager.setHostExecutablePath(LITECODE_EXTENSION_HOST);
         manager.setWorkbenchCommandSource(
             [] { return QStringList{"workbench.fixture", "_workbench.hidden"}; },
-            [&invoked](const QString& id) { invoked = id; return true; });
+            [&invoked](const QString& id) {
+                invoked = id;
+                return true;
+            });
         manager.discover();
         QVERIFY(manager.setEnabled("tests.native", true));
         QSignalSpy results(&manager, &ExtensionManager::commandResult);
@@ -1258,8 +1426,10 @@ class ExtensionTests : public QObject {
         // A forwarded workbench command has its own result before the outer
         // extension invocation finishes. Match correlation IDs, not signal order.
         const auto resultFor = [&results](quint64 id) {
-            const auto found = std::find_if(results.cbegin(), results.cend(),
-                [id](const QList<QVariant>& item) { return item.at(0).toULongLong() == id; });
+            const auto found =
+                std::find_if(results.cbegin(), results.cend(), [id](const QList<QVariant>& item) {
+                    return item.at(0).toULongLong() == id;
+                });
             return found == results.cend() ? QList<QVariant>{} : *found;
         };
         QTRY_VERIFY(!resultFor(invokeId).isEmpty());
@@ -1279,8 +1449,7 @@ class ExtensionTests : public QObject {
         QVERIFY(allId != 0);
         QTRY_VERIFY(!resultFor(allId).isEmpty());
         QVERIFY(resultFor(allId).at(2).toString().isEmpty());
-        QVERIFY(resultFor(allId).at(1).value<QJsonValue>().toArray()
-                    .contains("_workbench.hidden"));
+        QVERIFY(resultFor(allId).at(1).value<QJsonValue>().toArray().contains("_workbench.hidden"));
 
         const auto argsId = manager.requestCommand("tests.native.invokeWorkbenchWithArgs");
         QVERIFY(argsId != 0);
@@ -1294,13 +1463,12 @@ class ExtensionTests : public QObject {
         QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN, target));
         {
             ExtensionManager manager(directory.path());
-            manager.setWorkbenchCommandSource(
-                [] { return QStringList{"tests.native.hello"}; },
-                [](const QString&) { return true; });
+            manager.setWorkbenchCommandSource([] { return QStringList{"tests.native.hello"}; },
+                                              [](const QString&) { return true; });
             manager.discover();
             QVERIFY(!manager.setEnabled("tests.native", true));
-            QVERIFY(manager.extensions().first().error.contains(
-                "Duplicate contributed command ID"));
+            QVERIFY(
+                manager.extensions().first().error.contains("Duplicate contributed command ID"));
         }
         // Even an extension approved before the workbench registered this ID
         // must not retain command ownership on the next discovery.
@@ -1310,13 +1478,11 @@ class ExtensionTests : public QObject {
             QVERIFY(manager.setEnabled("tests.native", true));
         }
         ExtensionManager restarted(directory.path());
-        restarted.setWorkbenchCommandSource(
-            [] { return QStringList{"tests.native.hello"}; },
-            [](const QString&) { return true; });
+        restarted.setWorkbenchCommandSource([] { return QStringList{"tests.native.hello"}; },
+                                            [](const QString&) { return true; });
         restarted.discover();
         QVERIFY(!restarted.extensions().first().enabled);
-        QVERIFY(restarted.extensions().first().error.contains(
-            "Duplicate contributed command ID"));
+        QVERIFY(restarted.extensions().first().error.contains("Duplicate contributed command ID"));
     }
     void queuesCommandsDuringActivation() {
         QTemporaryDir directory;
@@ -1372,15 +1538,17 @@ class ExtensionTests : public QObject {
             QVERIFY(adapterId != 0);
             QTRY_COMPARE(adapters.size(), 1);
             QCOMPARE(adapters.at(0).at(0).toULongLong(), adapterId);
-            QCOMPARE(adapters.at(0).at(1).value<QJsonObject>().value("command").toString(), QString("fixture-adapter"));
-            QCOMPARE(adapters.at(0).at(1).value<QJsonObject>().value("args").toArray(), QJsonArray{"--fixture"});
+            QCOMPARE(adapters.at(0).at(1).value<QJsonObject>().value("command").toString(),
+                     QString("fixture-adapter"));
+            QCOMPARE(adapters.at(0).at(1).value<QJsonObject>().value("args").toArray(),
+                     QJsonArray{"--fixture"});
             QCOMPARE(adapters.at(0).at(2).toString(), QString());
             QCOMPARE(manager.requestDebugAdapter("unknown", {}), quint64(0));
             const auto contributions = manager.commandContributions();
-            QVERIFY(std::any_of(contributions.begin(), contributions.end(),
-                                [](const auto& command) {
-                                    return command.id == "tests.native.hello";
-                                }));
+            QVERIFY(
+                std::any_of(contributions.begin(), contributions.end(), [](const auto& command) {
+                    return command.id == "tests.native.hello";
+                }));
             const auto debuggers = manager.debuggerContributions();
             QCOMPARE(debuggers.size(), 1);
             QCOMPARE(debuggers.first().type, QStringLiteral("fixture"));
@@ -1390,10 +1558,10 @@ class ExtensionTests : public QObject {
             QCOMPARE(participants.first().name, QString("test-assistant"));
             QCOMPARE(participants.first().fullName, QString("Test Assistant"));
             QCOMPARE(participants.first().commands.size(), 1);
-            const auto hello = std::find_if(contributions.begin(), contributions.end(),
-                                            [](const auto& command) {
-                                                return command.id == "tests.native.hello";
-                                            });
+            const auto hello =
+                std::find_if(contributions.begin(), contributions.end(), [](const auto& command) {
+                    return command.id == "tests.native.hello";
+                });
             QCOMPARE(hello->title, QString("Say hello"));
             QCOMPARE(hello->category, QString("Native test"));
             QSignalSpy messages(&manager, &ExtensionManager::informationMessage);
@@ -1403,16 +1571,14 @@ class ExtensionTests : public QObject {
             QTRY_VERIFY(manager.commands().contains("tests.native.temporary"));
             QTRY_VERIFY(manager.commands().contains("tests.native.unretained"));
             const auto visibleCommands = manager.commandContributions();
-            QVERIFY(std::none_of(visibleCommands.cbegin(), visibleCommands.cend(),
-                                 [](const auto& command) {
-                                     return command.id == "tests.native.temporary";
-                                 }));
+            QVERIFY(std::none_of(
+                visibleCommands.cbegin(), visibleCommands.cend(),
+                [](const auto& command) { return command.id == "tests.native.temporary"; }));
             QVERIFY(manager.executeCommand("tests.native.temporary"));
             QTRY_COMPARE(messages.size(), 2);
             QVERIFY(manager.executeCommand("tests.native.unretained"));
             QTRY_COMPARE(messages.size(), 3);
-            QCOMPARE(messages.at(2).at(0).toString(),
-                     QStringLiteral("Unretained command invoked"));
+            QCOMPARE(messages.at(2).at(0).toString(), QStringLiteral("Unretained command invoked"));
             QVERIFY(manager.executeCommand("tests.native.hostPid"));
             QTRY_COMPARE(messages.size(), 4);
             QVERIFY(messages.at(3).at(0).toString() !=
@@ -1426,9 +1592,9 @@ class ExtensionTests : public QObject {
             QVERIFY(locationId != 0);
             const auto locationResult = [&locationResults, locationId] {
                 const auto it = std::find_if(locationResults.cbegin(), locationResults.cend(),
-                    [locationId](const auto& item) {
-                        return item.at(0).toULongLong() == locationId;
-                    });
+                                             [locationId](const auto& item) {
+                                                 return item.at(0).toULongLong() == locationId;
+                                             });
                 return it == locationResults.cend() ? QList<QVariant>{} : *it;
             };
             QTRY_VERIFY(!locationResult().isEmpty());
@@ -1454,24 +1620,23 @@ class ExtensionTests : public QObject {
             QVERIFY(successId != 0);
             QVERIFY(failureId > successId);
             const auto resultFor = [&commandResults](quint64 id) {
-                const auto it = std::find_if(commandResults.cbegin(), commandResults.cend(),
-                    [id](const auto& item) { return item.at(0).toULongLong() == id; });
+                const auto it =
+                    std::find_if(commandResults.cbegin(), commandResults.cend(),
+                                 [id](const auto& item) { return item.at(0).toULongLong() == id; });
                 return it == commandResults.cend() ? QList<QVariant>{} : *it;
             };
             QTRY_VERIFY(!resultFor(successId).isEmpty() && !resultFor(failureId).isEmpty());
             QVERIFY(resultFor(successId).at(2).toString().isEmpty());
-            QCOMPARE(resultFor(failureId).at(2).toString(),
-                     QStringLiteral("fixture failure"));
-            const auto echoId = manager.requestCommand(
-                "tests.native.echo", QJsonArray{QStringLiteral("alpha"), 23});
+            QCOMPARE(resultFor(failureId).at(2).toString(), QStringLiteral("fixture failure"));
+            const auto echoId = manager.requestCommand("tests.native.echo",
+                                                       QJsonArray{QStringLiteral("alpha"), 23});
             QVERIFY(echoId > failureId);
             QTRY_VERIFY(!resultFor(echoId).isEmpty());
             QCOMPARE(resultFor(echoId).at(1).value<QJsonValue>(), QJsonValue("alpha"));
             const auto futureId = manager.requestCommand("tests.native.future");
             QVERIFY(futureId > echoId);
             QTRY_VERIFY(!resultFor(futureId).isEmpty());
-            QCOMPARE(resultFor(futureId).at(1).value<QJsonValue>(),
-                     QJsonValue("future result"));
+            QCOMPARE(resultFor(futureId).at(1).value<QJsonValue>(), QJsonValue("future result"));
             const auto duplicateId = manager.requestCommand("tests.native.duplicateCheck");
             QVERIFY(duplicateId > futureId);
             QTRY_VERIFY(!resultFor(duplicateId).isEmpty());
@@ -1492,8 +1657,8 @@ class ExtensionTests : public QObject {
             QTRY_VERIFY([&] {
                 return std::any_of(interrupted.cbegin(), interrupted.cend(),
                                    [interruptedId](const auto& result) {
-                    return result.at(0).toULongLong() == interruptedId;
-                });
+                                       return result.at(0).toULongLong() == interruptedId;
+                                   });
             }());
             const auto interruptedResult = std::find_if(
                 interrupted.cbegin(), interrupted.cend(), [interruptedId](const auto& result) {
@@ -1565,7 +1730,8 @@ class ExtensionTests : public QObject {
         manager.activateForLanguage("python");
         QTRY_VERIFY([&manager] {
             for (const auto& extension : manager.extensions())
-                if (extension.id == "tests.otherFormatter") return extension.active;
+                if (extension.id == "tests.otherFormatter")
+                    return extension.active;
             return false;
         }());
         QCOMPARE(manager.formatterContributions("python").size(), 2);
@@ -1573,8 +1739,7 @@ class ExtensionTests : public QObject {
         QCOMPARE(manager.debuggerContributions().size(), 2);
         QCOMPARE(manager.requestDebugAdapter("fixture", {}), quint64(0));
         QSignalSpy results(&manager, &ExtensionManager::documentFormatResult);
-        const auto id = manager.requestDocumentFormat("python", "hello",
-                                                      "tests.otherFormatter");
+        const auto id = manager.requestDocumentFormat("python", "hello", "tests.otherFormatter");
         QVERIFY(id != 0);
         QTRY_COMPARE(results.size(), 1);
         QCOMPARE(results.at(0).at(1).toString(), QString("HELLO"));

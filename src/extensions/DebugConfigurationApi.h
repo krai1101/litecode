@@ -13,11 +13,20 @@ enum class DebugConfigurationProviderTriggerKind { Initial = 1, Dynamic = 2 };
 class DebugConfigurationProvider {
   public:
     virtual ~DebugConfigurationProvider() = default;
-    virtual ProviderResult<QVector<DebugConfiguration>> provideDebugConfigurations(
-        const std::optional<WorkspaceFolder>&, CancellationToken = {}) { return std::optional<QVector<DebugConfiguration>>{}; }
-    virtual ProviderResult<DebugConfiguration> resolveDebugConfiguration(
-        const std::optional<WorkspaceFolder>&, DebugConfiguration configuration, CancellationToken = {}) { return configuration; }
-    virtual ProviderResult<DebugConfiguration> resolveDebugConfigurationWithSubstitutedVariables(
-        const std::optional<WorkspaceFolder>&, DebugConfiguration configuration, CancellationToken = {}) { return configuration; }
+    virtual ProviderResult<QVector<DebugConfiguration>>
+    provideDebugConfigurations(const std::optional<WorkspaceFolder>&, CancellationToken = {}) {
+        return std::optional<QVector<DebugConfiguration>>{};
+    }
+    virtual ProviderResult<DebugConfiguration>
+    resolveDebugConfiguration(const std::optional<WorkspaceFolder>&,
+                              DebugConfiguration configuration, CancellationToken = {}) {
+        return configuration;
+    }
+    virtual ProviderResult<DebugConfiguration>
+    resolveDebugConfigurationWithSubstitutedVariables(const std::optional<WorkspaceFolder>&,
+                                                      DebugConfiguration configuration,
+                                                      CancellationToken = {}) {
+        return configuration;
+    }
 };
 } // namespace litecode::extensions

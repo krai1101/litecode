@@ -13,6 +13,7 @@ class WorkbenchDocumentSaveService final : public QObject {
     WorkbenchDocumentSaveService(EditorArea* editors, QWidget* dialogParent, QObject* parent);
     std::optional<QUrl> saveResource(const QUrl& uri, bool saveAs, QString* error);
     bool saveAll(bool includeUntitled, QString* error);
+
   private:
     QPointer<EditorArea> editors_;
     QPointer<QWidget> dialogParent_;

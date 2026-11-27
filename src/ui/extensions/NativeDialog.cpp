@@ -2,9 +2,9 @@
 #include "ui/components/Controls.h"
 #include "ui/components/IconLabelButton.h"
 #include <QEvent>
+#include <QHideEvent>
 #include <QLabel>
 #include <QShowEvent>
-#include <QHideEvent>
 #include <QVBoxLayout>
 namespace litecode::ui {
 NativeDialog::NativeDialog(const QString& title, QWidget* owner, QWidget* anchor)
@@ -50,8 +50,8 @@ void NativeDialog::position() {
         shade_->setGeometry(anchor_->rect());
     setFixedWidth(qMin(520, qMax(180, anchor_->width() - 32)));
     adjustSize();
-    move(anchor_->mapToGlobal(QPoint((anchor_->width() - width()) / 2,
-                                     qMax(0, (anchor_->height() - height()) / 2))));
+    move(anchor_->mapToGlobal(
+        QPoint((anchor_->width() - width()) / 2, qMax(0, (anchor_->height() - height()) / 2))));
 }
 void NativeDialog::openCentered() {
     position();

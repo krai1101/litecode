@@ -1,12 +1,12 @@
 #pragma once
 #include "debug/DapTransport.h"
+#include <QFuture>
 #include <QJsonArray>
 #include <QMap>
-#include <QStringList>
-#include <QFuture>
 #include <QPromise>
-#include <optional>
+#include <QStringList>
 #include <functional>
+#include <optional>
 
 namespace litecode::debug {
 class DebugSession final : public QObject {
@@ -29,8 +29,8 @@ class DebugSession final : public QObject {
     QJsonObject capabilities() const { return capabilities_; }
     int stoppedThread() const { return stoppedThread_; }
     void setRunInTerminalEnabled(bool enabled) { runInTerminalEnabled_ = enabled; }
-    bool respondToRunInTerminal(const QJsonObject& request, bool success,
-                                const QString& error = {}, const QJsonObject& body = {});
+    bool respondToRunInTerminal(const QJsonObject& request, bool success, const QString& error = {},
+                                const QJsonObject& body = {});
     bool start(const AdapterProcess& adapter, const QString& adapterId, const QString& request,
                const QJsonObject& arguments);
     bool startServer(const AdapterServer& adapter, const QString& adapterId, const QString& request,
@@ -52,7 +52,8 @@ class DebugSession final : public QObject {
     int scopes(int frameId);
     int variables(int reference, int start = 0, int count = 100);
     int evaluate(const QString& expression, const QString& context, int frameId = -1);
-    QFuture<QJsonValue> customRequest(const QString& command, const QJsonValue& arguments = QJsonValue::Undefined);
+    QFuture<QJsonValue> customRequest(const QString& command,
+                                      const QJsonValue& arguments = QJsonValue::Undefined);
   signals:
     void stateChanged(litecode::debug::DebugSession::State state);
     void capabilitiesChanged(const QJsonObject& capabilities);
@@ -71,7 +72,8 @@ class DebugSession final : public QObject {
   private:
     using Reply = std::function<void(bool, const QJsonObject&, const QString&)>;
     bool startWithTransport(const std::function<bool()>& startTransport, const QString& adapterId,
-                            const QString& request, const QJsonObject& arguments, bool processAdapter);
+                            const QString& request, const QJsonObject& arguments,
+                            bool processAdapter);
     int send(const QString& command, const QJsonObject& arguments, Reply callback,
              int timeoutMs = 10000);
     int inspect(const QString& command, const QJsonObject& arguments, bool suspendedOnly);

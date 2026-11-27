@@ -8,9 +8,10 @@
 
 #include <array>
 #include <windows.h>
-#include <shlobj.h>
+
 #include <propkey.h>
 #include <propvarutil.h>
+#include <shlobj.h>
 #include <wrl/client.h>
 
 namespace litecode::app {
@@ -26,12 +27,13 @@ QString argumentsForPath(const QString& path, bool folder) {
         --end;
     native.append(QString(native.size() - end, QChar('\\')));
     return (folder ? QStringLiteral("--new-window --folder \"")
-                   : QStringLiteral("--new-window --file \"")) + native + '"';
+                   : QStringLiteral("--new-window --file \"")) +
+           native + '"';
 }
 
-ComPtr<IShellLinkW> shellLink(const QString& target, const QString& arguments,
-                             const QString& title, const QString& description = {},
-                             const QString& icon = {}, int iconIndex = 0) {
+ComPtr<IShellLinkW> shellLink(const QString& target, const QString& arguments, const QString& title,
+                              const QString& description = {}, const QString& icon = {},
+                              int iconIndex = 0) {
     ComPtr<IShellLinkW> link;
     if (FAILED(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER,
                                 IID_PPV_ARGS(link.GetAddressOf()))) ||
@@ -128,8 +130,8 @@ void update(core::SettingsService& settings) {
         files.removeIf([&](const QString& path) { return filterRemoved(path, false); });
     }
     const auto tasks = collection();
-    const auto newWindow = shellLink(executable, QStringLiteral("--new-window"),
-                                     QStringLiteral("New Window"));
+    const auto newWindow =
+        shellLink(executable, QStringLiteral("--new-window"), QStringLiteral("New Window"));
     if (!tasks || !newWindow || FAILED(tasks->AddObject(newWindow.Get())) ||
         FAILED(list->AddUserTasks(tasks.Get()))) {
         list->AbortList();
@@ -139,9 +141,10 @@ void update(core::SettingsService& settings) {
     const qsizetype destinationLimit = availableSlots;
     const qsizetype folderCount =
         qMin(folders.size(), qMax(qsizetype{0}, destinationLimit - fileReserve));
-    const HRESULT folderResult = appendCategory(*list.Get(), executable, folders, true, folderCount);
-    const HRESULT fileResult = appendCategory(*list.Get(), executable, files, false,
-                                               destinationLimit - folderCount);
+    const HRESULT folderResult =
+        appendCategory(*list.Get(), executable, folders, true, folderCount);
+    const HRESULT fileResult =
+        appendCategory(*list.Get(), executable, files, false, destinationLimit - folderCount);
     // The OS can disable recent items while still allowing user tasks.
     if ((FAILED(folderResult) && folderResult != E_ACCESSDENIED) ||
         (FAILED(fileResult) && fileResult != E_ACCESSDENIED) || FAILED(list->CommitList()))

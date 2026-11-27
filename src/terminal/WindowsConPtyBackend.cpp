@@ -747,8 +747,10 @@ void WindowsConPtyBackend::requestStop() {
 TerminalState WindowsConPtyBackend::state() const { return state_; }
 qint64 WindowsConPtyBackend::processId() const {
     const auto run = run_;
-    if (!run || state_ == TerminalState::Stopped || state_ == TerminalState::Failed) return 0;
-    std::lock_guard lock(run->mutex); return run->processId;
+    if (!run || state_ == TerminalState::Stopped || state_ == TerminalState::Failed)
+        return 0;
+    std::lock_guard lock(run->mutex);
+    return run->processId;
 }
 
 bool WindowsConPtyBackend::shellIsIdle() const {

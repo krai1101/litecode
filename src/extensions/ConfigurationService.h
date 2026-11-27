@@ -40,7 +40,8 @@ class ConfigurationService final : public QObject {
   private:
     [[nodiscard]] QString folderSettingsFile(int index) const;
     [[nodiscard]] ConfigurationLayer readLayer(const QString& path, const QStringList& prefix = {});
-    [[nodiscard]] ConfigurationLayer filterLayer(const ConfigurationLayer& layer, bool folderOnly) const;
+    [[nodiscard]] ConfigurationLayer filterLayer(const ConfigurationLayer& layer,
+                                                 bool folderOnly) const;
     void updateWatchPaths();
     QString globalSettingsFile_, workspaceFile_;
     QVector<QUrl> folders_;

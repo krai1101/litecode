@@ -36,8 +36,8 @@ class WorktreeRequest final : public QObject {
                         if (!branch.current && !branch.ref.endsWith("/HEAD"))
                             items.append({branch.ref, branch.name, branch.commit.left(7)});
                     }
-                    QuickOpenDialog picker(tr("Create Worktree"),
-                                           tr("Select a branch or tag"), items, {}, owner_);
+                    QuickOpenDialog picker(tr("Create Worktree"), tr("Select a branch or tag"),
+                                           items, {}, owner_);
                     if (picker.exec() != QDialog::Accepted || !current()) {
                         deleteLater();
                         return;
@@ -63,11 +63,10 @@ class WorktreeRequest final : public QObject {
                             }
                     label.replace('/', '-').replace('\\', '-');
                     const QFileInfo repositoryInfo(repository_);
-                    const QString defaultPath = repositoryInfo.dir().filePath(
-                        repositoryInfo.fileName() + "-" + label);
-                    components::QuickInputDialog pathInput(tr("Create Worktree"),
-                                                           tr("Worktree path"),
-                                                           tr("Worktree path"), owner_);
+                    const QString defaultPath =
+                        repositoryInfo.dir().filePath(repositoryInfo.fileName() + "-" + label);
+                    components::QuickInputDialog pathInput(
+                        tr("Create Worktree"), tr("Worktree path"), tr("Worktree path"), owner_);
                     pathInput.input()->setText(defaultPath);
                     if (pathInput.exec() == QDialog::Accepted && current())
                         git_->createWorktree(pathInput.value(), selection, newBranch);
@@ -75,6 +74,7 @@ class WorktreeRequest final : public QObject {
                 });
         reader_.setWorkspace(repository_);
     }
+
   private:
     bool current() const {
         return owner_ && git_ && git_->repository() == repository_ &&
@@ -92,42 +92,44 @@ class WorktreeDeleteRequest final : public QObject {
     WorktreeDeleteRequest(QWidget* owner, workspace::GitService* git)
         : QObject(owner), owner_(owner), git_(git), repository_(git->repository()),
           generation_(git->workspaceGeneration()) {
-        connect(git, &workspace::GitService::worktreesReady, this,
-                [this](const QStringList& paths) {
-                    if (!current()) {
-                        deleteLater();
-                        return;
-                    }
-                    QVector<QuickPickItem> items;
-                    const auto main = QDir(repository_).canonicalPath();
-                    for (const auto& path : paths) {
-                        if (QDir(path).canonicalPath() != main && QFileInfo(path).isDir())
-                            items.append({path, QFileInfo(path).fileName(), path});
-                    }
-                    if (items.isEmpty()) {
-                        ConfirmationDialog::showMessage(owner_, tr("Delete Worktree"),
-                                                        tr("This repository has no linked worktrees."));
-                        deleteLater();
-                        return;
-                    }
-                    QuickOpenDialog picker(tr("Delete Worktree"),
-                                           tr("Select a worktree to delete"), items, {}, owner_);
-                    if (picker.exec() != QDialog::Accepted || !current()) {
-                        deleteLater();
-                        return;
-                    }
-                    const QString target = picker.selectedItemId();
-                    if (ConfirmationDialog::ask(
-                            owner_, tr("Delete Worktree"),
-                            tr("Remove this worktree folder? Git will refuse if it has uncommitted changes.\n%1")
-                                .arg(target),
-                            tr("Delete Worktree"), {}, tr("Cancel")) ==
-                            ConfirmationChoice::Primary && current())
-                        git_->deleteWorktree(target);
+        connect(
+            git, &workspace::GitService::worktreesReady, this, [this](const QStringList& paths) {
+                if (!current()) {
                     deleteLater();
-                });
+                    return;
+                }
+                QVector<QuickPickItem> items;
+                const auto main = QDir(repository_).canonicalPath();
+                for (const auto& path : paths) {
+                    if (QDir(path).canonicalPath() != main && QFileInfo(path).isDir())
+                        items.append({path, QFileInfo(path).fileName(), path});
+                }
+                if (items.isEmpty()) {
+                    ConfirmationDialog::showMessage(owner_, tr("Delete Worktree"),
+                                                    tr("This repository has no linked worktrees."));
+                    deleteLater();
+                    return;
+                }
+                QuickOpenDialog picker(tr("Delete Worktree"), tr("Select a worktree to delete"),
+                                       items, {}, owner_);
+                if (picker.exec() != QDialog::Accepted || !current()) {
+                    deleteLater();
+                    return;
+                }
+                const QString target = picker.selectedItemId();
+                if (ConfirmationDialog::ask(owner_, tr("Delete Worktree"),
+                                            tr("Remove this worktree folder? Git will refuse if it "
+                                               "has uncommitted changes.\n%1")
+                                                .arg(target),
+                                            tr("Delete Worktree"), {},
+                                            tr("Cancel")) == ConfirmationChoice::Primary &&
+                    current())
+                    git_->deleteWorktree(target);
+                deleteLater();
+            });
         git_->listWorktrees();
     }
+
   private:
     bool current() const {
         return owner_ && git_ && git_->repository() == repository_ &&

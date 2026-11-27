@@ -1,14 +1,14 @@
-#include "debug/DapTransport.h"
 #include "SocketAdapterFixture.h"
+#include "debug/DapTransport.h"
+#include <QDir>
+#include <QFileInfo>
 #include <QLocalServer>
 #include <QLocalSocket>
+#include <QSignalSpy>
 #include <QTcpServer>
 #include <QTcpSocket>
-#include <QUuid>
-#include <QFileInfo>
-#include <QDir>
-#include <QSignalSpy>
 #include <QTemporaryDir>
+#include <QUuid>
 #include <QtTest>
 using namespace litecode::debug;
 class DapTransportTests final : public QObject {
@@ -17,15 +17,20 @@ class DapTransportTests final : public QObject {
     void executableLookupUsesAdapterEnvironment() {
         AdapterProcess configuration;
         configuration.executable = QFileInfo(LITECODE_DAP_ADAPTER_FIXTURE).fileName();
-        configuration.environment.insert("PATH", QFileInfo(LITECODE_DAP_ADAPTER_FIXTURE).absolutePath()
-            + QDir::listSeparator() + configuration.environment.value("PATH"));
+        configuration.environment.insert(
+            "PATH", QFileInfo(LITECODE_DAP_ADAPTER_FIXTURE).absolutePath() + QDir::listSeparator() +
+                        configuration.environment.value("PATH"));
         DapTransport transport;
-        QSignalSpy started(&transport, &DapTransport::started), stopped(&transport, &DapTransport::stopped);
+        QSignalSpy started(&transport, &DapTransport::started),
+            stopped(&transport, &DapTransport::stopped);
         QSignalSpy replies(&transport, &DapTransport::responseReceived);
-        QVERIFY(transport.start(configuration)); QTRY_COMPARE(started.size(), 1);
+        QVERIFY(transport.start(configuration));
+        QTRY_COMPARE(started.size(), 1);
         QVERIFY(transport.request("echo", {{"value", "custom-path"}}));
-        QTRY_COMPARE(replies.size(), 1); QVERIFY(replies[0][2].toBool());
-        transport.stop(); QTRY_COMPARE(stopped.size(), 1);
+        QTRY_COMPARE(replies.size(), 1);
+        QVERIFY(replies[0][2].toBool());
+        transport.stop();
+        QTRY_COMPARE(stopped.size(), 1);
         configuration.environment.insert("PATH", "");
         QVERIFY(!transport.start(configuration));
         QCOMPARE(transport.state(), DapTransport::State::Idle);
@@ -33,15 +38,19 @@ class DapTransportTests final : public QObject {
     void unavailableSocketEndpointsFailOnce() {
         QTcpServer unused;
         QVERIFY(unused.listen(QHostAddress::LocalHost, 0));
-        const auto port = unused.serverPort(); unused.close();
+        const auto port = unused.serverPort();
+        unused.close();
         DapTransport transport;
-        QSignalSpy stopped(&transport, &DapTransport::stopped), errors(&transport, &DapTransport::errorOccurred);
+        QSignalSpy stopped(&transport, &DapTransport::stopped),
+            errors(&transport, &DapTransport::errorOccurred);
         QVERIFY(transport.startServer({port}));
-        QTRY_COMPARE(stopped.size(), 1); QCOMPARE(errors.size(), 1);
+        QTRY_COMPARE(stopped.size(), 1);
+        QCOMPARE(errors.size(), 1);
         QCOMPARE(transport.state(), DapTransport::State::Idle);
         QTemporaryDir directory;
         QVERIFY(transport.startNamedPipeServer({directory.filePath("no-adapter")}));
-        QTRY_COMPARE(stopped.size(), 2); QCOMPARE(errors.size(), 2);
+        QTRY_COMPARE(stopped.size(), 2);
+        QCOMPARE(errors.size(), 2);
         QCOMPARE(transport.state(), DapTransport::State::Idle);
         QVERIFY(!stopped.last()[1].toBool());
     }
@@ -56,15 +65,20 @@ class DapTransportTests final : public QObject {
         QLocalServer pipe;
         QTemporaryDir directory;
         const auto path = directory.filePath(QUuid::createUuid().toString(QUuid::Id128));
-        if (local) QVERIFY(pipe.listen(path));
-        else QVERIFY(tcp.listen(QHostAddress::LocalHost, 0));
+        if (local)
+            QVERIFY(pipe.listen(path));
+        else
+            QVERIFY(tcp.listen(QHostAddress::LocalHost, 0));
         std::unique_ptr<SocketAdapterFixture> peer;
         QPointer<QIODevice> socket;
         const auto accepted = [&](QIODevice* incoming) {
-            socket = incoming; peer = std::make_unique<SocketAdapterFixture>(incoming);
+            socket = incoming;
+            peer = std::make_unique<SocketAdapterFixture>(incoming);
         };
-        connect(&tcp, &QTcpServer::newConnection, this, [&] { accepted(tcp.nextPendingConnection()); });
-        connect(&pipe, &QLocalServer::newConnection, this, [&] { accepted(pipe.nextPendingConnection()); });
+        connect(&tcp, &QTcpServer::newConnection, this,
+                [&] { accepted(tcp.nextPendingConnection()); });
+        connect(&pipe, &QLocalServer::newConnection, this,
+                [&] { accepted(pipe.nextPendingConnection()); });
         DapTransport transport;
         QSignalSpy started(&transport, &DapTransport::started);
         QSignalSpy stopped(&transport, &DapTransport::stopped);
@@ -76,7 +90,8 @@ class DapTransportTests final : public QObject {
                          : transport.startServer({tcp.serverPort()});
         };
         for (int iteration = 0; iteration < 2; ++iteration) {
-            QVERIFY(start()); QVERIFY(!start());
+            QVERIFY(start());
+            QVERIFY(!start());
             QTRY_COMPARE(started.size(), iteration + 1);
             QTRY_VERIFY(peer && socket);
             const auto arguments = QJsonObject{{"text", "quotes \" & | and Unicode \u03bb"}};
@@ -87,52 +102,78 @@ class DapTransportTests final : public QObject {
             QCOMPARE(replies.last()[3].value<QJsonObject>().value("echo").toObject(), arguments);
             QVERIFY(transport.request("reverse"));
             QTRY_COMPARE(reverse.size(), iteration + 1);
-            QVERIFY(transport.respond(reverse.last()[0].value<QJsonObject>(), true, {{"processId", 123}}));
+            QVERIFY(transport.respond(reverse.last()[0].value<QJsonObject>(), true,
+                                      {{"processId", 123}}));
             QTRY_VERIFY(!peer->reverseResponse.isEmpty());
-            QCOMPARE(peer->reverseResponse.value("body").toObject().value("processId").toInt(), 123);
+            QCOMPARE(peer->reverseResponse.value("body").toObject().value("processId").toInt(),
+                     123);
             QTRY_COMPARE(replies.size(), iteration * 3 + 2);
-            const auto pending = transport.request("hold"); QVERIFY(pending);
+            const auto pending = transport.request("hold");
+            QVERIFY(pending);
             transport.stop();
             QCOMPARE(stopped.size(), iteration + 1);
             QCOMPARE(transport.state(), DapTransport::State::Idle);
             QCOMPARE(replies.size(), iteration * 3 + 3);
-            QCOMPARE(replies.last()[0].toInt(), pending); QVERIFY(!replies.last()[2].toBool());
+            QCOMPARE(replies.last()[0].toInt(), pending);
+            QVERIFY(!replies.last()[2].toBool());
             QVERIFY(!stopped.last()[1].toBool());
             QVERIFY(local ? pipe.isListening() : tcp.isListening());
-            peer.reset(); socket.clear();
+            peer.reset();
+            socket.clear();
         }
         QVERIFY(errors.isEmpty());
     }
     void socketFailureSettlesRequests_data() {
-        QTest::addColumn<bool>("local"); QTest::addColumn<bool>("malformed");
+        QTest::addColumn<bool>("local");
+        QTest::addColumn<bool>("malformed");
         QTest::newRow("tcp-close") << false << false;
         QTest::newRow("pipe-close") << true << false;
         QTest::newRow("tcp-malformed") << false << true;
         QTest::newRow("pipe-malformed") << true << true;
     }
     void socketFailureSettlesRequests() {
-        QFETCH(bool, local); QFETCH(bool, malformed);
-        QTcpServer tcp; QLocalServer pipe; QTemporaryDir directory;
+        QFETCH(bool, local);
+        QFETCH(bool, malformed);
+        QTcpServer tcp;
+        QLocalServer pipe;
+        QTemporaryDir directory;
         const auto path = directory.filePath(QUuid::createUuid().toString(QUuid::Id128));
-        if (local) QVERIFY(pipe.listen(path)); else QVERIFY(tcp.listen(QHostAddress::LocalHost, 0));
+        if (local)
+            QVERIFY(pipe.listen(path));
+        else
+            QVERIFY(tcp.listen(QHostAddress::LocalHost, 0));
         std::unique_ptr<SocketAdapterFixture> peer;
         QPointer<QIODevice> socket;
-        const auto accepted = [&](QIODevice* incoming) { socket = incoming; peer = std::make_unique<SocketAdapterFixture>(incoming); };
-        connect(&tcp, &QTcpServer::newConnection, this, [&] { accepted(tcp.nextPendingConnection()); });
-        connect(&pipe, &QLocalServer::newConnection, this, [&] { accepted(pipe.nextPendingConnection()); });
+        const auto accepted = [&](QIODevice* incoming) {
+            socket = incoming;
+            peer = std::make_unique<SocketAdapterFixture>(incoming);
+        };
+        connect(&tcp, &QTcpServer::newConnection, this,
+                [&] { accepted(tcp.nextPendingConnection()); });
+        connect(&pipe, &QLocalServer::newConnection, this,
+                [&] { accepted(pipe.nextPendingConnection()); });
         DapTransport transport;
-        QSignalSpy started(&transport, &DapTransport::started), stopped(&transport, &DapTransport::stopped);
-        QSignalSpy replies(&transport, &DapTransport::responseReceived), errors(&transport, &DapTransport::errorOccurred);
-        QVERIFY(local ? transport.startNamedPipeServer({pipe.fullServerName()}) : transport.startServer({tcp.serverPort()}));
-        QTRY_COMPARE(started.size(), 1); QTRY_VERIFY(socket);
-        const auto pending = transport.request("hold"); QVERIFY(pending);
-        if (malformed) QVERIFY(transport.request("malformed"));
-        else if (local) qobject_cast<QLocalSocket*>(socket.data())->abort();
-        else qobject_cast<QTcpSocket*>(socket.data())->abort();
+        QSignalSpy started(&transport, &DapTransport::started),
+            stopped(&transport, &DapTransport::stopped);
+        QSignalSpy replies(&transport, &DapTransport::responseReceived),
+            errors(&transport, &DapTransport::errorOccurred);
+        QVERIFY(local ? transport.startNamedPipeServer({pipe.fullServerName()})
+                      : transport.startServer({tcp.serverPort()}));
+        QTRY_COMPARE(started.size(), 1);
+        QTRY_VERIFY(socket);
+        const auto pending = transport.request("hold");
+        QVERIFY(pending);
+        if (malformed)
+            QVERIFY(transport.request("malformed"));
+        else if (local)
+            qobject_cast<QLocalSocket*>(socket.data())->abort();
+        else
+            qobject_cast<QTcpSocket*>(socket.data())->abort();
         QTRY_COMPARE(stopped.size(), 1);
         QCOMPARE(errors.size(), 1);
         QCOMPARE(replies.size(), malformed ? 2 : 1);
-        for (const auto& reply : replies) QVERIFY(!reply[2].toBool());
+        for (const auto& reply : replies)
+            QVERIFY(!reply[2].toBool());
         QCOMPARE(transport.state(), DapTransport::State::Idle);
         QVERIFY(!stopped[0][1].toBool()); // disconnected remote server is not a crashed child
     }
@@ -142,9 +183,11 @@ class DapTransportTests final : public QObject {
         QVERIFY(!transport.startServer({0}));
         QVERIFY(!transport.startNamedPipeServer({{}}));
         QVERIFY(!transport.startServer({1, "127.0.0.1", 0}));
-        connect(&transport, &DapTransport::stateChanged, &transport, [&](DapTransport::State state) {
-            if (state == DapTransport::State::Starting) transport.stop();
-        });
+        connect(&transport, &DapTransport::stateChanged, &transport,
+                [&](DapTransport::State state) {
+                    if (state == DapTransport::State::Starting)
+                        transport.stop();
+                });
         QVERIFY(!transport.startServer({1}));
         QCOMPARE(stopped.size(), 1);
         QCOMPARE(transport.state(), DapTransport::State::Idle);

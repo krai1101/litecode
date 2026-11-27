@@ -1,13 +1,13 @@
 #include "CodexAttachmentStore.h"
-#include "CodexThreadLink.h"
-#include "ConversationMarkdown.h"
 #include "CodexHistoryWindow.h"
+#include "CodexThreadLink.h"
 #include "CodexTurnPresentation.h"
 #include "CodexViewIcons.h"
-#include "TurnHistory.h"
-#include "TurnUndo.h"
+#include "ConversationMarkdown.h"
 #include "ObservedTurnLifecycle.h"
 #include "ToolCallDisplay.h"
+#include "TurnHistory.h"
+#include "TurnUndo.h"
 #include <QDir>
 #include <QFile>
 #include <QJsonDocument>
@@ -18,10 +18,11 @@ using namespace litecode::codex;
 namespace {
 litecode::extensions::NativeControl workDetails(const litecode::extensions::NativeControl& work) {
     for (const auto& child : work.children)
-        if (child.id.endsWith(".workDetails")) return child;
+        if (child.id.endsWith(".workDetails"))
+            return child;
     return {};
 }
-}
+} // namespace
 class CodexPresentationTests final : public QObject {
     Q_OBJECT
   private slots:
@@ -34,9 +35,11 @@ class CodexPresentationTests final : public QObject {
         const auto find = [](const NativeControl& root, const QString& id) -> const NativeControl* {
             std::function<const NativeControl*(const NativeControl&)> visit;
             visit = [&](const NativeControl& node) -> const NativeControl* {
-                if (node.id == id) return &node;
+                if (node.id == id)
+                    return &node;
                 for (const auto& child : node.children)
-                    if (const auto* found = visit(child)) return found;
+                    if (const auto* found = visit(child))
+                        return found;
                 return nullptr;
             };
             return visit(root);
@@ -63,11 +66,13 @@ class CodexPresentationTests final : public QObject {
     }
     void approvalDetailsAreReadableAndDecisionsStayExact() {
         const QString method = "item/commandExecution/requestApproval";
-        const QJsonObject amendment{{"acceptWithExecpolicyAmendment",
-            QJsonObject{{"execpolicy_amendment", QJsonArray{"cmake", "--build"}}}}};
+        const QJsonObject amendment{
+            {"acceptWithExecpolicyAmendment",
+             QJsonObject{{"execpolicy_amendment", QJsonArray{"cmake", "--build"}}}}};
         const QJsonObject params{{"reason", "Build the updated UI."},
-            {"command", "cmake --build build/release"}, {"cwd", "/workspace"},
-            {"availableDecisions", QJsonArray{"accept", amendment, "cancel"}}};
+                                 {"command", "cmake --build build/release"},
+                                 {"cwd", "/workspace"},
+                                 {"availableDecisions", QJsonArray{"accept", amendment, "cancel"}}};
         const auto prompt = codexApprovalPrompt(method, params);
         QCOMPARE(prompt.title, QString("Build the updated UI."));
         QCOMPARE(prompt.category, QString("Terminal"));
@@ -75,8 +80,10 @@ class CodexPresentationTests final : public QObject {
         QVERIFY(prompt.detail.contains("Working directory: /workspace"));
         QVERIFY(!prompt.detail.contains("availableDecisions"));
         QCOMPARE(prompt.choices.size(), 3);
-        QCOMPARE(codexApprovalResponse(method, params, prompt.choices[1]).value("decision"), amendment);
-        QCOMPARE(codexApprovalResponse(method, params, std::nullopt).value("decision"), QJsonValue("cancel"));
+        QCOMPARE(codexApprovalResponse(method, params, prompt.choices[1]).value("decision"),
+                 amendment);
+        QCOMPARE(codexApprovalResponse(method, params, std::nullopt).value("decision"),
+                 QJsonValue("cancel"));
         CodexViewState state;
         state.approval = prompt;
         state.approvalKey = "codex.approval.1";
@@ -94,7 +101,8 @@ class CodexPresentationTests final : public QObject {
         CodexTurnView turn;
         turn.key = "limited";
         turn.status = "failed";
-        turn.error = "You've hit your usage limit. Upgrade your plan or add credits to continue, or try again later.";
+        turn.error = "You've hit your usage limit. Upgrade your plan or add credits to continue, "
+                     "or try again later.";
         turn.files.append({"example.py", 1, 0});
         state.turns.append(turn);
         const auto layout = codexConversationLayout(state);
@@ -130,10 +138,12 @@ class CodexPresentationTests final : public QObject {
         QFile file(path);
         QVERIFY(file.open(QIODevice::WriteOnly));
         const auto event = [](const char* type, const char* timestamp) {
-            return QJsonDocument(QJsonObject{
-                {"timestamp", timestamp}, {"type", "event_msg"},
-                {"payload", QJsonObject{{"type", type}, {"turn_id", "observed"}}}})
-                .toJson(QJsonDocument::Compact) + '\n';
+            return QJsonDocument(QJsonObject{{"timestamp", timestamp},
+                                             {"type", "event_msg"},
+                                             {"payload", QJsonObject{{"type", type},
+                                                                     {"turn_id", "observed"}}}})
+                       .toJson(QJsonDocument::Compact) +
+                   '\n';
         };
         const auto started = QDateTime::currentDateTimeUtc().addSecs(-89);
         file.write(event("task_started", started.toString(Qt::ISODateWithMs).toUtf8().constData()));
@@ -145,10 +155,13 @@ class CodexPresentationTests final : public QObject {
         const auto lifecycle = readObservedTurnLifecycle(path, "observed");
         QCOMPARE(lifecycle.status, "inProgress");
         QCOMPARE(lifecycle.startedMs, started.toMSecsSinceEpoch());
-        QJsonObject snapshot{{"id", "observed"}, {"status", "interrupted"},
-                              {"startedAt", QJsonValue::Null}, {"durationMs", QJsonValue::Null},
-                              {"items", QJsonArray{QJsonObject{{"type", "agentMessage"},
-                                  {"phase", "commentary"}, {"text", "Checking the code."}}}}};
+        QJsonObject snapshot{{"id", "observed"},
+                             {"status", "interrupted"},
+                             {"startedAt", QJsonValue::Null},
+                             {"durationMs", QJsonValue::Null},
+                             {"items", QJsonArray{QJsonObject{{"type", "agentMessage"},
+                                                              {"phase", "commentary"},
+                                                              {"text", "Checking the code."}}}}};
         TurnState turn;
         readTurnHistory(reconcileObservedTurn(snapshot, lifecycle), turn);
         CodexViewState state;
@@ -161,7 +174,9 @@ class CodexPresentationTests final : public QObject {
         QVERIFY(codexWorkExpanded(running, state));
         // A real abort with missing API timing is still terminal, never guessed live.
         file.write("null}\n");
-        file.write(event("turn_aborted", QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs).toUtf8().constData()));
+        file.write(event(
+            "turn_aborted",
+            QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs).toUtf8().constData()));
         file.flush();
         const auto aborted = readObservedTurnLifecycle(path, "observed", lifecycle);
         QCOMPARE(aborted.status, "interrupted");
@@ -189,13 +204,18 @@ class CodexPresentationTests final : public QObject {
         const auto response = [&](const QJsonObject& payload) {
             append(QJsonObject{{"type", "response_item"}, {"payload", payload}});
         };
-        append(QJsonObject{{"type", "event_msg"}, {"timestamp", "2026-11-08T07:00:00.000Z"},
-            {"payload", QJsonObject{{"type", "task_started"}, {"turn_id", "turn"}}}});
-        response(QJsonObject{{"type", "custom_tool_call"}, {"call_id", "done"},
-                             {"name", "exec"}, {"status", "completed"}});
-        response(QJsonObject{{"type", "function_call"}, {"call_id", "command"},
-            {"name", "exec_command"},
-            {"arguments", R"({"cmd":"python probe.py"})"}});
+        append(
+            QJsonObject{{"type", "event_msg"},
+                        {"timestamp", "2026-11-08T07:00:00.000Z"},
+                        {"payload", QJsonObject{{"type", "task_started"}, {"turn_id", "turn"}}}});
+        response(QJsonObject{{"type", "custom_tool_call"},
+                             {"call_id", "done"},
+                             {"name", "exec"},
+                             {"status", "completed"}});
+        response(QJsonObject{{"type", "function_call"},
+                             {"call_id", "command"},
+                             {"name", "exec_command"},
+                             {"arguments", R"({"cmd":"python probe.py"})"}});
         // Completing an unrelated tool must not clear the running command.
         response(QJsonObject{{"type", "custom_tool_call_output"}, {"call_id", "done"}});
         auto observed = readObservedTurnLifecycle(file.fileName(), "turn");
@@ -211,8 +231,10 @@ class CodexPresentationTests final : public QObject {
         response(QJsonObject{{"type", "function_call_output"}, {"call_id", "command"}});
         observed = readObservedTurnLifecycle(file.fileName(), "turn", observed);
         QVERIFY(observed.activeTools.isEmpty());
-        response(QJsonObject{{"type", "custom_tool_call"}, {"call_id", "custom"},
-                             {"name", "exec"}, {"input", "await tools.someTool()"},
+        response(QJsonObject{{"type", "custom_tool_call"},
+                             {"call_id", "custom"},
+                             {"name", "exec"},
+                             {"input", "await tools.someTool()"},
                              {"status", "completed"}});
         observed = readObservedTurnLifecycle(file.fileName(), "turn", observed);
         QCOMPARE(observed.activeTools.size(), 1);
@@ -224,16 +246,20 @@ class CodexPresentationTests final : public QObject {
         // Image/tool outputs can exceed the bounded reverse-reader chunk size.
         // Their small completion envelope must still retire the pending call.
         // Match app-server's serialized envelope: type/call_id precede output.
-        file.write("{\"type\":\"response_item\",\"payload\":{\"type\":\"custom_tool_call_output\",\"call_id\":\"custom\",\"output\":\"");
+        file.write("{\"type\":\"response_item\",\"payload\":{\"type\":\"custom_tool_call_output\","
+                   "\"call_id\":\"custom\",\"output\":\"");
         file.write(QByteArray(300000, 'x'));
         file.write("\"}}\n");
         file.flush();
         observed = readObservedTurnLifecycle(file.fileName(), "turn", observed);
         QVERIFY(observed.activeTools.isEmpty());
         // An unfinished large output is not a completed call yet.
-        response(QJsonObject{{"type", "function_call"}, {"call_id", "image"},
-            {"name", "view_image"}, {"arguments", R"({"path":"/tmp/image.png"})"}});
-        file.write("{\"type\":\"response_item\",\"payload\":{\"type\":\"function_call_output\",\"call_id\":\"image\",\"output\":\"");
+        response(QJsonObject{{"type", "function_call"},
+                             {"call_id", "image"},
+                             {"name", "view_image"},
+                             {"arguments", R"({"path":"/tmp/image.png"})"}});
+        file.write("{\"type\":\"response_item\",\"payload\":{\"type\":\"function_call_output\","
+                   "\"call_id\":\"image\",\"output\":\"");
         file.write(QByteArray(200000, 'x'));
         file.write("\"}}");
         file.flush();
@@ -246,18 +272,21 @@ class CodexPresentationTests final : public QObject {
         observed = readObservedTurnLifecycle(file.fileName(), "turn", observed);
         QVERIFY(observed.activeTools.isEmpty());
 
-        append(QJsonObject{{"type", "event_msg"}, {"timestamp", "2026-11-08T07:00:10.000Z"},
-            {"payload", QJsonObject{{"type", "task_complete"}, {"turn_id", "turn"}}}});
+        append(
+            QJsonObject{{"type", "event_msg"},
+                        {"timestamp", "2026-11-08T07:00:10.000Z"},
+                        {"payload", QJsonObject{{"type", "task_complete"}, {"turn_id", "turn"}}}});
         observed = readObservedTurnLifecycle(file.fileName(), "turn", observed);
         QCOMPARE(observed.status, QString("completed"));
         QVERIFY(observed.activeTools.isEmpty());
     }
     void wrappedToolCallsExposeLiteralCommandsAndImagesWithoutExecutingCode() {
         const auto display = [](const QString& code) {
-            return toolCallDisplay(QJsonObject{{"type", "custom_tool_call"},
-                {"name", "exec"}, {"input", code}});
+            return toolCallDisplay(
+                QJsonObject{{"type", "custom_tool_call"}, {"name", "exec"}, {"input", code}});
         };
-        auto item = display(R"(text(await tools.exec_command({cmd:"python probe.py\npytest -q", workdir:"/tmp"}));)");
+        auto item = display(
+            R"(text(await tools.exec_command({cmd:"python probe.py\npytest -q", workdir:"/tmp"}));)");
         QCOMPARE(item.value("type").toString(), QString("commandExecution"));
         QCOMPARE(item.value("command").toString(), QString("python probe.py\npytest -q"));
         item = display(R"(image((await tools.view_image({path:"/tmp/capture.png"})).image_url);)");
@@ -265,25 +294,45 @@ class CodexPresentationTests final : public QObject {
         QCOMPARE(item.value("path").toString(), QString("/tmp/capture.png"));
         // Quoted examples, comments and dynamically computed values are not calls.
         QCOMPARE(display(R"js(const example = "tools.exec_command({cmd:fake})";)js")
-                     .value("type").toString(), QString("dynamicToolCall"));
-        QCOMPARE(display(R"(/* tools.exec_command({cmd:"fake"}) */ tools.exec_command({cmd:variable}))")
-                     .value("type").toString(), QString("dynamicToolCall"));
-        QCOMPARE(display(R"(tools.exec_command({cmd:"prefix" + variable}))")
-                     .value("type").toString(), QString("dynamicToolCall"));
+                     .value("type")
+                     .toString(),
+                 QString("dynamicToolCall"));
+        QCOMPARE(
+            display(R"(/* tools.exec_command({cmd:"fake"}) */ tools.exec_command({cmd:variable}))")
+                .value("type")
+                .toString(),
+            QString("dynamicToolCall"));
+        QCOMPARE(
+            display(R"(tools.exec_command({cmd:"prefix" + variable}))").value("type").toString(),
+            QString("dynamicToolCall"));
         QCOMPARE(display(R"(tools.exec_command({nested:{cmd:"fake"},cmd:"real"}))")
-                     .value("command").toString(), QString("real"));
+                     .value("command")
+                     .toString(),
+                 QString("real"));
     }
     void commandsAndImageActivityPreserveOrderAndTheActualRunningCommand() {
         TurnState turn;
-        readTurnHistory(QJsonObject{{"id", "turn"}, {"status", "inProgress"},
-            {"items", QJsonArray{
-                QJsonObject{{"id", "first"}, {"type", "commandExecution"},
-                    {"status", "completed"}, {"command", "echo first"}},
-                QJsonObject{{"id", "image"}, {"type", "imageView"}, {"path", "/tmp/capture.png"}},
-                QJsonObject{{"id", "second"}, {"type", "commandExecution"},
-                    {"status", "inProgress"}, {"command", "powershell.exe -Command quoted-script"},
-                    {"commandActions", QJsonArray{QJsonObject{{"type", "unknown"},
-                        {"command", "python probe.py\npytest -q"}}}}}}}}, turn);
+        readTurnHistory(
+            QJsonObject{
+                {"id", "turn"},
+                {"status", "inProgress"},
+                {"items",
+                 QJsonArray{
+                     QJsonObject{{"id", "first"},
+                                 {"type", "commandExecution"},
+                                 {"status", "completed"},
+                                 {"command", "echo first"}},
+                     QJsonObject{
+                         {"id", "image"}, {"type", "imageView"}, {"path", "/tmp/capture.png"}},
+                     QJsonObject{
+                         {"id", "second"},
+                         {"type", "commandExecution"},
+                         {"status", "inProgress"},
+                         {"command", "powershell.exe -Command quoted-script"},
+                         {"commandActions",
+                          QJsonArray{QJsonObject{{"type", "unknown"},
+                                                 {"command", "python probe.py\npytest -q"}}}}}}}},
+            turn);
         CodexTurnView view;
         view.key = "activities";
         int budget = 16384;
@@ -295,7 +344,8 @@ class CodexPresentationTests final : public QObject {
         QCOMPARE(details.children.size(), 3);
         QCOMPARE(details.children[0].children.first().text, QString("$(terminal) Ran commands"));
         QCOMPARE(details.children[1].text, QString("$(file-media) Viewed an image"));
-        QCOMPARE(details.children[2].text, QString("$(terminal) Running python probe.py pytest -q"));
+        QCOMPARE(details.children[2].text,
+                 QString("$(terminal) Running python probe.py pytest -q"));
         turn.activeTools.clear();
         turn.items[1].insert("status", "inProgress");
         turn.items[2].insert("status", "completed");
@@ -313,19 +363,24 @@ class CodexPresentationTests final : public QObject {
                                        [&](const QString& id) { opened = id; });
         handler.handleUri(link);
         QCOMPARE(opened, QString("thread-123"));
-        QVERIFY_THROWS_EXCEPTION(std::invalid_argument,
+        QVERIFY_THROWS_EXCEPTION(
+            std::invalid_argument,
             handler.handleUri(QUrl("litecode://other.extension/thread/thread-123")));
-        QVERIFY_THROWS_EXCEPTION(std::invalid_argument,
+        QVERIFY_THROWS_EXCEPTION(
+            std::invalid_argument,
             handler.handleUri(QUrl("litecode://litecode.codex/thread/thread-123?command=run")));
         QVERIFY_THROWS_EXCEPTION(std::invalid_argument,
-            handler.handleUri(QUrl("litecode://litecode.codex/thread/a/b")));
+                                 handler.handleUri(QUrl("litecode://litecode.codex/thread/a/b")));
     }
     void markdownExportRetainsRolesAndMarkdownFormatting() {
         TurnState turn;
-        turn.items = {QJsonObject{{"type", "userMessage"},
-            {"content", QJsonArray{QJsonObject{{"type", "text"}, {"text", "Explain this code."}}}}},
-            QJsonObject{{"type", "agentMessage"}, {"phase", "final_answer"},
-                {"text", "**Example**\n\n```python\nprint(42)\n```"}}};
+        turn.items = {
+            QJsonObject{{"type", "userMessage"},
+                        {"content", QJsonArray{QJsonObject{{"type", "text"},
+                                                           {"text", "Explain this code."}}}}},
+            QJsonObject{{"type", "agentMessage"},
+                        {"phase", "final_answer"},
+                        {"text", "**Example**\n\n```python\nprint(42)\n```"}}};
         const auto markdown = codexTurnMarkdown(turn);
         QVERIFY(markdown.startsWith("## User\n\nExplain this code.\n\n"));
         QVERIFY(markdown.contains("## Assistant\n\n**Example**\n\n```python\nprint(42)\n```"));
@@ -479,9 +534,14 @@ class CodexPresentationTests final : public QObject {
     }
     void runningCommandsStayVisibleAndSuppressThinkingUntilCompletion() {
         TurnState turn;
-        readTurnHistory(QJsonObject{{"id", "turn"}, {"status", "inProgress"},
-            {"items", QJsonArray{QJsonObject{{"id", "command"}, {"type", "commandExecution"},
-                {"status", "inProgress"}, {"command", "python build/probe.py"}}}}}, turn);
+        readTurnHistory(
+            QJsonObject{{"id", "turn"},
+                        {"status", "inProgress"},
+                        {"items", QJsonArray{QJsonObject{{"id", "command"},
+                                                         {"type", "commandExecution"},
+                                                         {"status", "inProgress"},
+                                                         {"command", "python build/probe.py"}}}}},
+            turn);
         const auto present = [&] {
             CodexTurnView view;
             view.key = "running-command";

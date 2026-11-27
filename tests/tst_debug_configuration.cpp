@@ -1,7 +1,7 @@
 #include "debug/DebugConfiguration.h"
-#include <QJsonArray>
 #include <QDir>
 #include <QFile>
+#include <QJsonArray>
 #include <QTemporaryDir>
 #include <QtTest>
 using namespace litecode::debug;
@@ -56,8 +56,8 @@ class DebugConfigurationTests final : public QObject {
         QTest::newRow("missing-configurations") << QByteArray("{}");
         QTest::newRow("missing-type")
             << QByteArray(R"({"configurations":[{"name":"x","request":"launch"}]})");
-        QTest::newRow("bad-request") << QByteArray(
-            R"({"configurations":[{"name":"x","type":"cpp","request":"invalid"}]})");
+        QTest::newRow("bad-request")
+            << QByteArray(R"({"configurations":[{"name":"x","type":"cpp","request":"invalid"}]})");
         QTest::newRow("too-large") << QByteArray(1024 * 1024 + 1, ' ');
     }
     void validationFailures() {
@@ -94,23 +94,23 @@ class DebugConfigurationTests final : public QObject {
         QVERIFY(!error.isEmpty());
     }
     void contributedDebuggerSchemaRejectsWrongTypes() {
-        const QJsonObject schema{{"type", "object"},
-                                 {"properties", QJsonObject{
-                                      {"interpreter", QJsonObject{{"type", "string"}}},
-                                      {"arguments", QJsonObject{{"type", "array"},
-                                                                  {"items", QJsonObject{{"type", "string"}}}}}}}};
+        const QJsonObject schema{
+            {"type", "object"},
+            {"properties",
+             QJsonObject{{"interpreter", QJsonObject{{"type", "string"}}},
+                         {"arguments", QJsonObject{{"type", "array"},
+                                                   {"items", QJsonObject{{"type", "string"}}}}}}}};
         QString error;
         QVERIFY(!DebugConfigurations::validateAgainstSchema(
             QJsonObject{{"interpreter", QJsonArray{"python"}}}, schema, &error));
         QVERIFY(error.contains(QStringLiteral("interpreter")));
         QVERIFY(error.contains(QStringLiteral("expected string")));
         QVERIFY(DebugConfigurations::validateAgainstSchema(
-            QJsonObject{{"interpreter", "python"},
-                        {"arguments", QJsonArray{"--version"}}}, schema, &error));
+            QJsonObject{{"interpreter", "python"}, {"arguments", QJsonArray{"--version"}}}, schema,
+            &error));
         QVERIFY(error.isEmpty());
         QVERIFY(!DebugConfigurations::validateAgainstSchema(
-            QJsonObject{{"interpreter", "python"},
-                        {"arguments", QJsonArray{12}}}, schema, &error));
+            QJsonObject{{"interpreter", "python"}, {"arguments", QJsonArray{12}}}, schema, &error));
         QVERIFY(error.contains(QStringLiteral("arguments[0]")));
     }
     void debuggerSpecificFieldsAreNotGloballyRejected() {

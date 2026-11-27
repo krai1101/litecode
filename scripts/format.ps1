@@ -1,6 +1,10 @@
-param([switch]$Check)
+param([switch]$Check, [string]$FormatterPath)
 
-$formatter = Get-Command clang-format -ErrorAction SilentlyContinue
+$formatter = if ($FormatterPath) {
+    Get-Item -LiteralPath $FormatterPath -ErrorAction Stop
+} else {
+    Get-Command clang-format -ErrorAction SilentlyContinue
+}
 if (-not $formatter) {
     $bundled = Join-Path $env:LOCALAPPDATA `
         'LiteCodeToolchain\clang-format-20\clang_format\data\bin\clang-format.exe'

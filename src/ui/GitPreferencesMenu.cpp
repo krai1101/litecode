@@ -39,20 +39,21 @@ void addGitPreferencesMenu(components::Menu& menu, core::GitPreferences& prefere
     auto* allowForce = settings->addAction(QObject::tr("Allow Force Push"));
     allowForce->setCheckable(true);
     allowForce->setChecked(preferences.allowForcePush);
-    QObject::connect(allowForce, &QAction::triggered, settings,
-                     [changed, owner, allowForce,
-                      field = &preferences.allowForcePush](bool checked) {
-                         if (checked && ConfirmationDialog::ask(
-                                 owner, QObject::tr("Enable Force Push"),
-                                 QObject::tr("Force pushing can overwrite commits on a remote branch. Allow Force Push commands?"),
-                                 QObject::tr("Enable"), {}, QObject::tr("Cancel")) !=
-                                            ConfirmationChoice::Primary) {
-                             allowForce->setChecked(false);
-                             return;
-                         }
-                         *field = checked;
-                         changed();
-                     });
+    QObject::connect(
+        allowForce, &QAction::triggered, settings,
+        [changed, owner, allowForce, field = &preferences.allowForcePush](bool checked) {
+            if (checked &&
+                ConfirmationDialog::ask(owner, QObject::tr("Enable Force Push"),
+                                        QObject::tr("Force pushing can overwrite commits on a "
+                                                    "remote branch. Allow Force Push commands?"),
+                                        QObject::tr("Enable"), {},
+                                        QObject::tr("Cancel")) != ConfirmationChoice::Primary) {
+                allowForce->setChecked(false);
+                return;
+            }
+            *field = checked;
+            changed();
+        });
     toggle(QObject::tr("Use Force Push With Lease"), preferences.useForcePushWithLease);
     toggle(QObject::tr("Use Force Push If Includes"), preferences.useForcePushIfIncludes);
     toggle(QObject::tr("Confirm Force Push"), preferences.confirmForcePush);

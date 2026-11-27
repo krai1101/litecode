@@ -1,5 +1,5 @@
-#include "ui/components/Controls.h"
 #include "ui/Theme.h"
+#include "ui/components/Controls.h"
 #include <QApplication>
 #include <QPainter>
 #include <QPainterPath>

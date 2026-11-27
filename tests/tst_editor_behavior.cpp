@@ -2,8 +2,8 @@
 #include "editor/DocumentSession.h"
 #include "editor/ScintillaEditor.h"
 #include "ui/EditorArea.h"
-#include "ui/components/WorkbenchTabs.h"
 #include "ui/components/FindTextInput.h"
+#include "ui/components/WorkbenchTabs.h"
 
 #include <SciLexer.h>
 #include <ScintillaEditBase.h>
@@ -86,9 +86,9 @@ void EditorBehaviorTest::debugExecutionLineHighlightsAndClears() {
              Scintilla::sptr_t{26});
     QVERIFY(!(control->send(scintillaMessage(Scintilla::Message::GetMarginMaskN), 0) &
               Scintilla::MaskFolders));
-    const auto editorBackground = control->send(
-        scintillaMessage(Scintilla::Message::StyleGetBack),
-        static_cast<Scintilla::uptr_t>(Scintilla::StylesCommon::Default));
+    const auto editorBackground =
+        control->send(scintillaMessage(Scintilla::Message::StyleGetBack),
+                      static_cast<Scintilla::uptr_t>(Scintilla::StylesCommon::Default));
     QCOMPARE(control->send(scintillaMessage(Scintilla::Message::GetMarginBackN), 0),
              editorBackground);
     QCOMPARE(control->send(scintillaMessage(Scintilla::Message::GetMarginBackN), 1),
@@ -121,14 +121,14 @@ void EditorBehaviorTest::breakpointGutterHoverAndClick() {
     editor.show();
     auto* control = editor.findChild<ScintillaEditBase*>(QStringLiteral("scintillaControl"));
     QVERIFY(control);
-    const int glyphWidth = static_cast<int>(control->send(
-        scintillaMessage(Scintilla::Message::GetMarginWidthN), 0));
-    const int numberWidth = static_cast<int>(control->send(
-        scintillaMessage(Scintilla::Message::GetMarginWidthN), 1));
-    const int decorationsWidth = static_cast<int>(control->send(
-        scintillaMessage(Scintilla::Message::GetMarginWidthN), 2));
-    const int lineHeight = static_cast<int>(control->send(
-        scintillaMessage(Scintilla::Message::TextHeight), 0));
+    const int glyphWidth =
+        static_cast<int>(control->send(scintillaMessage(Scintilla::Message::GetMarginWidthN), 0));
+    const int numberWidth =
+        static_cast<int>(control->send(scintillaMessage(Scintilla::Message::GetMarginWidthN), 1));
+    const int decorationsWidth =
+        static_cast<int>(control->send(scintillaMessage(Scintilla::Message::GetMarginWidthN), 2));
+    const int lineHeight =
+        static_cast<int>(control->send(scintillaMessage(Scintilla::Message::TextHeight), 0));
     QVERIFY(glyphWidth >= lineHeight);
     QVERIFY2(numberWidth < 60, qPrintable(QStringLiteral("numberWidth=%1").arg(numberWidth)));
     const int y = lineHeight + lineHeight / 2;
@@ -146,7 +146,8 @@ void EditorBehaviorTest::breakpointGutterHoverAndClick() {
         QVERIFY(control->grab().save(capturePath + QStringLiteral(".hover.png")));
     moveMouse(QPoint(glyphWidth + numberWidth + decorationsWidth + 20, y));
     QTRY_VERIFY(!(control->send(scintillaMessage(Scintilla::Message::MarkerGet), 1) & hintMask));
-    QSignalSpy breakpointSpy(&editor, &litecode::editor::ScintillaEditor::breakpointToggleRequested);
+    QSignalSpy breakpointSpy(&editor,
+                             &litecode::editor::ScintillaEditor::breakpointToggleRequested);
     QTest::mouseClick(control, Qt::LeftButton, Qt::NoModifier,
                       QPoint(glyphWidth + numberWidth / 2, y));
     QCOMPARE(breakpointSpy.size(), 1);
@@ -708,7 +709,7 @@ void EditorBehaviorTest::transientDeletionDoesNotOrphanTab() {
     auto* tabs = area.findChild<litecode::ui::components::WorkbenchTabs*>();
     QVERIFY(tabs);
     QTest::qWait(250);
-    QVERIFY(!tabs->tabBar()->tabData(0).toBool());
+    QVERIFY(!tabs->tabBar()->tabData(0).toMap().value("deleted").toBool());
 }
 
 void EditorBehaviorTest::pathIdentityFollowsFileSystemCaseSensitivity() {

@@ -156,7 +156,8 @@ void SettingsService::rememberWorkspaceFolder(const QString& workspaceFolder) {
 }
 
 QStringList SettingsService::recentFiles() const {
-    auto paths = settings_->value(QStringLiteral("session/recentFiles"), openFiles()).toStringList();
+    auto paths =
+        settings_->value(QStringLiteral("session/recentFiles"), openFiles()).toStringList();
     paths.removeIf([](const QString& path) {
         const QFileInfo file(path);
         return !file.isAbsolute() || !file.isFile();
@@ -204,40 +205,51 @@ void SettingsService::saveSearchHistory(const QString& workspaceFolder, const QS
 
 QMap<QString, QSet<int>> SettingsService::debugBreakpoints(const QString& workspaceFolder) const {
     QMap<QString, QSet<int>> result;
-    if (workspaceFolder.isEmpty()) return result;
-    const QString scope = QString::fromLatin1(
-        QCryptographicHash::hash(QDir::cleanPath(workspaceFolder).toUtf8(),
-                                 QCryptographicHash::Sha256).toHex());
+    if (workspaceFolder.isEmpty())
+        return result;
+    const QString scope =
+        QString::fromLatin1(QCryptographicHash::hash(QDir::cleanPath(workspaceFolder).toUtf8(),
+                                                     QCryptographicHash::Sha256)
+                                .toHex());
     const auto document = QJsonDocument::fromJson(
         settings_->value(QStringLiteral("debug/%1/breakpoints").arg(scope)).toByteArray());
     const auto stored = document.object();
     for (auto it = stored.begin(); it != stored.end(); ++it) {
-        if (!QDir::isAbsolutePath(it.key()) || !it.value().isArray()) continue;
+        if (!QDir::isAbsolutePath(it.key()) || !it.value().isArray())
+            continue;
         QSet<int> lines;
         for (const auto& value : it.value().toArray()) {
             const int line = value.toInt();
-            if (line > 0) lines.insert(line);
+            if (line > 0)
+                lines.insert(line);
         }
-        if (!lines.isEmpty()) result.insert(QDir::cleanPath(it.key()), lines);
+        if (!lines.isEmpty())
+            result.insert(QDir::cleanPath(it.key()), lines);
     }
     return result;
 }
-void SettingsService::saveDebugBreakpoints(
-    const QString& workspaceFolder, const QMap<QString, QSet<int>>& breakpoints) {
-    if (workspaceFolder.isEmpty()) return;
-    const QString scope = QString::fromLatin1(
-        QCryptographicHash::hash(QDir::cleanPath(workspaceFolder).toUtf8(),
-                                 QCryptographicHash::Sha256).toHex());
+void SettingsService::saveDebugBreakpoints(const QString& workspaceFolder,
+                                           const QMap<QString, QSet<int>>& breakpoints) {
+    if (workspaceFolder.isEmpty())
+        return;
+    const QString scope =
+        QString::fromLatin1(QCryptographicHash::hash(QDir::cleanPath(workspaceFolder).toUtf8(),
+                                                     QCryptographicHash::Sha256)
+                                .toHex());
     QJsonObject values;
     for (auto it = breakpoints.cbegin(); it != breakpoints.cend(); ++it) {
         QJsonArray lines;
         for (int line : it.value())
-            if (line > 0) lines.append(line);
-        if (!lines.isEmpty()) values.insert(it.key(), lines);
+            if (line > 0)
+                lines.append(line);
+        if (!lines.isEmpty())
+            values.insert(it.key(), lines);
     }
     const QString key = QStringLiteral("debug/%1/breakpoints").arg(scope);
-    if (values.isEmpty()) settings_->remove(key);
-    else settings_->setValue(key, QJsonDocument(values).toJson(QJsonDocument::Compact));
+    if (values.isEmpty())
+        settings_->remove(key);
+    else
+        settings_->setValue(key, QJsonDocument(values).toJson(QJsonDocument::Compact));
 }
 
 QString SettingsService::editorFontFamily() const {

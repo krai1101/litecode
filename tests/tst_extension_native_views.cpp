@@ -1,5 +1,5 @@
-#include "core/SettingsService.h"
 #include "CodexViewLayout.h"
+#include "core/SettingsService.h"
 #include "editor/ScintillaEditor.h"
 #include "extensions/ExtensionManager.h"
 #include "extensions/HostNativeViews.h"
@@ -236,17 +236,22 @@ class NativeViewTests final : public QObject {
             auto* heading = view.findChild<QWidget*>("codex.turn.compact.changesHeader");
             auto* title = view.findChild<QLabel*>("codex.turn.compact.changedLabel");
             QVERIFY(!title->wordWrap());
-            if (headerHeight < 0) headerHeight = heading->height();
+            if (headerHeight < 0)
+                headerHeight = heading->height();
             QCOMPARE(heading->height(), headerHeight);
             auto* undo = view.findChild<QAbstractButton*>("codex.undo.compact");
             QVERIFY2(undo->width() >= undo->sizeHint().width(),
                      "Undo must retain its full caption while the heading yields space");
-            QVERIFY2(card->width() <= width, qPrintable(QString("Card=%1, available=%2").arg(card->width()).arg(width)));
+            QVERIFY2(card->width() <= width,
+                     qPrintable(QString("Card=%1, available=%2").arg(card->width()).arg(width)));
             auto* count = view.findChild<QLabel*>("codex.turn.compact.fileStats.0.removed");
             QVERIFY(count->isVisible());
             const auto position = count->mapTo(&view, QPoint{});
             QVERIFY2(position.x() >= 0 && position.x() + count->width() <= width,
-                qPrintable(QString("Stats=%1..%2, available=%3").arg(position.x()).arg(position.x()+count->width()).arg(width)));
+                     qPrintable(QString("Stats=%1..%2, available=%3")
+                                    .arg(position.x())
+                                    .arg(position.x() + count->width())
+                                    .arg(width)));
         }
     }
     void transcriptCardsUseLightFill() {
@@ -315,9 +320,14 @@ class NativeViewTests final : public QObject {
             QEnterEvent enter(QPointF{}, QPointF{}, QPointF{});
             QApplication::sendEvent(button, &enter);
             button->update();
-            QVERIFY2(colour() != idle, qPrintable(QString("enabled=%1 hover=%2 iconOnly=%3 fill=%4 idle=%5 actual=%6")
-                .arg(enabled).arg(button->underMouse()).arg(button->property("nativeIconOnly").toString())
-                .arg(button->property("nativeFill").toString()).arg(idle.name()).arg(colour().name())));
+            QVERIFY2(colour() != idle,
+                     qPrintable(QString("enabled=%1 hover=%2 iconOnly=%3 fill=%4 idle=%5 actual=%6")
+                                    .arg(enabled)
+                                    .arg(button->underMouse())
+                                    .arg(button->property("nativeIconOnly").toString())
+                                    .arg(button->property("nativeFill").toString())
+                                    .arg(idle.name())
+                                    .arg(colour().name())));
             QCOMPARE(button->isEnabled(), enabled);
         }
     }
@@ -387,11 +397,12 @@ class NativeViewTests final : public QObject {
             combo.setPopupWithinWindow(true);
             combo.setPopupTitle("How should Codex actions be approved?");
             combo.setPopupHelp("Learn more", QUrl("https://developers.openai.com/codex/security/"));
-            combo.setDisplayItems({
-                "Ask for approval\nAlways ask to edit external files and use the internet",
-                "Approve for me\nOnly ask for actions detected as potentially unsafe",
-                "Full access\nUnrestricted access to the internet and any file on your computer"});
-            combo.setChoicePresentation({":/icons/file.svg", ":/icons/file.svg", ":/icons/file.svg"}, {});
+            combo.setDisplayItems(
+                {"Ask for approval\nAlways ask to edit external files and use the internet",
+                 "Approve for me\nOnly ask for actions detected as potentially unsafe",
+                 "Full access\nUnrestricted access to the internet and any file on your computer"});
+            combo.setChoicePresentation(
+                {":/icons/file.svg", ":/icons/file.svg", ":/icons/file.svg"}, {});
             combo.setCurrentIndex(2);
             window.show();
             QTest::mouseClick(&combo, Qt::LeftButton);
@@ -403,14 +414,22 @@ class NativeViewTests final : public QObject {
             QVERIFY(popup->width() <= window.width());
             const auto index = combo.model()->index(2, 0);
             const QFontMetrics metrics(list->font());
-            const int description = metrics.boundingRect(
-                QRect(0, 0, list->viewport()->width() - 58, 10000), Qt::TextWordWrap,
-                combo.itemText(2).section('\n', 1)).height();
-            QVERIFY2(list->visualRect(index).height() >= metrics.height() + description + 6,
+            const int description =
+                metrics
+                    .boundingRect(QRect(0, 0, list->viewport()->width() - 58, 10000),
+                                  Qt::TextWordWrap, combo.itemText(2).section('\n', 1))
+                    .height();
+            QVERIFY2(
+                list->visualRect(index).height() >= metrics.height() + description + 6,
                 qPrintable(QString("owner=%1 viewport=%2 row=%3 line=%4 description=%5 hint=%6")
-                    .arg(width).arg(list->viewport()->width()).arg(list->visualRect(index).height())
-                    .arg(metrics.height()).arg(description).arg(list->sizeHintForRow(2))));
-            if (width == 360) QVERIFY(description > metrics.height());
+                               .arg(width)
+                               .arg(list->viewport()->width())
+                               .arg(list->visualRect(index).height())
+                               .arg(metrics.height())
+                               .arg(description)
+                               .arg(list->sizeHintForRow(2))));
+            if (width == 360)
+                QVERIFY(description > metrics.height());
             QTest::keyClick(list, Qt::Key_Escape);
         }
     }
@@ -440,7 +459,8 @@ class NativeViewTests final : public QObject {
         view.show();
         auto* allowButton = view.findChild<QAbstractButton*>("allow");
         auto* sendButton = view.findChild<QAbstractButton*>("send");
-        QTRY_VERIFY(allowButton->width() >= allowButton->fontMetrics().horizontalAdvance("Allow once") + 12);
+        QTRY_VERIFY(allowButton->width() >=
+                    allowButton->fontMetrics().horizontalAdvance("Allow once") + 12);
         QVERIFY(sendButton->width() <= 40);
         QVERIFY(view.findChild<QComboBox*>("permissions")->width() <= 32);
     }
@@ -551,8 +571,7 @@ class NativeViewTests final : public QObject {
             if (nested) {
                 menu = button->findChild<QMenu*>("options.menu");
                 QVERIFY(menu && menu->actions().first()->menu());
-                menu->actions().first()->menu()->popup(
-                    menu->mapToGlobal(QPoint(menu->width(), 0)));
+                menu->actions().first()->menu()->popup(menu->mapToGlobal(QPoint(menu->width(), 0)));
             }
             QVERIFY(QApplication::activePopupWidget());
         }
@@ -2399,8 +2418,8 @@ class NativeViewTests final : public QObject {
         };
         const auto hover = [readme](const QPoint& point) {
             auto* viewport = readme->viewport();
-            QMouseEvent move(QEvent::MouseMove, point, viewport->mapToGlobal(point),
-                             Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+            QMouseEvent move(QEvent::MouseMove, point, viewport->mapToGlobal(point), Qt::NoButton,
+                             Qt::NoButton, Qt::NoModifier);
             QApplication::sendEvent(viewport, &move);
         };
         QCOMPARE(readme->anchorAt(textPosition("example link")), "https://example.com");
@@ -2911,8 +2930,8 @@ class NativeViewTests final : public QObject {
         QVERIFY(externalFile.open(QIODevice::WriteOnly));
         QCOMPARE(externalFile.write("new\n"), 4);
         externalFile.close();
-        window.findChild<QPlainTextEdit*>("codex.prompt")->setPlainText(
-            "fixture changes edited " + externalFile.fileName());
+        window.findChild<QPlainTextEdit*>("codex.prompt")
+            ->setPlainText("fixture changes edited " + externalFile.fileName());
         QTest::mouseClick(window.findChild<QAbstractButton*>("codex.send"), Qt::LeftButton);
         const auto editedPromptVisible = [&] {
             for (auto* label : window.findChildren<QLabel*>())
@@ -2952,13 +2971,15 @@ class NativeViewTests final : public QObject {
         QTRY_VERIFY(window.findChild<QAbstractButton*>("codex.send")->isEnabled());
         QTest::mouseClick(window.findChild<QAbstractButton*>("codex.send"), Qt::LeftButton);
         QTRY_VERIFY_WITH_TIMEOUT(window.findChild<QWidget*>("codex.approvalCard") &&
-                                     window.findChild<QWidget*>("codex.approvalCard")->isVisible(), 15000);
+                                     window.findChild<QWidget*>("codex.approvalCard")->isVisible(),
+                                 15000);
         auto* approval = window.findChild<QWidget*>("codex.approvalCard");
         QVERIFY(!window.findChild<QDialog*>("confirmationDialog"));
         QVERIFY(!window.findChild<QWidget*>("codex.composer")->isVisible());
         QAbstractButton* decline = nullptr;
         for (auto* button : approval->findChildren<QAbstractButton*>())
-            if (button->text() == "Decline") decline = button;
+            if (button->text() == "Decline")
+                decline = button;
         QVERIFY(decline);
         QTest::mouseClick(decline, Qt::LeftButton);
         QTRY_VERIFY_WITH_TIMEOUT(conversationText().contains("Approval decision: decline"), 15000);
@@ -2982,25 +3003,33 @@ class NativeViewTests final : public QObject {
         QTRY_VERIFY(window.findChild<QLabel*>(thinkingId));
         QVERIFY(window.findChild<QLabel*>(thinkingId)->isVisible());
         QCOMPARE(window.findChild<QLabel*>(thinkingId)->text(), "Thinking");
-        auto* shimmer = dynamic_cast<ui::components::ShimmerLabel*>(window.findChild<QLabel*>(thinkingId));
+        auto* shimmer =
+            dynamic_cast<ui::components::ShimmerLabel*>(window.findChild<QLabel*>(thinkingId));
         QVERIFY(shimmer);
         QCOMPARE(shimmer->font().pixelSize(), runningCounter()->font().pixelSize());
         if (shimmer->findChild<QTimer*>()->isActive()) {
             const auto firstFrame = shimmer->grab().toImage();
             QTRY_VERIFY(shimmer->grab().toImage() != firstFrame);
         }
-        auto* thinkingTranscript = window.findChild<ui::NativeTranscriptView*>("codex.conversation");
+        auto* thinkingTranscript =
+            window.findChild<ui::NativeTranscriptView*>("codex.conversation");
         QVERIFY(thinkingTranscript);
         QTRY_VERIFY(thinkingTranscript->followingLatest());
         QTRY_VERIFY(window.findChild<QLabel*>(thinkingId)
-                        ->mapTo(thinkingTranscript->viewport(), QPoint{}).y() >= 0);
+                        ->mapTo(thinkingTranscript->viewport(), QPoint{})
+                        .y() >= 0);
         QTRY_VERIFY(window.findChild<QLabel*>(thinkingId)
-                        ->mapTo(thinkingTranscript->viewport(), QPoint{}).y() +
-                        window.findChild<QLabel*>(thinkingId)->height() <= thinkingTranscript->viewport()->height());
+                            ->mapTo(thinkingTranscript->viewport(), QPoint{})
+                            .y() +
+                        window.findChild<QLabel*>(thinkingId)->height() <=
+                    thinkingTranscript->viewport()->height());
         QTest::qWait(100); // Include deferred wrapping and later state-only frames.
         QVERIFY(thinkingTranscript->followingLatest());
-        QVERIFY(window.findChild<QLabel*>(thinkingId)->mapTo(thinkingTranscript->viewport(), QPoint{}).y() +
-                    window.findChild<QLabel*>(thinkingId)->height() <= thinkingTranscript->viewport()->height());
+        QVERIFY(window.findChild<QLabel*>(thinkingId)
+                        ->mapTo(thinkingTranscript->viewport(), QPoint{})
+                        .y() +
+                    window.findChild<QLabel*>(thinkingId)->height() <=
+                thinkingTranscript->viewport()->height());
         if (!qEnvironmentVariable("LITECODE_NATIVE_THINKING_CAPTURE").isEmpty()) {
             QVERIFY(window.grab().save(qEnvironmentVariable("LITECODE_NATIVE_THINKING_CAPTURE")));
         }

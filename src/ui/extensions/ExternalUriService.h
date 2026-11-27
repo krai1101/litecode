@@ -14,6 +14,7 @@ class ExternalUriService final : public QObject {
   signals:
     void workspaceRequested(const QUrl& uri);
     void error(const QString& message);
+
   private:
     void perform(const extensions::ExternalUriRequest& request);
     QPointer<extensions::ExtensionManager> manager_;
@@ -22,4 +23,4 @@ class ExternalUriService final : public QObject {
     QPointer<QDialog> dialog_;
     quint64 nextDialog_{};
 };
-}
+} // namespace litecode::ui

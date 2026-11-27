@@ -1,9 +1,9 @@
 #pragma once
 #include "extensions/WorkbenchDialogs.h"
+#include <QHash>
 #include <QObject>
 #include <QPointer>
 #include <QQueue>
-#include <QHash>
 #include <functional>
 
 class QFileDialog;
@@ -13,8 +13,9 @@ class ModalDialogQueue;
 class FileDialogService final : public QObject {
   public:
     FileDialogService(extensions::WorkbenchDialogs& dialogs, QWidget* owner,
-        std::function<QUrl()> defaultUri, QObject* parent);
+                      std::function<QUrl()> defaultUri, QObject* parent);
     ~FileDialogService() override;
+
   private:
     void show(const extensions::FileDialogRequest& request);
     void dismiss(const QString& owner, quint64 id);

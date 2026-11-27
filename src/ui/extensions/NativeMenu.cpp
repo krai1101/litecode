@@ -3,9 +3,9 @@
 #include "ui/components/Controls.h"
 #include "ui/components/PopupSurface.h"
 #include <QAction>
+#include <QMenu>
 #include <QPalette>
 #include <QStyle>
-#include <QMenu>
 namespace litecode::ui {
 namespace {
 void stylePopover(components::Menu& menu) {
@@ -58,9 +58,9 @@ void showNativeMenu(QMenu& menu, QWidget& anchor, bool alignRight) {
             break;
         }
     menu.ensurePolished();
-    const auto bounds = PopupSurface::anchoredGeometry(
-        anchor, menu.sizeHint().expandedTo(menu.minimumSize()), true, preferAbove,
-        alignRight ? Qt::AlignRight : Qt::AlignLeft);
+    const auto bounds =
+        PopupSurface::anchoredGeometry(anchor, menu.sizeHint().expandedTo(menu.minimumSize()), true,
+                                       preferAbove, alignRight ? Qt::AlignRight : Qt::AlignLeft);
     if (!bounds.isValid()) {
         menu.deleteLater();
         return;

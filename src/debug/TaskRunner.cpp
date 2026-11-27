@@ -14,25 +14,31 @@ QString shellArgument(const QString& value) {
     return '\'' + escaped + '\'';
 #endif
 }
-}
+} // namespace
 TaskRunner::TaskRunner(QObject* parent) : QObject(parent), process_(this) {
-    connect(&process_, &QProcess::readyReadStandardOutput, this, [this] {
-        emit outputReceived(QString::fromUtf8(process_.readAllStandardOutput()));
-    });
-    connect(&process_, &QProcess::readyReadStandardError, this, [this] {
-        emit outputReceived(QString::fromUtf8(process_.readAllStandardError()));
+    connect(&process_, &QProcess::readyReadStandardOutput, this,
+            [this] { emit outputReceived(QString::fromUtf8(process_.readAllStandardOutput())); });
+    connect(&process_, &QProcess::readyReadStandardError, this,
+            [this] { emit outputReceived(QString::fromUtf8(process_.readAllStandardError())); });
+    connect(&process_, &QProcess::started, this, [this] {
+        if (cancelling_)
+            process_.kill();
     });
     connect(&process_, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
         if (active_ && error == QProcess::FailedToStart)
-            finish(false, tr("Task '%1' could not start: %2")
-                              .arg(currentLabel_, process_.errorString()));
+            finish(false, cancelling_ ? tr("Task cancelled.")
+                                      : tr("Task '%1' could not start: %2")
+                                            .arg(currentLabel_, process_.errorString()));
     });
-    connect(&process_, &QProcess::finished, this,
-            [this](int code, QProcess::ExitStatus status) {
-        if (!active_) return;
+    connect(&process_, &QProcess::finished, this, [this](int code, QProcess::ExitStatus status) {
+        if (!active_)
+            return;
+        if (cancelling_) {
+            finish(false, tr("Task cancelled."));
+            return;
+        }
         if (status != QProcess::NormalExit || code != 0) {
-            finish(false, tr("Task '%1' failed with exit code %2.")
-                              .arg(currentLabel_).arg(code));
+            finish(false, tr("Task '%1' failed with exit code %2.").arg(currentLabel_).arg(code));
             return;
         }
         runNext();
@@ -40,10 +46,12 @@ TaskRunner::TaskRunner(QObject* parent) : QObject(parent), process_(this) {
 }
 bool TaskRunner::start(const QString& workspace, const QString& label,
                        const VariableContext& context) {
-    if (active_ || workspace.isEmpty() || label.isEmpty()) return false;
+    if (active_ || workspace.isEmpty() || label.isEmpty())
+        return false;
     QString error;
     const auto tasks = TaskConfigurations::load(workspace, &error);
-    if (error.isEmpty()) graph_ = TaskConfigurations::dependencyGraph(tasks, label, &error);
+    if (error.isEmpty())
+        graph_ = TaskConfigurations::dependencyGraph(tasks, label, &error);
     if (!error.isEmpty() || graph_.isEmpty()) {
         emit finished(false, error.isEmpty() ? tr("No task to run.") : error);
         return false;
@@ -55,30 +63,34 @@ bool TaskRunner::start(const QString& workspace, const QString& label,
     return active_;
 }
 void TaskRunner::stop() {
-    if (!active_) return;
-    active_ = false;
-    graph_.clear();
-    if (process_.state() != QProcess::NotRunning) {
+    if (!active_ || cancelling_)
+        return;
+    if (process_.state() == QProcess::NotRunning) {
+        finish(false, tr("Task cancelled."));
+    } else {
+        cancelling_ = true;
         process_.kill();
-        process_.waitForFinished(1000);
     }
-    emit finished(false, tr("Task cancelled."));
 }
 void TaskRunner::finish(bool success, const QString& error) {
-    if (!active_) return;
+    if (!active_)
+        return;
     active_ = false;
+    cancelling_ = false;
     graph_.clear();
     emit finished(success, error);
 }
 void TaskRunner::runNext() {
     while (active_ && nextIndex_ < graph_.size()) {
         const auto task = graph_.at(nextIndex_++);
-        if (task.type == "compound") continue;
+        if (task.type == "compound")
+            continue;
         QString error;
         const auto command = TaskConfigurations::resolve(task, context_, &error);
         if (!error.isEmpty() || command.command.isEmpty() || !QDir(command.cwd).exists()) {
-            finish(false, error.isEmpty() ? tr("Invalid command or working directory for '%1'.")
-                                            .arg(task.label) : error);
+            finish(false, error.isEmpty()
+                              ? tr("Invalid command or working directory for '%1'.").arg(task.label)
+                              : error);
             return;
         }
         currentLabel_ = task.label;

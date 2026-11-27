@@ -45,14 +45,14 @@ QString readGit(const QString& root, const QStringList& args) {
         return "ERROR: " + QString::fromUtf8(process.readAllStandardError());
     return QString::fromUtf8(process.readAllStandardOutput()).trimmed();
 }
-QString normalized(QString text) {
-    return text.remove('&').replace(QChar(0x2026), "...");
-}
+QString normalized(QString text) { return text.remove('&').replace(QChar(0x2026), "..."); }
 QAction* actionIn(QMenu& menu, const QStringList& path, int depth = 0) {
     for (auto* action : menu.actions())
         if (normalized(action->text()) == path[depth]) {
-            if (depth + 1 == path.size()) return action;
-            if (action->menu()) return actionIn(*action->menu(), path, depth + 1);
+            if (depth + 1 == path.size())
+                return action;
+            if (action->menu())
+                return actionIn(*action->menu(), path, depth + 1);
         }
     return nullptr;
 }
@@ -60,7 +60,8 @@ bool menu(ui::SourceControlPanel& panel, const QStringList& path) {
     bool triggered = false;
     QTimer::singleShot(0, &panel, [&] {
         auto* popup = panel.findChild<QMenu*>("scmActionsMenu");
-        if (!popup) return;
+        if (!popup)
+            return;
         auto* action = actionIn(*popup, path);
         popup->close();
         if (action && action->isEnabled()) {
@@ -81,13 +82,16 @@ class DialogDriver final : public QObject {
         timer_.start();
     }
     bool seen{};
+
   private:
     void respond() {
         auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
-        if (!dialog || dialog->windowTitle() != title_) return;
+        if (!dialog || dialog->windowTitle() != title_)
+            return;
         seen = true;
         if (auto* input = qobject_cast<ui::components::QuickInputDialog*>(dialog)) {
-            if (input->input()->text() != input_) input->input()->setText(input_);
+            if (input->input()->text() != input_)
+                input->input()->setText(input_);
             input->accept(); // Validation keeps the dialog open until it is valid.
         } else if (auto* picker = qobject_cast<ui::QuickOpenDialog*>(dialog)) {
             auto* list = picker->findChild<QListWidget*>("quickOpenResults");
@@ -99,7 +103,10 @@ class DialogDriver final : public QObject {
                 }
         } else
             for (auto* button : dialog->findChildren<QPushButton*>())
-                if (normalized(button->text()) == button_) { button->click(); return; }
+                if (normalized(button->text()) == button_) {
+                    button->click();
+                    return;
+                }
     }
     QTimer timer_;
     QString title_, input_, button_;
@@ -111,7 +118,8 @@ class ManualSourceControlSmoke final : public QObject {
     void realRepositoryThroughWorkbench() {
         QStandardPaths::setTestModeEnabled(true);
         const auto root = qEnvironmentVariable("LITECODE_SCM_MANUAL_REPOSITORY");
-        if (root.isEmpty()) QSKIP("Set LITECODE_SCM_MANUAL_REPOSITORY for this opt-in run.");
+        if (root.isEmpty())
+            QSKIP("Set LITECODE_SCM_MANUAL_REPOSITORY for this opt-in run.");
         QVERIFY(QDir(root).dirName() == "simple-test-debug");
         const QString branch = "litecode-scm-ui-check";
         const QString fileName = "scm-ui-smoke.txt";
@@ -173,20 +181,25 @@ class ManualSourceControlSmoke final : public QObject {
         };
         const auto refresh = [&] {
             for (auto* button : panel->findChildren<QToolButton*>())
-                if (button->toolTip() == "Refresh") { button->click(); return; }
+                if (button->toolTip() == "Refresh") {
+                    button->click();
+                    return;
+                }
         };
         const auto item = [&](bool staged) -> QTreeWidgetItem* {
             for (int i = 0; i < tree->topLevelItemCount(); ++i)
                 for (int j = 0; j < tree->topLevelItem(i)->childCount(); ++j) {
                     auto* child = tree->topLevelItem(i)->child(j);
                     if (child->data(0, Qt::UserRole) == fileName &&
-                        child->data(0, Qt::UserRole + 1).toBool() == staged) return child;
+                        child->data(0, Qt::UserRole + 1).toBool() == staged)
+                        return child;
                 }
             return nullptr;
         };
         const auto transfer = [&](bool staged) {
             auto* target = item(staged);
-            if (!target) return false;
+            if (!target)
+                return false;
             tree->scrollToItem(target);
             const auto rect = tree->visualItemRect(target);
             QTest::mouseClick(tree->viewport(), Qt::LeftButton, {},
@@ -235,7 +248,8 @@ class ManualSourceControlSmoke final : public QObject {
         QTRY_VERIFY(!git->busy() && !item(true));
         const auto first = readGit(root, {"rev-parse", "HEAD"});
         QVERIFY(first != previousHead);
-        qInfo("PASS UI: undo unpublished commit restores working changes and commit message; restage/recommit");
+        qInfo("PASS UI: undo unpublished commit restores working changes and commit message; "
+              "restage/recommit");
         QVERIFY(write("LiteCode Source Control UI test\nversion two\n"));
         refresh();
         QTRY_VERIFY(item(false) && !git->busy());
@@ -273,12 +287,15 @@ class ManualSourceControlSmoke final : public QObject {
             DialogDriver confirm("Publish Branch", {}, "Publish Branch");
             DialogDriver remote("Publish Branch", "origin");
             QVERIFY(menu(*panel, {"Push"}));
-            QVERIFY(QTest::qWaitFor([&] {
-                return !git->busy() &&
-                    readGit(root, {"rev-parse", "--abbrev-ref", "@{upstream}"}) == "origin/" + branch;
-            }, 30000));
+            QVERIFY(QTest::qWaitFor(
+                [&] {
+                    return !git->busy() && readGit(root, {"rev-parse", "--abbrev-ref",
+                                                          "@{upstream}"}) == "origin/" + branch;
+                },
+                30000));
         }
-        QCOMPARE(readGit(root, {"ls-remote", "origin", "refs/heads/" + branch}).section('\t', 0, 0), first);
+        QCOMPARE(readGit(root, {"ls-remote", "origin", "refs/heads/" + branch}).section('\t', 0, 0),
+                 first);
         qInfo("PASS UI: Push publishes the test branch to GitHub; remote SHA verified");
         QVERIFY(menu(*panel, {"Fetch"}));
         QTRY_VERIFY_WITH_TIMEOUT(!git->busy(), 30000);
@@ -288,14 +305,19 @@ class ManualSourceControlSmoke final : public QObject {
         QVERIFY(menu(*panel, {"Show Git Output"}));
         ui::OutputPanel* output = nullptr;
         for (auto* widget : window.findChildren<QWidget*>())
-            if (auto* candidate = dynamic_cast<ui::OutputPanel*>(widget)) { output = candidate; break; }
+            if (auto* candidate = dynamic_cast<ui::OutputPanel*>(widget)) {
+                output = candidate;
+                break;
+            }
         QVERIFY(output);
         auto* tabs = window.findChild<ui::components::WorkbenchTabs*>("bottomTabs");
         QCOMPARE(tabs->currentWidget(), static_cast<QWidget*>(output));
         QCOMPARE(output->selectedChannel(), ui::GitOutputChannel::channelId());
-        for (int i = 0; i < tabs->count(); ++i) QVERIFY(tabs->tabText(i) != "Git Output");
+        for (int i = 0; i < tabs->count(); ++i)
+            QVERIFY(tabs->tabText(i) != "Git Output");
         auto* extensionsPanel = window.findChild<ui::ExtensionsPanel*>();
-        const auto channel = extensionsPanel->manager()->outputs().channel(ui::GitOutputChannel::channelId());
+        const auto channel =
+            extensionsPanel->manager()->outputs().channel(ui::GitOutputChannel::channelId());
         QVERIFY(channel && channel->name == "Git" && channel->text.contains("Git:"));
         qInfo("PASS UI: Git log uses Output > Git, without a separate Git Output tab");
         {

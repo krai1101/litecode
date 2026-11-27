@@ -18,7 +18,8 @@ struct DocumentReferenceLimits final {
 class BoundDocumentReferences final : public QObject {
   public:
     explicit BoundDocumentReferences(std::function<void(core::DocumentId)> release,
-        DocumentReferenceLimits limits = {}, QObject* parent = nullptr);
+                                     DocumentReferenceLimits limits = {},
+                                     QObject* parent = nullptr);
     ~BoundDocumentReferences() override;
     void add(core::DocumentId id, QUrl resource, qint64 length);
     void remove(core::DocumentId id);
@@ -26,8 +27,15 @@ class BoundDocumentReferences final : public QObject {
     void clear();
     [[nodiscard]] qsizetype count() const { return static_cast<qsizetype>(entries_.size()); }
     [[nodiscard]] qint64 length() const { return length_; }
+
   private:
-    struct Entry { quint64 token; core::DocumentId id; QUrl resource; qint64 length; QTimer* timer; };
+    struct Entry {
+        quint64 token;
+        core::DocumentId id;
+        QUrl resource;
+        qint64 length;
+        QTimer* timer;
+    };
     void release(quint64 token);
     std::deque<Entry> entries_;
     std::function<void(core::DocumentId)> release_;

@@ -64,8 +64,8 @@ void SettingsSessionTest::gitPreferencesHaveSafeDefaultsAndPersist() {
             true;
         options.pullTags = false;
         options.allowForcePush = true;
-        options.useForcePushWithLease = options.useForcePushIfIncludes =
-            options.confirmForcePush = false;
+        options.useForcePushWithLease = options.useForcePushIfIncludes = options.confirmForcePush =
+            false;
         options.pullPolicy = core::GitPullPolicy::Rebase;
         options.branchPrefix = "topic/";
         options.branchWhitespace = "_";

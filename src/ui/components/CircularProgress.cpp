@@ -1,8 +1,8 @@
 #include "ui/components/CircularProgress.h"
 #include "ui/components/PopupSurface.h"
-#include <QEvent>
 #include <QApplication>
 #include <QCursor>
+#include <QEvent>
 #include <QFrame>
 #include <QLabel>
 #include <QPainter>
@@ -45,7 +45,7 @@ void CircularProgress::paintEvent(QPaintEvent*) {
     painter.setRenderHint(QPainter::Antialiasing);
     const auto color = palette().color(QPalette::WindowText);
     auto track = color;
-    track.setAlphaF(.18);
+    track.setAlphaF(.18f);
     const QRectF ring(width() / 2.0 - 6, height() / 2.0 - 6, 12, 12);
     painter.setPen(QPen(track, 2));
     painter.drawEllipse(ring);
@@ -59,9 +59,9 @@ bool CircularProgress::event(QEvent* event) {
         event->accept();
         return true;
     }
-    if (tip_ && (event->type() == QEvent::Hide ||
-                 (event->type() == QEvent::Leave &&
-                  !rect().contains(mapFromGlobal(QCursor::pos())))))
+    if (tip_ &&
+        (event->type() == QEvent::Hide ||
+         (event->type() == QEvent::Leave && !rect().contains(mapFromGlobal(QCursor::pos())))))
         tip_->hide();
     return QProgressBar::event(event);
 }

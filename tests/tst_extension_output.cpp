@@ -1,7 +1,7 @@
 #include "extensions/HostOutput.h"
 #include "extensions/WorkbenchOutput.h"
-#include <QFile>
 #include <QDir>
+#include <QFile>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -14,10 +14,15 @@ class ExtensionOutputTests final : public QObject {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
         WorkbenchOutput workbench;
-        HostOutput host(directory.path(), [&](const QJsonObject& message) { QVERIFY(workbench.accept("owner", message)); });
-        connect(&workbench, &WorkbenchOutput::globalLogLevelChanged, &host, [&](int level) { host.setGlobalLogLevel(static_cast<LogLevel>(level)); });
+        HostOutput host(directory.path(), [&](const QJsonObject& message) {
+            QVERIFY(workbench.accept("owner", message));
+        });
+        connect(&workbench, &WorkbenchOutput::globalLogLevelChanged, &host,
+                [&](int level) { host.setGlobalLogLevel(static_cast<LogLevel>(level)); });
         connect(&workbench, &WorkbenchOutput::logLevelRequested, &host,
-            [&](const QString&, const QString& id, int level) { host.setLogLevel(id, static_cast<LogLevel>(level)); });
+                [&](const QString&, const QString& id, int level) {
+                    host.setLogLevel(id, static_cast<LogLevel>(level));
+                });
         workbench.setGlobalLogLevel(LogLevel::Trace);
         auto inherited = host.createOutputChannel("Inherited", LogOutputChannelOptions{});
         auto explicitLevel = host.createOutputChannel("Explicit", LogOutputChannelOptions{});
@@ -26,14 +31,17 @@ class ExtensionOutputTests final : public QObject {
         QTRY_COMPARE(workbench.channels().size(), 2);
         QString inheritedId, explicitId;
         for (const auto& channel : workbench.channels()) {
-            if (channel.name == "Inherited") inheritedId = channel.id;
-            else if (channel.name == "Explicit") explicitId = channel.id;
+            if (channel.name == "Inherited")
+                inheritedId = channel.id;
+            else if (channel.name == "Explicit")
+                explicitId = channel.id;
         }
         QVERIFY(!inheritedId.isEmpty());
         QVERIFY(!explicitId.isEmpty());
         workbench.setLogLevel(explicitId, LogLevel::Error);
         QVector<LogLevel> changes;
-        auto listener = inherited->onDidChangeLogLevel()([&](LogLevel level) { changes.append(level); });
+        auto listener =
+            inherited->onDidChangeLogLevel()([&](LogLevel level) { changes.append(level); });
         workbench.setGlobalLogLevel(LogLevel::Debug);
         QCOMPARE(inherited->logLevel(), LogLevel::Debug);
         QCOMPARE(explicitLevel->logLevel(), LogLevel::Error);
@@ -69,7 +77,8 @@ class ExtensionOutputTests final : public QObject {
             valid = workbench.accept("fixture", message) && valid;
         });
         QVERIFY_EXCEPTION_THROWN(host.createOutputChannel(" \t"), std::invalid_argument);
-        QVERIFY_EXCEPTION_THROWN(host.createOutputChannel("Name", QString(" \t")), std::invalid_argument);
+        QVERIFY_EXCEPTION_THROWN(host.createOutputChannel("Name", QString(" \t")),
+                                 std::invalid_argument);
         auto channel = host.createOutputChannel("Failure");
         QTRY_COMPARE(workbench.channels().size(), 1);
         // A directory at the output file's path reliably fails writes on all
@@ -126,11 +135,13 @@ class ExtensionOutputTests final : public QObject {
         bool valid = true;
         QVector<QString> chunks;
         HostOutput host(directory.path(), [&](const QJsonObject& message) {
-            if (message.value("operation") == "append") chunks.append(message.value("text").toString());
+            if (message.value("operation") == "append")
+                chunks.append(message.value("text").toString());
             valid = workbench.accept("fixture", message) && valid;
         });
         auto channel = host.createOutputChannel("Unicode");
-        const auto value = QString(32767, QLatin1Char('x')) + QString::fromUtf8("\xf0\x9f\x98\x80") + QString(32768, QLatin1Char('y'));
+        const auto value = QString(32767, QLatin1Char('x')) +
+                           QString::fromUtf8("\xf0\x9f\x98\x80") + QString(32768, QLatin1Char('y'));
         channel->append(value);
         QTRY_COMPARE(chunks.size(), 3);
         QVERIFY(valid);
@@ -150,9 +161,11 @@ class ExtensionOutputTests final : public QObject {
             valid = workbench.accept("fixture", message) && valid;
         });
         connect(&workbench, &WorkbenchOutput::logLevelRequested, &host,
-            [&](const QString&, const QString& id, int level) { host.setLogLevel(id, static_cast<LogLevel>(level)); });
+                [&](const QString&, const QString& id, int level) {
+                    host.setLogLevel(id, static_cast<LogLevel>(level));
+                });
         connect(&workbench, &WorkbenchOutput::clearRequested, &host,
-            [&](const QString&, const QString& id) { host.clear(id); });
+                [&](const QString&, const QString& id) { host.clear(id); });
         auto channel = host.createOutputChannel("Logger", LogOutputChannelOptions{});
         const auto original = channel.get();
         channel.reset();
@@ -161,7 +174,8 @@ class ExtensionOutputTests final : public QObject {
         QTRY_COMPARE(workbench.channels().size(), 1);
         const auto id = workbench.channels().first().id;
         QVector<LogLevel> changes;
-        auto listener = channel->onDidChangeLogLevel()([&](LogLevel level) { changes.append(level); });
+        auto listener =
+            channel->onDidChangeLogLevel()([&](LogLevel level) { changes.append(level); });
         channel->trace("filtered");
         channel->info("visible", {42});
         QTRY_VERIFY(workbench.channel(id)->text.contains("[info] visible 42\n"));
@@ -193,13 +207,20 @@ class ExtensionOutputTests final : public QObject {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
         WorkbenchOutput workbench;
-        HostOutput host(directory.path(), [&](const QJsonObject& message) { QVERIFY(workbench.accept("owner", message)); });
+        HostOutput host(directory.path(), [&](const QJsonObject& message) {
+            QVERIFY(workbench.accept("owner", message));
+        });
         auto channel = host.createOutputChannel("Owned");
         QTRY_COMPARE(workbench.channels().size(), 1);
         const auto id = workbench.channels().first().id;
         for (const auto& operation : {"append", "clear", "show", "hide", "dispose"})
-            QVERIFY(!workbench.accept("other", {{"id", id}, {"operation", operation}, {"text", "forged"}, {"preserveFocus", true}}));
-        QVERIFY(!workbench.accept("owner", {{"id", id}, {"operation", "append"}, {"text", QString(32769, QLatin1Char('x'))}}));
+            QVERIFY(!workbench.accept("other", {{"id", id},
+                                                {"operation", operation},
+                                                {"text", "forged"},
+                                                {"preserveFocus", true}}));
+        QVERIFY(!workbench.accept(
+            "owner",
+            {{"id", id}, {"operation", "append"}, {"text", QString(32769, QLatin1Char('x'))}}));
         host.shutdown();
         host.shutdown();
         QVERIFY_EXCEPTION_THROWN(channel->clear(), std::runtime_error);

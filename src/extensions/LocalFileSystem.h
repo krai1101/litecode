@@ -14,9 +14,12 @@ class LocalFileSystem final : public FileSystem {
     QFuture<QByteArray> readFile(const QUrl& uri) override;
     QFuture<void> writeFile(const QUrl& uri, const QByteArray& content) override;
     QFuture<void> delete_(const QUrl& uri, FileSystemDeleteOptions options = {}) override;
-    QFuture<void> rename(const QUrl& source, const QUrl& target, FileSystemOverwriteOptions options = {}) override;
-    QFuture<void> copy(const QUrl& source, const QUrl& target, FileSystemOverwriteOptions options = {}) override;
+    QFuture<void> rename(const QUrl& source, const QUrl& target,
+                         FileSystemOverwriteOptions options = {}) override;
+    QFuture<void> copy(const QUrl& source, const QUrl& target,
+                       FileSystemOverwriteOptions options = {}) override;
     std::optional<bool> isWritableFileSystem(const QString& scheme) const override;
+
   private:
     QThreadPool workers_;
 };

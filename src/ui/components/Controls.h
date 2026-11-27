@@ -153,6 +153,7 @@ class Menu : public QMenu {
     explicit Menu(QWidget* parent = nullptr);
     Menu(const QString& title, QWidget* parent = nullptr);
     QAction* addDescriptiveAction(const QString& text);
+
   protected:
     void paintEvent(QPaintEvent* event) override;
 };

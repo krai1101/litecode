@@ -1,17 +1,17 @@
 #include "ui/debug/DebugInspectorWidget.h"
-#include "ui/debug/DebugInspectorDelegates.h"
-#include "ui/components/ElidingLabel.h"
-#include <QDir>
 #include "debug/DebugSession.h"
-#include "ui/ThemedIcon.h"
 #include "ui/Theme.h"
+#include "ui/ThemedIcon.h"
 #include "ui/components/Controls.h"
+#include "ui/components/ElidingLabel.h"
 #include "ui/components/TreeDisclosure.h"
+#include "ui/debug/DebugInspectorDelegates.h"
 #include <QApplication>
+#include <QDir>
 #include <QEvent>
 #include <QFileInfo>
-#include <QHeaderView>
 #include <QHBoxLayout>
+#include <QHeaderView>
 #include <QIcon>
 #include <QJsonArray>
 #include <QKeyEvent>
@@ -76,8 +76,8 @@ DebugInspectorWidget::DebugInspectorWidget(debug::DebugSession& session, QWidget
         }
         return tree;
     };
-    const auto addSection = [this, sections](const QString& title, QTreeWidget* tree,
-                                              int weight, bool addAction = false) {
+    const auto addSection = [this, sections](const QString& title, QTreeWidget* tree, int weight,
+                                             bool addAction = false) {
         auto* section = new QWidget(sections);
         auto* column = new QVBoxLayout(section);
         column->setContentsMargins(0, 0, 0, 0);
@@ -130,14 +130,14 @@ DebugInspectorWidget::DebugInspectorWidget(debug::DebugSession& session, QWidget
         sections->setStretchFactor(sections->count() - 1, weight);
         connect(header, &QToolButton::clicked, this,
                 [this, header, body, section, bar, breakpointSection, open = true]() mutable {
-            open = !open;
-            body->setVisible(open);
-            section->setMaximumHeight(open ? QWIDGETSIZE_MAX : bar->sizeHint().height());
-            setThemedIcon(header, open ? ":/icons/chevron-down.svg"
-                                       : ":/icons/chevron-right.svg");
-            if (breakpointSection)
-                updateBreakpointHeight();
-        });
+                    open = !open;
+                    body->setVisible(open);
+                    section->setMaximumHeight(open ? QWIDGETSIZE_MAX : bar->sizeHint().height());
+                    setThemedIcon(header,
+                                  open ? ":/icons/chevron-down.svg" : ":/icons/chevron-right.svg");
+                    if (breakpointSection)
+                        updateBreakpointHeight();
+                });
     };
     variables_ = makeTree("debugVariables", true);
     variables_->setColumnCount(1);
@@ -169,27 +169,27 @@ DebugInspectorWidget::DebugInspectorWidget(debug::DebugSession& session, QWidget
             &DebugInspectorWidget::handleInspection);
     connect(&session_, &debug::DebugSession::capabilitiesChanged, this,
             [this](const QJsonObject& capabilities) {
-        exceptionFilterDefinitions_ = capabilities.value("exceptionBreakpointFilters").toArray();
-        enabledExceptionFilters_.clear();
-        for (const auto& value : exceptionFilterDefinitions_) {
-            const auto filter = value.toObject();
-            if (filter.value("default").toBool())
-                enabledExceptionFilters_.insert(filter.value("filter").toString());
-        }
-        refreshBreakpointRows();
-        session_.setExceptionBreakpoints(enabledExceptionFilters_.values());
-    });
+                exceptionFilterDefinitions_ =
+                    capabilities.value("exceptionBreakpointFilters").toArray();
+                enabledExceptionFilters_.clear();
+                for (const auto& value : exceptionFilterDefinitions_) {
+                    const auto filter = value.toObject();
+                    if (filter.value("default").toBool())
+                        enabledExceptionFilters_.insert(filter.value("filter").toString());
+                }
+                refreshBreakpointRows();
+                session_.setExceptionBreakpoints(enabledExceptionFilters_.values());
+            });
     connect(&session_, &debug::DebugSession::referencesInvalidated, this,
             &DebugInspectorWidget::clearInspection);
     connect(&session_, &debug::DebugSession::stateChanged, this,
             [this](debug::DebugSession::State state) {
-        if (state != debug::DebugSession::State::Stopped) {
-            pauseDescription_.clear();
-            clearInspection();
-        }
-    });
-    connect(&session_, &debug::DebugSession::stoppedAt, this,
-            [this](const QJsonObject& details) {
+                if (state != debug::DebugSession::State::Stopped) {
+                    pauseDescription_.clear();
+                    clearInspection();
+                }
+            });
+    connect(&session_, &debug::DebugSession::stoppedAt, this, [this](const QJsonObject& details) {
         pauseDescription_ = details.value("description").toString();
         if (pauseDescription_.isEmpty()) {
             const auto reason = details.value("reason").toString();
@@ -208,9 +208,8 @@ DebugInspectorWidget::DebugInspectorWidget(debug::DebugSession& session, QWidget
         if (!revealSkippedFrames(item))
             selectFrame(item);
     });
-    connect(callStack_, &QTreeWidget::itemActivated, this, [](QTreeWidgetItem* item) {
-        revealSkippedFrames(item);
-    });
+    connect(callStack_, &QTreeWidget::itemActivated, this,
+            [](QTreeWidgetItem* item) { revealSkippedFrames(item); });
     connect(callStack_, &QTreeWidget::itemDoubleClicked, this, [this](QTreeWidgetItem* item) {
         const QString path = item->data(0, debug_inspector::PathRole).toString();
         if (!path.isEmpty())
@@ -221,8 +220,7 @@ DebugInspectorWidget::DebugInspectorWidget(debug::DebugSession& session, QWidget
         if (!path.isEmpty())
             emit openLocationRequested(path, item->data(0, debug_inspector::LineRole).toInt());
     });
-    connect(breakpoints_, &QTreeWidget::itemChanged, this,
-            [this](QTreeWidgetItem* item, int) {
+    connect(breakpoints_, &QTreeWidget::itemChanged, this, [this](QTreeWidgetItem* item, int) {
         const QString filter = item->data(0, debug_inspector::ExceptionFilterRole).toString();
         if (filter.isEmpty())
             return;
@@ -235,7 +233,8 @@ DebugInspectorWidget::DebugInspectorWidget(debug::DebugSession& session, QWidget
     breakpoints_->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(breakpoints_, &QWidget::customContextMenuRequested, this, [this](const QPoint& pos) {
         auto* item = breakpoints_->itemAt(pos);
-        if (!item || item->data(0, debug_inspector::PathRole).toString().isEmpty()) return;
+        if (!item || item->data(0, debug_inspector::PathRole).toString().isEmpty())
+            return;
         components::Menu menu(this);
         auto* remove = menu.addAction(tr("Remove Breakpoint"));
         if (menu.exec(breakpoints_->viewport()->mapToGlobal(pos)) == remove)
@@ -245,13 +244,14 @@ DebugInspectorWidget::DebugInspectorWidget(debug::DebugSession& session, QWidget
     watch_->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(watch_, &QWidget::customContextMenuRequested, this, [this](const QPoint& pos) {
         auto* item = watch_->itemAt(pos);
-        const auto expression = item && !item->parent() && item != watchDraft_
-            ? item->text(0) : QString{};
+        const auto expression =
+            item && !item->parent() && item != watchDraft_ ? item->text(0) : QString{};
         components::Menu menu(this);
         auto* add = menu.addAction(tr("Add Expression"));
         auto* remove = expression.isEmpty() ? nullptr : menu.addAction(tr("Remove Expression"));
         auto* selected = menu.exec(watch_->viewport()->mapToGlobal(pos));
-        if (selected == add) addWatchExpression();
+        if (selected == add)
+            addWatchExpression();
         if (remove && selected == remove) {
             watchExpressions_.removeOne(expression);
             refreshWatch();
@@ -262,17 +262,18 @@ DebugInspectorWidget::DebugInspectorWidget(debug::DebugSession& session, QWidget
 
 void DebugInspectorWidget::changeEvent(QEvent* event) {
     QWidget::changeEvent(event);
-    if (event->type() == QEvent::PaletteChange ||
-        event->type() == QEvent::ApplicationPaletteChange)
+    if (event->type() == QEvent::PaletteChange || event->type() == QEvent::ApplicationPaletteChange)
         updateTreePalettes();
 }
 void DebugInspectorWidget::updateTreePalettes() {
-    if (!breakpoints_) return;
+    if (!breakpoints_)
+        return;
     const QColor background =
         Theme::tokens(qApp->property("litecodeDarkTheme").toBool()).sidebarSurface;
     for (auto* tree : {variables_, watch_, callStack_, breakpoints_}) {
         auto palette = tree->palette();
-        if (palette.color(QPalette::Base) == background) continue;
+        if (palette.color(QPalette::Base) == background)
+            continue;
         palette.setColor(QPalette::Base, background);
         tree->setPalette(palette);
         tree->viewport()->setPalette(palette);
@@ -305,7 +306,8 @@ void DebugInspectorWidget::updateBreakpointHeight() {
         return;
     }
     const int rows = breakpointBody_->isHidden() ? 0 : qMin(8, breakpoints_->topLevelItemCount());
-    const int rowHeight = qMax(breakpoints_->fontMetrics().height(), breakpoints_->sizeHintForRow(0));
+    const int rowHeight =
+        qMax(breakpoints_->fontMetrics().height(), breakpoints_->sizeHintForRow(0));
     setFixedHeight(breakpointHeader_->sizeHint().height() + rows * rowHeight);
 }
 
@@ -315,14 +317,13 @@ void DebugInspectorWidget::refreshBreakpointRows() {
     for (const auto& value : exceptionFilterDefinitions_) {
         const auto filter = value.toObject();
         const QString id = filter.value("filter").toString();
-        if (id.isEmpty()) continue;
-        auto* item = new QTreeWidgetItem(breakpoints_,
-                                         {filter.value("label").toString(id)});
+        if (id.isEmpty())
+            continue;
+        auto* item = new QTreeWidgetItem(breakpoints_, {filter.value("label").toString(id)});
         item->setFirstColumnSpanned(true);
         item->setData(0, debug_inspector::ExceptionFilterRole, id);
         item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-        item->setCheckState(0, enabledExceptionFilters_.contains(id) ? Qt::Checked
-                                                                     : Qt::Unchecked);
+        item->setCheckState(0, enabledExceptionFilters_.contains(id) ? Qt::Checked : Qt::Unchecked);
         item->setToolTip(0, filter.value("description").toString());
     }
     for (auto it = sourceBreakpoints_.cbegin(); it != sourceBreakpoints_.cend(); ++it) {
@@ -330,15 +331,17 @@ void DebugInspectorWidget::refreshBreakpointRows() {
         std::sort(lines.begin(), lines.end());
         for (int line : lines) {
             auto* item = new QTreeWidgetItem(breakpoints_,
-                {QFileInfo(it.key()).fileName(), QFileInfo(it.key()).path(),
-                 QString::number(line)});
+                                             {QFileInfo(it.key()).fileName(),
+                                              QFileInfo(it.key()).path(), QString::number(line)});
             item->setIcon(0, QIcon(QStringLiteral(":/litecode/editor/icons/debug-breakpoint.svg")));
             item->setData(0, debug_inspector::PathRole, it.key());
             item->setData(0, debug_inspector::LineRole, line);
             item->setToolTip(0, it.key());
             const auto directory = QFileInfo(it.key()).path();
-            auto display = workspace_.isEmpty() ? directory : QDir(workspace_).relativeFilePath(directory);
-            if (display == ".") display.clear();
+            auto display =
+                workspace_.isEmpty() ? directory : QDir(workspace_).relativeFilePath(directory);
+            if (display == ".")
+                display.clear();
             item->setText(1, display);
             const auto colors = Theme::tokens(qApp->property("litecodeDarkTheme").toBool());
             item->setForeground(1, colors.mutedForeground);
@@ -369,9 +372,11 @@ void DebugInspectorWidget::clearInspection() {
     refreshWatch();
 }
 void DebugInspectorWidget::selectFrame(QTreeWidgetItem* frame) {
-    if (!frame || session_.state() != debug::DebugSession::State::Stopped) return;
+    if (!frame || session_.state() != debug::DebugSession::State::Stopped)
+        return;
     const auto reference = frame->data(0, debug_inspector::ReferenceRole);
-    if (!reference.isValid() || reference.toInt() < 0) return;
+    if (!reference.isValid() || reference.toInt() < 0)
+        return;
     selectedFrame_ = reference.toInt();
     emit activeFrameChanged(frame->data(0, debug_inspector::PathRole).toString(),
                             frame->data(0, debug_inspector::LineRole).toInt());
@@ -393,8 +398,10 @@ void DebugInspectorWidget::refreshWatch() {
         auto* item = new QTreeWidgetItem({expression, {}});
         watch_->insertTopLevelItem(row++, item);
         if (selectedFrame_ >= 0 && session_.state() == debug::DebugSession::State::Stopped) {
-            const int request = session_.evaluate(expression, QStringLiteral("watch"), selectedFrame_);
-            if (request > 0) watchRequests_.insert(request, item);
+            const int request =
+                session_.evaluate(expression, QStringLiteral("watch"), selectedFrame_);
+            if (request > 0)
+                watchRequests_.insert(request, item);
         }
     }
 }
@@ -448,13 +455,14 @@ bool DebugInspectorWidget::eventFilter(QObject* watched, QEvent* event) {
 }
 void DebugInspectorWidget::requestVariables(QTreeWidgetItem* item) {
     const int reference = item->data(0, debug_inspector::ReferenceRole).toInt();
-    if (reference <= 0 || item->childCount() != 1 ||
-        item->child(0)->text(0) != tr("Loading…")) return;
+    if (reference <= 0 || item->childCount() != 1 || item->child(0)->text(0) != tr("Loading…"))
+        return;
     const int request = session_.variables(reference);
-    if (request > 0) variableRequests_.insert(request, item);
+    if (request > 0)
+        variableRequests_.insert(request, item);
 }
 void DebugInspectorWidget::handleInspection(int requestId, const QString& command,
-                                              const QJsonObject& body) {
+                                            const QJsonObject& body) {
     if (command == "stackTrace") {
         callStack_->clear();
         callStack_->setRootIsDecorated(true);
@@ -469,8 +477,9 @@ void DebugInspectorWidget::handleInspection(int requestId, const QString& comman
         targetLayout->setContentsMargins(4, 0, 7, 0);
         targetLayout->setSpacing(5);
         auto* targetIcon = new QLabel(targetContent);
-        targetIcon->setPixmap(themedIcon(":/icons/run-debug.svg",
-                                  qApp->property("litecodeDarkTheme").toBool()).pixmap(14, 14));
+        targetIcon->setPixmap(
+            themedIcon(":/icons/run-debug.svg", qApp->property("litecodeDarkTheme").toBool())
+                .pixmap(14, 14));
         targetLayout->addWidget(targetIcon);
         auto* title = new components::ElidingLabel(targetName_, targetContent);
         title->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
@@ -489,9 +498,8 @@ void DebugInspectorWidget::handleInspection(int requestId, const QString& comman
             const int column = frame.value("column").toInt();
             const auto source = frame.value("source").toObject();
             const QString path = source.value("path").toString();
-            const bool skipped = firstFrame &&
-                (frame.value("presentationHint") == "deemphasize" ||
-                 source.value("presentationHint") == "deemphasize");
+            const bool skipped = firstFrame && (frame.value("presentationHint") == "deemphasize" ||
+                                                source.value("presentationHint") == "deemphasize");
             if (!skipped) {
                 skippedGroup = nullptr;
             } else if (!skippedGroup) {
@@ -499,27 +507,30 @@ void DebugInspectorWidget::handleInspection(int requestId, const QString& comman
                 skippedGroup->setFirstColumnSpanned(true);
                 skippedGroup->setChildIndicatorPolicy(QTreeWidgetItem::DontShowIndicator);
                 skippedGroup->setData(0, debug_inspector::ShowSkippedFramesRole, true);
-                skippedGroup->setForeground(0, Theme::tokens(
-                    qApp->property("litecodeDarkTheme").toBool()).accent);
+                skippedGroup->setForeground(
+                    0, Theme::tokens(qApp->property("litecodeDarkTheme").toBool()).accent);
             }
             const auto origin = source.value("origin").toString();
             if (skippedGroup && skippedGroup->childCount() == 0)
                 skippedGroup->setData(0, debug_inspector::FrameOriginRole, origin);
             const auto fileName = source.value("name").toString(QFileInfo(path).fileName());
-            auto* item = new QTreeWidgetItem(
-                {frame.value("name").toString(), QFileInfo(fileName).fileName(),
-                 column > 0 ? QStringLiteral("%1:%2").arg(line).arg(column)
-                            : QString::number(line)});
+            auto* item =
+                new QTreeWidgetItem({frame.value("name").toString(), QFileInfo(fileName).fileName(),
+                                     column > 0 ? QStringLiteral("%1:%2").arg(line).arg(column)
+                                                : QString::number(line)});
             if (skippedGroup) {
                 skippedGroup->addChild(item);
                 if (skippedGroup->data(0, debug_inspector::FrameOriginRole).toString() != origin)
                     skippedGroup->setData(0, debug_inspector::FrameOriginRole, QString{});
-                const auto sharedOrigin = skippedGroup->data(0, debug_inspector::FrameOriginRole).toString();
-                skippedGroup->setText(0, sharedOrigin.isEmpty()
-                    ? tr("Show %1 more frames").arg(skippedGroup->childCount())
-                    : tr("Show %1 more: %2").arg(skippedGroup->childCount()).arg(sharedOrigin));
-                item->setForeground(0, Theme::tokens(
-                    qApp->property("litecodeDarkTheme").toBool()).mutedForeground);
+                const auto sharedOrigin =
+                    skippedGroup->data(0, debug_inspector::FrameOriginRole).toString();
+                skippedGroup->setText(
+                    0,
+                    sharedOrigin.isEmpty()
+                        ? tr("Show %1 more frames").arg(skippedGroup->childCount())
+                        : tr("Show %1 more: %2").arg(skippedGroup->childCount()).arg(sharedOrigin));
+                item->setForeground(
+                    0, Theme::tokens(qApp->property("litecodeDarkTheme").toBool()).mutedForeground);
             } else {
                 target->addChild(item);
                 if (!firstFrame)
@@ -529,8 +540,8 @@ void DebugInspectorWidget::handleInspection(int requestId, const QString& comman
             nameFont.setStyleHint(QFont::Monospace);
             nameFont.setPixelSize(13);
             item->setFont(0, nameFont);
-            item->setForeground(1, Theme::tokens(
-                qApp->property("litecodeDarkTheme").toBool()).mutedForeground);
+            item->setForeground(
+                1, Theme::tokens(qApp->property("litecodeDarkTheme").toBool()).mutedForeground);
             item->setTextAlignment(2, Qt::AlignCenter);
             item->setData(0, debug_inspector::ReferenceRole, frame.value("id").toInt());
             item->setData(0, debug_inspector::PathRole, path);
@@ -564,16 +575,20 @@ void DebugInspectorWidget::handleInspection(int requestId, const QString& comman
         }
     } else if (command == "variables") {
         QTreeWidgetItem* item = variableRequests_.take(requestId);
-        if (!item) return;
-        while (item->childCount()) delete item->takeChild(0);
+        if (!item)
+            return;
+        while (item->childCount())
+            delete item->takeChild(0);
         populateVariables(item, body.value("variables").toArray());
     } else if (command == "evaluate") {
         QTreeWidgetItem* item = watchRequests_.take(requestId);
-        if (!item) return;
+        if (!item)
+            return;
         item->setText(1, body.value("result").toString());
         const int reference = body.value("variablesReference").toInt();
         item->setData(0, debug_inspector::ReferenceRole, reference);
-        if (reference > 0) new QTreeWidgetItem(item, {tr("Loading…")});
+        if (reference > 0)
+            new QTreeWidgetItem(item, {tr("Loading…")});
     }
 }
 } // namespace litecode::ui

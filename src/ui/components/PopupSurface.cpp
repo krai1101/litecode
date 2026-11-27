@@ -54,8 +54,8 @@ QRect PopupSurface::anchoredGeometry(const QWidget& anchor, QSize desired, bool 
                                      : belowSpace < desired.height() && aboveSpace > belowSpace;
     const int width = qBound(1, desired.width(), available.width());
     const int height = qBound(1, desired.height(), qMax(1, upwards ? aboveSpace : belowSpace));
-    const int anchorX = horizontal == Qt::AlignRight ? below.x() + anchor.width() - width
-                                                     : below.x();
+    const int anchorX =
+        horizontal == Qt::AlignRight ? below.x() + anchor.width() - width : below.x();
     const int x = qBound(available.left(), anchorX, available.right() - width + 1);
     const int y = qBound(available.top(), upwards ? above.y() - height : below.y(),
                          available.bottom() - height + 1);

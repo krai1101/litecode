@@ -1,23 +1,25 @@
 #pragma once
 #include "extensions/CancellationApi.h"
-#include <QObject>
 #include <QFuture>
+#include <QFutureWatcher>
 #include <QHash>
 #include <QJsonObject>
+#include <QObject>
 #include <QPointer>
-#include <QFutureWatcher>
 #include <functional>
 
 namespace litecode::extensions {
 class WorkbenchDebugStarts final : public QObject {
   public:
-    using Handler = std::function<QFuture<bool>(const QJsonValue&, const QJsonValue&, const QJsonObject&, CancellationToken)>;
+    using Handler = std::function<QFuture<bool>(const QJsonValue&, const QJsonValue&,
+                                                const QJsonObject&, CancellationToken)>;
     using Reply = std::function<void(const QJsonObject&)>;
     explicit WorkbenchDebugStarts(QObject* parent = nullptr) : QObject(parent) {}
     ~WorkbenchDebugStarts() override;
     void setHandler(Handler handler) { handler_ = std::move(handler); }
     bool request(const QString& owner, const QJsonObject& message, Reply reply);
     void removeOwner(const QString& owner);
+
   private:
     struct Pending {
         QString owner, requestId;

@@ -2,8 +2,8 @@
 #include "debug/DapSocketConnection.h"
 #include <QDir>
 #include <QFileInfo>
-#include <QProcess>
 #include <QPointer>
+#include <QProcess>
 #include <QStandardPaths>
 #ifdef Q_OS_WIN
 #include <qt_windows.h>
@@ -21,7 +21,8 @@ DapTransport::DapTransport(QObject* parent) : QObject(parent), channel_(this) {
     });
     connect(&channel_, &DapChannel::responseReceived, this, &DapTransport::responseReceived);
     connect(&channel_, &DapChannel::eventReceived, this, &DapTransport::eventReceived);
-    connect(&channel_, &DapChannel::responseValueReceived, this, &DapTransport::responseValueReceived);
+    connect(&channel_, &DapChannel::responseValueReceived, this,
+            &DapTransport::responseValueReceived);
     connect(&channel_, &DapChannel::eventValueReceived, this, &DapTransport::eventValueReceived);
     connect(&channel_, &DapChannel::messageSent, this, &DapTransport::messageSent);
     connect(&channel_, &DapChannel::messageReceived, this, &DapTransport::messageReceived);
@@ -30,10 +31,12 @@ DapTransport::DapTransport(QObject* parent) : QObject(parent), channel_(this) {
     connect(&channel_, &DapChannel::protocolError, this, &DapTransport::abort);
     connect(&channel_, &DapChannel::writeRequested, this,
             [this](const QByteArray& frame, quint64 generation) {
-                if ((!process_ && !connection_) || state_ != State::Running || generation != channel_.generation())
+                if ((!process_ && !connection_) || state_ != State::Running ||
+                    generation != channel_.generation())
                     return;
                 constexpr qint64 MaxQueuedBytes = 32 * 1024 * 1024;
-                const auto queued = process_ ? process_->bytesToWrite() : connection_->queuedBytes();
+                const auto queued =
+                    process_ ? process_->bytesToWrite() : connection_->queuedBytes();
                 if (queued + frame.size() > MaxQueuedBytes) {
                     abort("Debug adapter input queue exceeded its size limit.");
                     return;
@@ -43,7 +46,10 @@ DapTransport::DapTransport(QObject* parent) : QObject(parent), channel_(this) {
             });
 }
 DapTransport::~DapTransport() {
-    if (connection_) { connection_->disconnect(this); connection_->close(); }
+    if (connection_) {
+        connection_->disconnect(this);
+        connection_->close();
+    }
     if (process_) {
         process_->disconnect(this);
         process_->kill();
@@ -81,7 +87,7 @@ bool DapTransport::start(const AdapterProcess& configuration) {
         // Use the environment selected for this adapter, not LiteCode's own
         // PATH. Provider executable options may select a different toolchain.
         const auto paths = configuration.environment.value(QStringLiteral("PATH"))
-            .split(QDir::listSeparator(), Qt::SkipEmptyParts);
+                               .split(QDir::listSeparator(), Qt::SkipEmptyParts);
         if (paths.isEmpty()) {
             emit errorOccurred("Debug adapter PATH is empty; use an absolute executable path.");
             return false;
@@ -165,72 +171,101 @@ bool DapTransport::start(const AdapterProcess& configuration) {
 }
 bool DapTransport::startServer(const AdapterServer& configuration) {
     if (configuration.port == 0 || !safeArgument(configuration.host)) {
-        emit errorOccurred("Invalid debug adapter server configuration."); return false;
+        emit errorOccurred("Invalid debug adapter server configuration.");
+        return false;
     }
-    return startSocket(configuration.startupTimeoutMs, [&configuration](DapSocketConnection& connection) {
-        connection.connectTcp(configuration.host.isEmpty() ? QStringLiteral("127.0.0.1") : configuration.host, configuration.port);
-    });
+    return startSocket(
+        configuration.startupTimeoutMs, [&configuration](DapSocketConnection& connection) {
+            connection.connectTcp(configuration.host.isEmpty() ? QStringLiteral("127.0.0.1")
+                                                               : configuration.host,
+                                  configuration.port);
+        });
 }
 bool DapTransport::startNamedPipeServer(const AdapterNamedPipeServer& configuration) {
     if (configuration.path.isEmpty() || !safeArgument(configuration.path)) {
-        emit errorOccurred("Invalid debug adapter pipe configuration."); return false;
+        emit errorOccurred("Invalid debug adapter pipe configuration.");
+        return false;
     }
-    return startSocket(configuration.startupTimeoutMs, [&configuration](DapSocketConnection& connection) {
-        connection.connectLocal(configuration.path);
-    });
+    return startSocket(configuration.startupTimeoutMs,
+                       [&configuration](DapSocketConnection& connection) {
+                           connection.connectLocal(configuration.path);
+                       });
 }
-bool DapTransport::startSocket(int timeout, const std::function<void(DapSocketConnection&)>& connectToServer) {
-    if (state_ != State::Idle || process_ || connection_ || finishing_) return false;
-    if (timeout <= 0) { emit errorOccurred("Invalid debug adapter startup timeout."); return false; }
+bool DapTransport::startSocket(int timeout,
+                               const std::function<void(DapSocketConnection&)>& connectToServer) {
+    if (state_ != State::Idle || process_ || connection_ || finishing_)
+        return false;
+    if (timeout <= 0) {
+        emit errorOccurred("Invalid debug adapter startup timeout.");
+        return false;
+    }
     channel_.reset();
     const auto generation = channel_.generation();
     auto* connection = new DapSocketConnection(this);
     connection_ = connection;
     connect(connection, &DapSocketConnection::connected, this, [this, connection] {
-        if (connection != connection_ || state_ != State::Starting) return;
+        if (connection != connection_ || state_ != State::Starting)
+            return;
         startup_.stop();
         const QPointer<DapTransport> alive(this);
         setState(State::Running);
-        if (alive && connection == connection_ && state_ == State::Running) emit started();
+        if (alive && connection == connection_ && state_ == State::Running)
+            emit started();
     });
-    connect(connection, &DapSocketConnection::bytesReceived, this, [this, connection, generation](const QByteArray& bytes) {
-        if (connection == connection_ && state_ == State::Running) channel_.receive(bytes, generation);
-    });
+    connect(connection, &DapSocketConnection::bytesReceived, this,
+            [this, connection, generation](const QByteArray& bytes) {
+                if (connection == connection_ && state_ == State::Running)
+                    channel_.receive(bytes, generation);
+            });
     connect(connection, &DapSocketConnection::closed, this, [this, connection] {
-        if (connection != connection_) return;
+        if (connection != connection_)
+            return;
         const QPointer<DapTransport> alive(this);
         emit errorOccurred("Debug adapter connection closed.");
-        if (alive) finishSocket(connection, true);
+        if (alive)
+            finishSocket(connection, true);
     });
-    connect(connection, &DapSocketConnection::errorOccurred, this, [this, connection](const QString& error) {
-        if (connection != connection_) return;
-        const QPointer<DapTransport> alive(this);
-        emit errorOccurred("Debug adapter connection error: " + error);
-        if (alive) finishSocket(connection, true);
-    });
+    connect(connection, &DapSocketConnection::errorOccurred, this,
+            [this, connection](const QString& error) {
+                if (connection != connection_)
+                    return;
+                const QPointer<DapTransport> alive(this);
+                emit errorOccurred("Debug adapter connection error: " + error);
+                if (alive)
+                    finishSocket(connection, true);
+            });
     const QPointer<DapTransport> alive(this);
     setState(State::Starting);
-    if (!alive || state_ != State::Starting || connection != connection_) return false;
+    if (!alive || state_ != State::Starting || connection != connection_)
+        return false;
     startup_.start(timeout);
     connectToServer(*connection);
     return true;
 }
 void DapTransport::finishSocket(DapSocketConnection* connection, bool unexpected) {
-    if (connection != connection_ || finishing_) return;
+    if (connection != connection_ || finishing_)
+        return;
     finishing_ = true;
-    startup_.stop(); shutdown_.stop();
+    startup_.stop();
+    shutdown_.stop();
     const QPointer<DapTransport> alive(this);
     setState(State::Stopping);
-    if (!alive) return;
+    if (!alive)
+        return;
     // Disable the old stream before failure callbacks can issue another request.
     connection_ = nullptr;
-    connection->disconnect(this); connection->close(); connection->deleteLater();
+    connection->disconnect(this);
+    connection->close();
+    connection->deleteLater();
     channel_.reset(unexpected ? "Debug adapter connection closed." : "Debug adapter disconnected.");
-    if (!alive) return;
+    if (!alive)
+        return;
     setState(State::Idle);
-    if (!alive) return;
+    if (!alive)
+        return;
     emit stopped(unexpected ? -1 : 0, false);
-    if (alive) finishing_ = false;
+    if (alive)
+        finishing_ = false;
 }
 void DapTransport::drain(QProcess* process, quint64 generation) {
     process->setReadChannel(QProcess::StandardOutput);
@@ -262,7 +297,10 @@ void DapTransport::finish(QProcess* process, int exitCode, bool crashed) {
     finishing_ = false;
 }
 void DapTransport::stop() {
-    if (connection_) { finishSocket(connection_, false); return; }
+    if (connection_) {
+        finishSocket(connection_, false);
+        return;
+    }
     if (!process_ || state_ == State::Stopping)
         return;
     auto* process = process_;

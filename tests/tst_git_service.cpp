@@ -286,8 +286,8 @@ class GitServiceTests : public QObject {
         QCOMPARE(gitBytes(remote.path(), {"rev-parse", "refs/heads/main"}).trimmed(),
                  gitBytes(client.path(), {"rev-parse", "HEAD"}).trimmed());
         QVERIFY(QFileInfo::exists(client.filePath("remote.txt")));
-        const auto parents = gitBytes(client.path(), {"show", "-s", "--format=%P", "HEAD"})
-                                 .trimmed().split(' ');
+        const auto parents =
+            gitBytes(client.path(), {"show", "-s", "--format=%P", "HEAD"}).trimmed().split(' ');
         QCOMPARE(parents.size(), 1);
     }
 
@@ -320,8 +320,7 @@ class GitServiceTests : public QObject {
         QTRY_COMPARE_WITH_TIMEOUT(completed.size(), 1, 15000);
         QTRY_VERIFY(!service.busy());
         QVERIFY(!errors.isEmpty());
-        QCOMPARE(gitBytes(remote.path(), {"rev-parse", "refs/heads/main"}).trimmed(),
-                 remoteHead);
+        QCOMPARE(gitBytes(remote.path(), {"rev-parse", "refs/heads/main"}).trimmed(), remoteHead);
     }
 
     void discardWorkingChangesPreservesStagingAndTrashesUntrackedFiles() {
@@ -482,8 +481,7 @@ class GitServiceTests : public QObject {
         QVERIFY(writeFile(directory.filePath("untracked.txt"), "new\n"));
         GitService service;
         QSignalSpy completed(&service, &GitService::operationFinished),
-            errors(&service, &GitService::error),
-            stashes(&service, &GitService::stashesReady),
+            errors(&service, &GitService::error), stashes(&service, &GitService::stashesReady),
             patches(&service, &GitService::stashPatchReady);
         service.setWorkspace(directory.path());
         QTRY_VERIFY(!service.busy() && !service.repository().isEmpty());
@@ -512,8 +510,7 @@ class GitServiceTests : public QObject {
         QVERIFY(writeFile(directory.filePath("first.txt"), "first\n"));
         GitService service;
         QSignalSpy completed(&service, &GitService::operationFinished),
-            errors(&service, &GitService::error),
-            undone(&service, &GitService::commitUndone);
+            errors(&service, &GitService::error), undone(&service, &GitService::commitUndone);
         service.setWorkspace(directory.path());
         QTRY_VERIFY(!service.busy() && !service.repository().isEmpty());
         service.commitWithOptions("initial", {GitCommitScope::All});

@@ -1,13 +1,13 @@
 #include "debug/DebugSession.h"
-#include <QFileInfo>
 #include <QDir>
+#include <QFileInfo>
 #include <QLocale>
-#include <cmath>
-#include <memory>
 #include <QSet>
+#include <cmath>
+#include <limits>
+#include <memory>
 #include <stdexcept>
 #include <utility>
-#include <limits>
 
 namespace litecode::debug {
 DebugSession::DebugSession(QObject* parent) : QObject(parent), transport_(this) {
@@ -23,32 +23,44 @@ DebugSession::DebugSession(QObject* parent) : QObject(parent), transport_(this) 
                     reply(success, body, message);
             });
     connect(&transport_, &DapTransport::eventReceived, this, &DebugSession::handleEvent);
-    connect(&transport_, &DapTransport::responseValueReceived, this,
+    connect(
+        &transport_, &DapTransport::responseValueReceived, this,
         [this](int id, const QString&, bool success, const QJsonValue& body, const QString& error) {
             auto promise = customRequests_.take(id);
-            if (!promise) return;
-            if (success) promise->addResult(body);
-            else promise->setException(std::make_exception_ptr(std::runtime_error(
-                (error.isEmpty() ? QStringLiteral("Debug adapter rejected the request.") : error).toStdString())));
+            if (!promise)
+                return;
+            if (success)
+                promise->addResult(body);
+            else
+                promise->setException(std::make_exception_ptr(std::runtime_error(
+                    (error.isEmpty() ? QStringLiteral("Debug adapter rejected the request.")
+                                     : error)
+                        .toStdString())));
             promise->finish();
         });
     connect(&transport_, &DapTransport::eventValueReceived, this,
-        [this](const QString& event, const QJsonValue& body) {
-            static const QSet<QString> standard{ "initialized", "stopped", "continued", "exited", "terminated",
-                "thread", "output", "breakpoint", "module", "loadedSource", "process", "capabilities",
-                "progressStart", "progressUpdate", "progressEnd", "invalidated", "memory" };
-            if (!standard.contains(event) && state_ != State::Idle && state_ != State::Failed)
-                emit customEventReceived(event, body);
-        });
+            [this](const QString& event, const QJsonValue& body) {
+                static const QSet<QString> standard{
+                    "initialized",   "stopped",        "continued",   "exited",
+                    "terminated",    "thread",         "output",      "breakpoint",
+                    "module",        "loadedSource",   "process",     "capabilities",
+                    "progressStart", "progressUpdate", "progressEnd", "invalidated",
+                    "memory"};
+                if (!standard.contains(event) && state_ != State::Idle && state_ != State::Failed)
+                    emit customEventReceived(event, body);
+            });
     connect(&transport_, &DapTransport::errorOccurred, this, [this](const QString& error) {
-        if (trackerStarted_) emit adapterTrackerEvent({{"kind", "error"}, {"error", error}});
+        if (trackerStarted_)
+            emit adapterTrackerEvent({{"kind", "error"}, {"error", error}});
         fail(error);
     });
     connect(&transport_, &DapTransport::messageSent, this, [this](const QJsonObject& message) {
-        if (trackerStarted_) emit adapterTrackerEvent({{"kind", "receive"}, {"message", message}});
+        if (trackerStarted_)
+            emit adapterTrackerEvent({{"kind", "receive"}, {"message", message}});
     });
     connect(&transport_, &DapTransport::messageReceived, this, [this](const QJsonObject& message) {
-        if (trackerStarted_) emit adapterTrackerEvent({{"kind", "send"}, {"message", message}});
+        if (trackerStarted_)
+            emit adapterTrackerEvent({{"kind", "send"}, {"message", message}});
     });
     connect(&transport_, &DapTransport::diagnosticOutput, this, [this](const QByteArray& bytes) {
         emit outputReceived({{"category", "stderr"}, {"output", QString::fromUtf8(bytes)}});
@@ -58,13 +70,20 @@ DebugSession::DebugSession(QObject* parent) : QObject(parent), transport_(this) 
                 if (request.value("command").toString() == QStringLiteral("runInTerminal") &&
                     runInTerminalEnabled_) {
                     const auto sequence = request.value("seq").toInt();
-                    if (terminalRequests_.contains(sequence)) { fail("Duplicate runInTerminal request."); return; }
-                    if (terminalRequests_.size() >= 64 || nextTerminalRequestId_ == std::numeric_limits<quint64>::max()) {
-                        transport_.respond(request, false, {}, "Too many pending debug terminal requests."); return;
+                    if (terminalRequests_.contains(sequence)) {
+                        fail("Duplicate runInTerminal request.");
+                        return;
+                    }
+                    if (terminalRequests_.size() >= 64 ||
+                        nextTerminalRequestId_ == std::numeric_limits<quint64>::max()) {
+                        transport_.respond(request, false, {},
+                                           "Too many pending debug terminal requests.");
+                        return;
                     }
                     const auto token = QString::number(++nextTerminalRequestId_);
                     terminalRequests_.insert(sequence, token);
-                    QJsonObject forwarded = request; forwarded.insert("_litecodeTerminalRequest", token);
+                    QJsonObject forwarded = request;
+                    forwarded.insert("_litecodeTerminalRequest", token);
                     emit runInTerminalRequested(forwarded);
                     return;
                 }
@@ -76,7 +95,8 @@ DebugSession::DebugSession(QObject* parent) : QObject(parent), transport_(this) 
         if (state != DapTransport::State::Stopping)
             return;
         if (trackerStarted_ && !trackerStopping_) {
-            trackerStopping_ = true; emit adapterTrackerEvent({{"kind", "stop"}});
+            trackerStopping_ = true;
+            emit adapterTrackerEvent({{"kind", "stop"}});
         }
         replies_.clear();
         terminalRequests_.clear();
@@ -87,7 +107,9 @@ DebugSession::DebugSession(QObject* parent) : QObject(parent), transport_(this) 
     });
     connect(&transport_, &DapTransport::stopped, this, [this](int code, bool crashed) {
         if (crashed && trackerStarted_)
-            emit adapterTrackerEvent({{"kind", "error"}, {"error", "Debug adapter crashed (exit " + QString::number(code) + ")."}});
+            emit adapterTrackerEvent(
+                {{"kind", "error"},
+                 {"error", "Debug adapter crashed (exit " + QString::number(code) + ")."}});
         finishAdapterTracking(processAdapter_ ? std::optional<int>(code) : std::nullopt);
         handshake_.stop();
         replies_.clear();
@@ -98,7 +120,10 @@ DebugSession::DebugSession(QObject* parent) : QObject(parent), transport_(this) 
         } else if (state_ != State::Failed)
             setState(State::Idle);
         const auto stops = std::exchange(stopRequests_, {});
-        for (const auto& promise : stops) { promise->addResult(QJsonValue::Undefined); promise->finish(); }
+        for (const auto& promise : stops) {
+            promise->addResult(QJsonValue::Undefined);
+            promise->finish();
+        }
         emit ended();
     });
 }
@@ -107,25 +132,37 @@ DebugSession::~DebugSession() {
     rejectCustomRequests("Debug session was disposed.");
     const auto stops = std::exchange(stopRequests_, {});
     for (const auto& promise : stops) {
-        promise->setException(std::make_exception_ptr(std::runtime_error("Debug session was disposed.")));
+        promise->setException(
+            std::make_exception_ptr(std::runtime_error("Debug session was disposed.")));
         promise->finish();
     }
 }
 void DebugSession::endAdapterTracking() { finishAdapterTracking({}); }
 void DebugSession::finishAdapterTracking(std::optional<int> exitCode) {
-    if (!trackerStarted_) return;
-    if (!trackerStopping_) { trackerStopping_ = true; emit adapterTrackerEvent({{"kind", "stop"}}); }
+    if (!trackerStarted_)
+        return;
+    if (!trackerStopping_) {
+        trackerStopping_ = true;
+        emit adapterTrackerEvent({{"kind", "stop"}});
+    }
     trackerStarted_ = false;
     QJsonObject event{{"kind", "exit"}};
-    if (exitCode) event.insert("code", *exitCode);
+    if (exitCode)
+        event.insert("code", *exitCode);
     emit adapterTrackerEvent(event);
 }
 QFuture<QJsonValue> DebugSession::stopAsync() {
-    auto promise = std::make_shared<QPromise<QJsonValue>>(); promise->start(); auto result = promise->future();
+    auto promise = std::make_shared<QPromise<QJsonValue>>();
+    promise->start();
+    auto result = promise->future();
     if (transport_.state() == DapTransport::State::Idle) {
-        promise->addResult(QJsonValue::Undefined); promise->finish(); return result;
+        promise->addResult(QJsonValue::Undefined);
+        promise->finish();
+        return result;
     }
-    stopRequests_.append(promise); stop(); return result;
+    stopRequests_.append(promise);
+    stop();
+    return result;
 }
 void DebugSession::rejectCustomRequests(const QString& error) {
     const auto pending = std::exchange(customRequests_, {});
@@ -134,20 +171,24 @@ void DebugSession::rejectCustomRequests(const QString& error) {
         promise->finish();
     }
 }
-QFuture<QJsonValue> DebugSession::customRequest(const QString& command, const QJsonValue& arguments) {
+QFuture<QJsonValue> DebugSession::customRequest(const QString& command,
+                                                const QJsonValue& arguments) {
     auto promise = std::make_shared<QPromise<QJsonValue>>();
     promise->start();
     auto future = promise->future();
-    if (command.isEmpty() || command.contains(QChar('\0')) ||
-        state_ == State::Idle || state_ == State::Failed || state_ == State::Terminating) {
-        promise->setException(std::make_exception_ptr(std::runtime_error("Debug session is not available.")));
+    if (command.isEmpty() || command.contains(QChar('\0')) || state_ == State::Idle ||
+        state_ == State::Failed || state_ == State::Terminating) {
+        promise->setException(
+            std::make_exception_ptr(std::runtime_error("Debug session is not available.")));
         promise->finish();
         return future;
     }
     const auto id = transport_.requestValue(command, arguments);
-    if (id && transport_.state() == DapTransport::State::Running) customRequests_.insert(id, promise);
+    if (id && transport_.state() == DapTransport::State::Running)
+        customRequests_.insert(id, promise);
     else {
-        promise->setException(std::make_exception_ptr(std::runtime_error("Debug adapter is not available.")));
+        promise->setException(
+            std::make_exception_ptr(std::runtime_error("Debug adapter is not available.")));
         promise->finish();
     }
     return future;
@@ -156,8 +197,8 @@ bool DebugSession::respondToRunInTerminal(const QJsonObject& request, bool succe
                                           const QString& error, const QJsonObject& body) {
     const auto sequence = request.value("seq").toInt();
     const auto token = request.value("_litecodeTerminalRequest").toString();
-    if (request.value("command").toString() != QStringLiteral("runInTerminal") || token.isEmpty()
-        || terminalRequests_.value(sequence) != token)
+    if (request.value("command").toString() != QStringLiteral("runInTerminal") || token.isEmpty() ||
+        terminalRequests_.value(sequence) != token)
         return false;
     terminalRequests_.remove(sequence);
     return transport_.respond(request, success, body, error);
@@ -178,18 +219,23 @@ bool DebugSession::supports(const QString& capability) const {
 }
 bool DebugSession::start(const AdapterProcess& adapter, const QString& adapterId,
                          const QString& request, const QJsonObject& arguments) {
-    return startWithTransport([this, &adapter] { return transport_.start(adapter); }, adapterId, request, arguments, true);
+    return startWithTransport([this, &adapter] { return transport_.start(adapter); }, adapterId,
+                              request, arguments, true);
 }
 bool DebugSession::startServer(const AdapterServer& adapter, const QString& adapterId,
                                const QString& request, const QJsonObject& arguments) {
-    return startWithTransport([this, &adapter] { return transport_.startServer(adapter); }, adapterId, request, arguments, false);
+    return startWithTransport([this, &adapter] { return transport_.startServer(adapter); },
+                              adapterId, request, arguments, false);
 }
-bool DebugSession::startNamedPipeServer(const AdapterNamedPipeServer& adapter, const QString& adapterId,
-                                        const QString& request, const QJsonObject& arguments) {
-    return startWithTransport([this, &adapter] { return transport_.startNamedPipeServer(adapter); }, adapterId, request, arguments, false);
+bool DebugSession::startNamedPipeServer(const AdapterNamedPipeServer& adapter,
+                                        const QString& adapterId, const QString& request,
+                                        const QJsonObject& arguments) {
+    return startWithTransport([this, &adapter] { return transport_.startNamedPipeServer(adapter); },
+                              adapterId, request, arguments, false);
 }
-bool DebugSession::startWithTransport(const std::function<bool()>& startTransport, const QString& adapterId,
-                                      const QString& request, const QJsonObject& arguments, bool processAdapter) {
+bool DebugSession::startWithTransport(const std::function<bool()>& startTransport,
+                                      const QString& adapterId, const QString& request,
+                                      const QJsonObject& arguments, bool processAdapter) {
     if (transport_.state() != DapTransport::State::Idle ||
         (state_ != State::Idle && state_ != State::Failed) || adapterId.isEmpty() ||
         (request != "launch" && request != "attach"))
@@ -209,9 +255,14 @@ bool DebugSession::startWithTransport(const std::function<bool()>& startTranspor
     setState(State::Starting);
     if (state_ != State::Starting)
         return false;
-    processAdapter_ = processAdapter; trackerStarted_ = true; trackerStopping_ = false;
+    processAdapter_ = processAdapter;
+    trackerStarted_ = true;
+    trackerStopping_ = false;
     emit adapterTrackerEvent({{"kind", "start"}});
-    if (state_ != State::Starting) { finishAdapterTracking({}); return false; }
+    if (state_ != State::Starting) {
+        finishAdapterTracking({});
+        return false;
+    }
     handshake_.start(30000);
     if (!startTransport()) {
         handshake_.stop();
@@ -306,7 +357,8 @@ void DebugSession::configure() {
     for (auto it = sources.cbegin(); it != sources.cend(); ++it) {
         const auto path = it.key();
         send("setBreakpoints",
-             {{"source", QJsonObject{{"path", QDir::toNativeSeparators(path)}, {"name", QFileInfo(path).fileName()}}},
+             {{"source", QJsonObject{{"path", QDir::toNativeSeparators(path)},
+                                     {"name", QFileInfo(path).fileName()}}},
               {"breakpoints", it.value()}},
              [this, path](bool success, const QJsonObject& body, const QString& message) {
                  if (!success) {
@@ -372,9 +424,11 @@ bool DebugSession::setBreakpoints(const QString& path, const QJsonArray& breakpo
         }
     }
     breakpoints_.insert(path, breakpoints);
-    if (!arguments_.value("noDebug").toBool() && (state_ == State::Running || state_ == State::Stopped)) {
+    if (!arguments_.value("noDebug").toBool() &&
+        (state_ == State::Running || state_ == State::Stopped)) {
         return send("setBreakpoints",
-                    {{"source", QJsonObject{{"path", QDir::toNativeSeparators(path)}}}, {"breakpoints", breakpoints}},
+                    {{"source", QJsonObject{{"path", QDir::toNativeSeparators(path)}}},
+                     {"breakpoints", breakpoints}},
                     [this, path](bool success, const QJsonObject& body, const QString& error) {
                         if (success)
                             emit breakpointsUpdated(path, body.value("breakpoints").toArray());
@@ -389,7 +443,8 @@ bool DebugSession::setExceptionBreakpoints(const QStringList& filters) {
         if (filter.isEmpty() || filter.contains(QChar('\0')))
             return false;
     exceptionFilters_ = filters;
-    if (!arguments_.value("noDebug").toBool() && (state_ == State::Running || state_ == State::Stopped)) {
+    if (!arguments_.value("noDebug").toBool() &&
+        (state_ == State::Running || state_ == State::Stopped)) {
         QJsonArray enabled;
         for (const auto& filter : filters)
             enabled.append(filter);
@@ -437,7 +492,8 @@ void DebugSession::handleEvent(const QString& name, const QJsonObject& body) {
             // Thread-exit notifications already describe the removal. Asking
             // the adapter for threads here races the debuggee's shutdown.
             invalidateReferences();
-            if (state_ == State::Stopped) setState(State::Running);
+            if (state_ == State::Stopped)
+                setState(State::Running);
         }
     } else if (name == "terminated")
         stop();
@@ -512,7 +568,8 @@ void DebugSession::stop() {
 }
 int DebugSession::inspect(const QString& command, const QJsonObject& arguments,
                           bool suspendedOnly) {
-    if (debuggeeExited_) return 0;
+    if (debuggeeExited_)
+        return 0;
     if (suspendedOnly ? state_ != State::Stopped
                       : (state_ != State::Running && state_ != State::Stopped))
         return 0;

@@ -124,9 +124,9 @@ void GitService::pushWithOptions(const QString& remote, bool setUpstream, bool f
                     }
                     QStringList arguments{"push"};
                     arguments.append(forceFlags());
-                    arguments.append({QString::fromUtf8(fields[2]),
-                                      QString::fromUtf8(fields[1]) + ":" +
-                                          QString::fromUtf8(fields[3])});
+                    arguments.append(
+                        {QString::fromUtf8(fields[2]),
+                         QString::fromUtf8(fields[1]) + ":" + QString::fromUtf8(fields[3])});
                     mutate(arguments);
                     return;
                 }
@@ -159,8 +159,8 @@ void GitService::sync(bool rebase) {
         });
 }
 
-void GitService::pullWithMode(std::optional<bool> rebase, bool pushAfter,
-                              const QString& remote, const QString& branch) {
+void GitService::pullWithMode(std::optional<bool> rebase, bool pushAfter, const QString& remote,
+                              const QString& branch) {
     if (busy_ || repository_.isEmpty())
         return;
     QStringList arguments{"-c", "core.editor=true", "pull", "--no-edit"};
@@ -168,10 +168,17 @@ void GitService::pullWithMode(std::optional<bool> rebase, bool pushAfter,
         arguments.append(*rebase ? "--rebase" : "--no-rebase");
     else
         switch (preferences_.pullPolicy) {
-        case core::GitPullPolicy::Merge: arguments.append("--no-rebase"); break;
-        case core::GitPullPolicy::Rebase: arguments.append("--rebase"); break;
-        case core::GitPullPolicy::FastForwardOnly: arguments.append("--ff-only"); break;
-        case core::GitPullPolicy::Repository: break;
+        case core::GitPullPolicy::Merge:
+            arguments.append("--no-rebase");
+            break;
+        case core::GitPullPolicy::Rebase:
+            arguments.append("--rebase");
+            break;
+        case core::GitPullPolicy::FastForwardOnly:
+            arguments.append("--ff-only");
+            break;
+        case core::GitPullPolicy::Repository:
+            break;
         }
     if (preferences_.pullTags)
         arguments.append("--tags");
@@ -181,7 +188,7 @@ void GitService::pullWithMode(std::optional<bool> rebase, bool pushAfter,
         arguments.append({remote, branch});
 
     const auto finishPull = [this, pushAfter](int code, const QByteArray& output,
-                                               const QString& diagnostic) {
+                                              const QString& diagnostic) {
         if (code != 0) {
             emit error(diagnostic.isEmpty() ? tr("Pull failed.") : diagnostic);
             if (diagnostic.contains("would clobber existing tag"))

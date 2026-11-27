@@ -1,7 +1,7 @@
 #pragma once
 
-#include "extensions/ExtensionApi.h"
 #include "extensions/ConfigurationModel.h"
+#include "extensions/ExtensionApi.h"
 #include <QHash>
 #include <QMutex>
 #include <QPromise>
@@ -13,17 +13,19 @@ namespace litecode::extensions {
 class HostConfiguration final : public QObject {
   public:
     explicit HostConfiguration(std::function<void(const QJsonObject&)> send,
-                                ConfigurationModel initial, QObject* parent = nullptr);
+                               ConfigurationModel initial, QObject* parent = nullptr);
     ~HostConfiguration() override;
-    [[nodiscard]] std::shared_ptr<WorkspaceConfiguration> getConfiguration(
-        const QString& section = {}, const std::optional<ConfigurationScope>& scope = {}) const;
+    [[nodiscard]] std::shared_ptr<WorkspaceConfiguration>
+    getConfiguration(const QString& section = {},
+                     const std::optional<ConfigurationScope>& scope = {}) const;
     [[nodiscard]] Event<ConfigurationChangeEvent> onDidChangeConfiguration() const;
     void accept(ConfigurationModel model);
     void complete(quint64 requestId, const QString& error);
     void shutdown();
     QFuture<void> requestUpdate(const QString& key, const QJsonValue& value,
-        const std::optional<ConfigurationScope>& scope, ConfigurationUpdateTarget target,
-        std::optional<bool> overrideInLanguage);
+                                const std::optional<ConfigurationScope>& scope,
+                                ConfigurationUpdateTarget target,
+                                std::optional<bool> overrideInLanguage);
 
   private:
     mutable QMutex mutex_;

@@ -28,9 +28,13 @@ ComponentTokens resolveComponentTokens(const ThemeTokens& theme) {
                       theme.shadow};
     result.dropdown = {theme.dropdownForeground, theme.dropdownSurface, theme.dropdownBorder,
                        theme.dropdownListSurface, theme.dropdownListBorder};
-    result.menu = {theme.menuSurface, theme.menuBorder, theme.menuArrowIcon,
-                   theme.menuSelectionBackground, theme.menuSelectionForeground,
-                   theme.disabledForeground, theme.foreground};
+    result.menu = {theme.menuSurface,
+                   theme.menuBorder,
+                   theme.menuArrowIcon,
+                   theme.menuSelectionBackground,
+                   theme.menuSelectionForeground,
+                   theme.disabledForeground,
+                   theme.foreground};
     // menu.separatorBackground inherits foreground at 20% opacity in VS Code.
     result.menu.separatorBackground.setAlpha(51);
     return result;

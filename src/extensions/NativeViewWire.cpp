@@ -40,8 +40,8 @@ QJsonObject encodeNativeControl(const NativeControl& c) {
     return result;
 }
 namespace {
-std::optional<NativeControl> decode(const QJsonObject& o, QSet<QString>& ids, int depth,
-                                    int& count, bool menuItem = false) {
+std::optional<NativeControl> decode(const QJsonObject& o, QSet<QString>& ids, int depth, int& count,
+                                    bool menuItem = false) {
     if (depth > 32 || ++count > 4096 || !o.value("id").isString())
         return {};
     NativeControl c;
@@ -58,8 +58,11 @@ std::optional<NativeControl> decode(const QJsonObject& o, QSet<QString>& ids, in
         !integer("appearance", 0, int(NativeControlAppearance::Shimmer)) ||
         !integer("spacing", 0, 64) || !integer("margin", 0, 64) || !integer("stretch", 0, 100) ||
         !integer("currentIndex", -1, 4095) ||
-        !integer("value", 0, (o.value("kind").toInt() == int(NativeControlKind::Image) ||
-                                  o.value("kind").toInt() == int(NativeControlKind::Button)) ? 240 : 100))
+        !integer("value", 0,
+                 (o.value("kind").toInt() == int(NativeControlKind::Image) ||
+                  o.value("kind").toInt() == int(NativeControlKind::Button))
+                     ? 240
+                     : 100))
         return {};
     for (const auto* key : {"text", "placeholder", "toolTip"})
         if (!o.value(key).isString() || o.value(key).toString().size() > 1024 * 1024)
@@ -103,8 +106,8 @@ std::optional<NativeControl> decode(const QJsonObject& o, QSet<QString>& ids, in
     for (const auto& value : children) {
         if (!value.isObject())
             return {};
-        auto child = decode(value.toObject(), ids, depth + 1, count,
-                            c.kind == NativeControlKind::Button);
+        auto child =
+            decode(value.toObject(), ids, depth + 1, count, c.kind == NativeControlKind::Button);
         if (!child)
             return {};
         if (c.kind == NativeControlKind::Button &&

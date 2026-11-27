@@ -1,10 +1,10 @@
 #pragma once
-#include "extensions/PrimitivesApi.h"
 #include "extensions/LogApi.h"
+#include "extensions/PrimitivesApi.h"
 #include <QFuture>
 #include <QString>
-#include <optional>
 #include <QUrl>
+#include <optional>
 
 namespace litecode::extensions {
 enum class UIKind { Desktop = 1, Web = 2 };

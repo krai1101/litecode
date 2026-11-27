@@ -20,7 +20,7 @@ struct PreparedTextEditorEdit final {
 // Stages all validation, coordinate conversion and allocation on a copied model.
 // The caller checks editor identity/attachment and commits only after widget
 // application is ready. This function never publishes or mutates the live model.
-std::optional<PreparedTextEditorEdit> prepareTextEditorEdit(
-    const editor::TextDocumentModel& model, const extensions::TextEditorEditData& data,
-    QString* error = nullptr);
+std::optional<PreparedTextEditorEdit>
+prepareTextEditorEdit(const editor::TextDocumentModel& model,
+                      const extensions::TextEditorEditData& data, QString* error = nullptr);
 } // namespace litecode::ui

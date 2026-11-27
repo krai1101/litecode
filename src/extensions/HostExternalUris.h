@@ -1,10 +1,10 @@
 #pragma once
-#include <QObject>
-#include <QJsonObject>
 #include <QFuture>
-#include <QPromise>
 #include <QHash>
+#include <QJsonObject>
 #include <QMutex>
+#include <QObject>
+#include <QPromise>
 #include <QUrl>
 #include <functional>
 #include <memory>
@@ -17,8 +17,12 @@ class HostExternalUris final : public QObject {
     QFuture<QUrl> asExternalUri(const QUrl& uri);
     bool accept(const QJsonObject& message);
     void shutdown();
+
   private:
-    struct Pending { std::shared_ptr<QPromise<QJsonValue>> promise; bool open{}; };
+    struct Pending {
+        std::shared_ptr<QPromise<QJsonValue>> promise;
+        bool open{};
+    };
     QFuture<QJsonValue> request(const QUrl& uri, bool open);
     void finish(quint64 id, const QJsonValue& value, const QString& error);
     std::function<void(const QJsonObject&)> send_;
@@ -27,4 +31,4 @@ class HostExternalUris final : public QObject {
     quint64 nextId_{};
     bool stopped_{};
 };
-}
+} // namespace litecode::extensions

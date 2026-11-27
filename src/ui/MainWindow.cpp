@@ -1,48 +1,28 @@
 #include "ui/MainWindow.h"
-#include "ui/extensions/WindowStateService.h"
 #include "ui/extensions/NativeViewService.h"
+#include "ui/extensions/WindowStateService.h"
 #include "workspace/GitService.h"
 #include <memory>
 
-#include "core/SettingsService.h"
-#include "extensions/ConfigurationService.h"
 #include "core/FileSystemPath.h"
+#include "core/SettingsService.h"
 #include "core/TextEncoding.h"
-#include "editor/SyntaxTheme.h"
 #include "editor/LanguageSupport.h"
+#include "editor/SyntaxTheme.h"
+#include "extensions/ConfigurationService.h"
 #include "ui/ConfirmationDialog.h"
-#include "ui/debug/DebugConfigurationPicker.h"
-#include "ui/debug/DebugTerminalController.h"
 #include "ui/EditorArea.h"
 #include "ui/EditorFontDialog.h"
 #include "ui/ExtensionsPanel.h"
-#include "ui/extensions/ExtensionDetailsPage.h"
-#include "ui/extensions/WorkbenchDocumentSaveService.h"
-#include "ui/extensions/WorkbenchDocumentOpenService.h"
-#include "ui/extensions/WorkbenchDiffCommand.h"
-#include "ui/extensions/WorkbenchWorkspaceEditService.h"
-#include "ui/extensions/WorkspaceEditReviewService.h"
-#include "ui/extensions/VirtualDocumentUpdates.h"
-#include <stdexcept>
-#include "ui/extensions/OutputPanel.h"
-#include "ui/extensions/LogLevelCommands.h"
-#include "ui/extensions/WindowMessageService.h"
-#include "ui/extensions/ViewProgressService.h"
-#include "ui/extensions/StatusProgressService.h"
-#include "ui/extensions/FileDialogService.h"
-#include "ui/extensions/InputBoxService.h"
-#include "ui/extensions/QuickPickService.h"
-#include "ui/extensions/StatusBarService.h"
-#include "ui/extensions/ExternalUriService.h"
-#include "ui/extensions/FileDialogDefaults.h"
 #include "ui/FileIconTheme.h"
+#include "ui/GitOutputChannel.h"
 #include "ui/KeyboardShortcutsDialog.h"
 #include "ui/PopupPositioner.h"
 #include "ui/QuickOpenDialog.h"
-#include "ui/SettingsDialog.h"
-#include "ui/SourceControlPanel.h"
-#include "ui/GitOutputChannel.h"
 #include "ui/RunDebugPanel.h"
+#include "ui/SettingsDialog.h"
+#include "ui/SidebarService.h"
+#include "ui/SourceControlPanel.h"
 #include "ui/TerminalPanel.h"
 #include "ui/Theme.h"
 #include "ui/ThemedIcon.h"
@@ -50,23 +30,44 @@
 #include "ui/WindowOutline.h"
 #include "ui/WorkbenchChrome.h"
 #include "ui/WorkbenchDock.h"
-#include "ui/SidebarService.h"
 #include "ui/WorkbenchTitleBar.h"
 #include "ui/chat/ParticipantChatPanel.h"
 #include "ui/commands/CommandRegistry.h"
 #include "ui/components/ComponentTokens.h"
 #include "ui/components/Controls.h"
-#include "ui/components/TreeDisclosure.h"
-#include "ui/components/PanelHeader.h"
 #include "ui/components/IconLabelButton.h"
+#include "ui/components/PanelHeader.h"
+#include "ui/components/TreeDisclosure.h"
 #include "ui/controllers/EditorSessionController.h"
 #include "ui/controllers/ExplorerController.h"
 #include "ui/controllers/WorkbenchController.h"
+#include "ui/debug/DebugConfigurationPicker.h"
+#include "ui/debug/DebugTerminalController.h"
 #include "ui/explorer/ExplorerTreeView.h"
+#include "ui/extensions/ExtensionDetailsPage.h"
+#include "ui/extensions/ExternalUriService.h"
+#include "ui/extensions/FileDialogDefaults.h"
+#include "ui/extensions/FileDialogService.h"
+#include "ui/extensions/InputBoxService.h"
+#include "ui/extensions/LogLevelCommands.h"
+#include "ui/extensions/OutputPanel.h"
+#include "ui/extensions/QuickPickService.h"
+#include "ui/extensions/StatusBarService.h"
+#include "ui/extensions/StatusProgressService.h"
+#include "ui/extensions/ViewProgressService.h"
+#include "ui/extensions/VirtualDocumentUpdates.h"
+#include "ui/extensions/WindowMessageService.h"
+#include "ui/extensions/WorkbenchDiffCommand.h"
+#include "ui/extensions/WorkbenchDocumentOpenService.h"
+#include "ui/extensions/WorkbenchDocumentSaveService.h"
+#include "ui/extensions/WorkbenchWorkspaceEditService.h"
+#include "ui/extensions/WorkspaceEditReviewService.h"
 #include "workspace/WorkspaceReplace.h"
 #include "workspace/WorkspaceSearch.h"
 #include "workspace/WorkspaceService.h"
+#include <stdexcept>
 
+#include "ui/components/WorkbenchTabs.h"
 #include <QAbstractItemView>
 #include <QActionGroup>
 #include <QApplication>
@@ -79,8 +80,8 @@
 #include <QEvent>
 #include <QFile>
 #include <QFileDialog>
-#include <QFontDatabase>
 #include <QFileInfo>
+#include <QFontDatabase>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QIcon>
@@ -101,12 +102,13 @@
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QResizeEvent>
+#include <QSaveFile>
 #include <QScreen>
 #include <QScrollBar>
-#include <QSaveFile>
 #include <QSet>
 #include <QShortcut>
 #include <QShowEvent>
+#include <QSignalBlocker>
 #include <QSizePolicy>
 #include <QStackedWidget>
 #include <QStatusBar>
@@ -114,15 +116,13 @@
 #include <QStyledItemDelegate>
 #include <QTabBar>
 #include <QTabWidget>
-#include "ui/components/WorkbenchTabs.h"
-#include <QTextLayout>
+#include <QTextCursor>
 #include <QTextDocument>
+#include <QTextLayout>
 #include <QTextOption>
 #include <QTimer>
 #include <QToolBar>
-#include <QSignalBlocker>
 #include <QToolButton>
-#include <QTextCursor>
 #include <QTreeView>
 #include <QTreeWidget>
 #include <QUrl>
@@ -454,7 +454,8 @@ MainWindow::MainWindow(core::SettingsService& settings, workspace::WorkspaceServ
 
 MainWindow::~MainWindow() {
     closing_ = true;
-    if (sidebars_) sidebars_->shutdown();
+    if (sidebars_)
+        sidebars_->shutdown();
     qApp->removeEventFilter(this);
     if (workspaceDock_)
         disconnect(workspaceDock_, nullptr, this, nullptr);
@@ -534,7 +535,8 @@ void MainWindow::buildActions() {
             label.replace('&', "&&");
             auto* action = menu.addAction(label, this, [this, path, folder] {
                 QString error;
-                const bool opened = folder ? openWorkspaceFolder(path, &error) : openFile(path, &error);
+                const bool opened =
+                    folder ? openWorkspaceFolder(path, &error) : openFile(path, &error);
                 if (!opened && !error.isEmpty())
                     statusBar()->showMessage(error, 5000);
             });
@@ -566,8 +568,7 @@ void MainWindow::buildActions() {
         populateRecents(*dockMenu);
     };
     refreshDockMenu();
-    connect(this, &MainWindow::recentPathsChanged, dockMenu, refreshDockMenu,
-            Qt::QueuedConnection);
+    connect(this, &MainWindow::recentPathsChanged, dockMenu, refreshDockMenu, Qt::QueuedConnection);
     dockMenu->setAsDockMenu();
 #endif
     addCommand({QStringLiteral("file.openFileWithEncoding"),
@@ -644,33 +645,32 @@ void MainWindow::buildActions() {
                                         searchInput_->setFocus();
                                         searchInput_->selectAll();
                                     }}));
-    viewMenu->addAction(addCommand(
-        {QStringLiteral("workbench.view.scm"), tr("Source Control"), tr("View: Source Control"),
-         primaryShortcut(Qt::Key_G, Qt::ShiftModifier),
-         CommandSurface::Menu | CommandSurface::ShortcutEditor,
-         [this] { workbenchController_->showSidebar(SidebarView::SourceControl); }}));
-    viewMenu->addAction(addCommand({QStringLiteral("view.runDebug"), tr("Run and Debug"),
-                                    tr("View: Run and Debug"),
-                                    primaryShortcut(Qt::Key_D, Qt::ShiftModifier),
-                                    CommandSurface::Menu | CommandSurface::ShortcutEditor,
-                                    [this] {
-                                        workbenchController_->showSidebar(SidebarView::RunDebug);
-                                    }}));
-    viewMenu->addAction(addCommand(
-        {QStringLiteral("workbench.view.extensions"), tr("Extensions"), tr("View: Extensions"),
-         primaryShortcut(Qt::Key_X, Qt::ShiftModifier),
-         CommandSurface::Menu | CommandSurface::ShortcutEditor,
-         [this] { workbenchController_->showSidebar(SidebarView::Extensions); }}));
+    viewMenu->addAction(
+        addCommand({QStringLiteral("workbench.view.scm"), tr("Source Control"),
+                    tr("View: Source Control"), primaryShortcut(Qt::Key_G, Qt::ShiftModifier),
+                    CommandSurface::Menu | CommandSurface::ShortcutEditor,
+                    [this] { workbenchController_->showSidebar(SidebarView::SourceControl); }}));
+    viewMenu->addAction(
+        addCommand({QStringLiteral("view.runDebug"), tr("Run and Debug"), tr("View: Run and Debug"),
+                    primaryShortcut(Qt::Key_D, Qt::ShiftModifier),
+                    CommandSurface::Menu | CommandSurface::ShortcutEditor,
+                    [this] { workbenchController_->showSidebar(SidebarView::RunDebug); }}));
+    viewMenu->addAction(
+        addCommand({QStringLiteral("workbench.view.extensions"), tr("Extensions"),
+                    tr("View: Extensions"), primaryShortcut(Qt::Key_X, Qt::ShiftModifier),
+                    CommandSurface::Menu | CommandSurface::ShortcutEditor,
+                    [this] { workbenchController_->showSidebar(SidebarView::Extensions); }}));
     viewMenu->addSeparator();
-    viewMenu->addAction(addCommand(
-        {QStringLiteral("workbench.action.output.toggleOutput"), tr("Output"), tr("View: Output"),
-         QKeySequence(QStringLiteral("Ctrl+Shift+U")),
-         CommandSurface::Menu | CommandSurface::ShortcutEditor,
-         [this] {
-             if (workbenchController_->bottomPanelVisible() && workbenchController_->bottomPanelView() == BottomPanelView::Output)
-                 workbenchController_->setBottomPanelVisible(false);
-             else workbenchController_->showBottomPanel(BottomPanelView::Output);
-         }}));
+    viewMenu->addAction(
+        addCommand({QStringLiteral("workbench.action.output.toggleOutput"), tr("Output"),
+                    tr("View: Output"), QKeySequence(QStringLiteral("Ctrl+Shift+U")),
+                    CommandSurface::Menu | CommandSurface::ShortcutEditor, [this] {
+                        if (workbenchController_->bottomPanelVisible() &&
+                            workbenchController_->bottomPanelView() == BottomPanelView::Output)
+                            workbenchController_->setBottomPanelVisible(false);
+                        else
+                            workbenchController_->showBottomPanel(BottomPanelView::Output);
+                    }}));
     viewMenu->addAction(addCommand(
         {QStringLiteral("view.debugConsole"), tr("Debug Console"), tr("View: Debug Console"),
          QKeySequence(QStringLiteral("Ctrl+Shift+Y")),
@@ -687,73 +687,68 @@ void MainWindow::buildActions() {
     resetEditorZoom->setShortcutContext(Qt::WidgetWithChildrenShortcut);
     addAction(resetEditorZoom);
     auto* runMenu = new components::Menu(tr("Run"), workbenchMenuBar_);
-    runMenu->addAction(addCommand(
-        {QStringLiteral("debug.start"), tr("Start Debugging"), tr("Debug: Start Debugging"),
-         QKeySequence(Qt::Key_F5), CommandSurface::Menu | CommandSurface::ShortcutEditor,
-         [this] {
-             workbenchController_->showSidebar(SidebarView::RunDebug);
-             if (auto* panel = findChild<RunDebugPanel*>()) {
-                 if (panel->isPaused())
-                     panel->continueDebugging();
-                 else
-                     panel->startDebugging();
-             }
-         }}));
-    runMenu->addAction(addCommand(
-        {QStringLiteral("debug.run"), tr("Run Without Debugging"),
-         tr("Debug: Run Without Debugging"), QKeySequence(QStringLiteral("Ctrl+F5")),
-         CommandSurface::Menu | CommandSurface::ShortcutEditor, [this] {
-             workbenchController_->showSidebar(SidebarView::RunDebug);
-             if (auto* panel = findChild<RunDebugPanel*>())
-                 panel->runWithoutDebugging();
-         }}));
-    runMenu->addAction(addCommand(
-        {QStringLiteral("debug.stop"), tr("Stop Debugging"), tr("Debug: Stop Debugging"),
-         QKeySequence(QStringLiteral("Shift+F5")),
-         CommandSurface::Menu | CommandSurface::ShortcutEditor, [this] {
-             if (auto* panel = findChild<RunDebugPanel*>())
-                 panel->stop();
-         }}));
+    runMenu->addAction(addCommand({QStringLiteral("debug.start"), tr("Start Debugging"),
+                                   tr("Debug: Start Debugging"), QKeySequence(Qt::Key_F5),
+                                   CommandSurface::Menu | CommandSurface::ShortcutEditor, [this] {
+                                       workbenchController_->showSidebar(SidebarView::RunDebug);
+                                       if (auto* panel = findChild<RunDebugPanel*>()) {
+                                           if (panel->isPaused())
+                                               panel->continueDebugging();
+                                           else
+                                               panel->startDebugging();
+                                       }
+                                   }}));
+    runMenu->addAction(
+        addCommand({QStringLiteral("debug.run"), tr("Run Without Debugging"),
+                    tr("Debug: Run Without Debugging"), QKeySequence(QStringLiteral("Ctrl+F5")),
+                    CommandSurface::Menu | CommandSurface::ShortcutEditor, [this] {
+                        workbenchController_->showSidebar(SidebarView::RunDebug);
+                        if (auto* panel = findChild<RunDebugPanel*>())
+                            panel->runWithoutDebugging();
+                    }}));
+    runMenu->addAction(
+        addCommand({QStringLiteral("debug.stop"), tr("Stop Debugging"), tr("Debug: Stop Debugging"),
+                    QKeySequence(QStringLiteral("Shift+F5")),
+                    CommandSurface::Menu | CommandSurface::ShortcutEditor, [this] {
+                        if (auto* panel = findChild<RunDebugPanel*>())
+                            panel->stop();
+                    }}));
     runMenu->addSeparator();
-    runMenu->addAction(addCommand(
-        {QStringLiteral("debug.pause"), tr("Pause"), tr("Debug: Pause"),
-         QKeySequence(Qt::Key_F6), CommandSurface::Menu | CommandSurface::ShortcutEditor,
-         [this] {
-             if (auto* panel = findChild<RunDebugPanel*>())
-                 panel->pauseDebugging();
-         }}));
-    runMenu->addAction(addCommand(
-        {QStringLiteral("debug.stepOver"), tr("Step Over"), tr("Debug: Step Over"),
-         QKeySequence(Qt::Key_F10), CommandSurface::Menu | CommandSurface::ShortcutEditor,
-         [this] {
-             if (auto* panel = findChild<RunDebugPanel*>())
-                 panel->stepOver();
-         }}));
-    runMenu->addAction(addCommand(
-        {QStringLiteral("debug.stepInto"), tr("Step Into"), tr("Debug: Step Into"),
-         QKeySequence(Qt::Key_F11), CommandSurface::Menu | CommandSurface::ShortcutEditor,
-         [this] {
-             if (auto* panel = findChild<RunDebugPanel*>())
-                 panel->stepInto();
-         }}));
-    runMenu->addAction(addCommand(
-        {QStringLiteral("debug.stepOut"), tr("Step Out"), tr("Debug: Step Out"),
-         QKeySequence(QStringLiteral("Shift+F11")),
-         CommandSurface::Menu | CommandSurface::ShortcutEditor, [this] {
-             if (auto* panel = findChild<RunDebugPanel*>())
-                 panel->stepOut();
-         }}));
+    runMenu->addAction(addCommand({QStringLiteral("debug.pause"), tr("Pause"), tr("Debug: Pause"),
+                                   QKeySequence(Qt::Key_F6),
+                                   CommandSurface::Menu | CommandSurface::ShortcutEditor, [this] {
+                                       if (auto* panel = findChild<RunDebugPanel*>())
+                                           panel->pauseDebugging();
+                                   }}));
+    runMenu->addAction(addCommand({QStringLiteral("debug.stepOver"), tr("Step Over"),
+                                   tr("Debug: Step Over"), QKeySequence(Qt::Key_F10),
+                                   CommandSurface::Menu | CommandSurface::ShortcutEditor, [this] {
+                                       if (auto* panel = findChild<RunDebugPanel*>())
+                                           panel->stepOver();
+                                   }}));
+    runMenu->addAction(addCommand({QStringLiteral("debug.stepInto"), tr("Step Into"),
+                                   tr("Debug: Step Into"), QKeySequence(Qt::Key_F11),
+                                   CommandSurface::Menu | CommandSurface::ShortcutEditor, [this] {
+                                       if (auto* panel = findChild<RunDebugPanel*>())
+                                           panel->stepInto();
+                                   }}));
+    runMenu->addAction(addCommand({QStringLiteral("debug.stepOut"), tr("Step Out"),
+                                   tr("Debug: Step Out"), QKeySequence(QStringLiteral("Shift+F11")),
+                                   CommandSurface::Menu | CommandSurface::ShortcutEditor, [this] {
+                                       if (auto* panel = findChild<RunDebugPanel*>())
+                                           panel->stepOut();
+                                   }}));
     runMenu->addSeparator();
-    runMenu->addAction(addCommand(
-        {QStringLiteral("debug.toggleBreakpoint"), tr("Toggle Breakpoint"),
-         tr("Debug: Toggle Breakpoint"), QKeySequence(Qt::Key_F9),
-         CommandSurface::Menu | CommandSurface::ShortcutEditor, [this] {
-             const QString path = editorArea_->currentFile();
-             if (path.isEmpty())
-                 return;
-             if (auto* panel = findChild<RunDebugPanel*>())
-                 panel->toggleBreakpoint(path, currentEditorLine_);
-         }}));
+    runMenu->addAction(
+        addCommand({QStringLiteral("debug.toggleBreakpoint"), tr("Toggle Breakpoint"),
+                    tr("Debug: Toggle Breakpoint"), QKeySequence(Qt::Key_F9),
+                    CommandSurface::Menu | CommandSurface::ShortcutEditor, [this] {
+                        const QString path = editorArea_->currentFile();
+                        if (path.isEmpty())
+                            return;
+                        if (auto* panel = findChild<RunDebugPanel*>())
+                            panel->toggleBreakpoint(path, currentEditorLine_);
+                    }}));
     auto* terminalMenu = new components::Menu(tr("Terminal"), workbenchMenuBar_);
     auto* newTerminal =
         addCommand({QStringLiteral("terminal.new"), tr("New Terminal"),
@@ -767,10 +762,9 @@ void MainWindow::buildActions() {
     auto* helpMenu = new components::Menu(tr("Help"), workbenchMenuBar_);
     helpMenu->addAction(addCommand(
         {QStringLiteral("help.about"), tr("About LiteCode"), {}, {}, CommandSurface::Menu, [this] {
-             ConfirmationDialog::showMessage(
-                 this, tr("About LiteCode"),
-                 tr("LiteCode %1\nA lightweight native desktop IDE.")
-                     .arg(QApplication::applicationVersion()));
+             ConfirmationDialog::showMessage(this, tr("About LiteCode"),
+                                             tr("LiteCode %1\nA lightweight native desktop IDE.")
+                                                 .arg(QApplication::applicationVersion()));
          }}));
 
     auto* settingsAction = addCommand({QStringLiteral("preferences.settings"), tr("Settings…"),
@@ -785,8 +779,8 @@ void MainWindow::buildActions() {
     addAction(settingsAction);
     addAction(keyboardShortcutsAction);
 
-    const QList<components::Menu*> topLevelMenus{fileMenu, editMenu, viewMenu, runMenu, terminalMenu,
-                                                 helpMenu};
+    const QList<components::Menu*> topLevelMenus{fileMenu, editMenu,     viewMenu,
+                                                 runMenu,  terminalMenu, helpMenu};
     const int sharedMenuWidth = components::ComponentMetrics{}.menuWidth;
     int menuWidth = sharedMenuWidth;
     for (const auto* menu : topLevelMenus)
@@ -807,8 +801,10 @@ void MainWindow::buildActions() {
 
 void MainWindow::buildNavigationBar() {
     titleBar_ = new WorkbenchTitleBar(workbenchMenuBar_, this);
-    connect(titleBar_, &WorkbenchTitleBar::togglePrimarySidebarRequested, this,
-            [this] { if (sidebars_) sidebars_->toggle(SidebarService::Location::Primary); });
+    connect(titleBar_, &WorkbenchTitleBar::togglePrimarySidebarRequested, this, [this] {
+        if (sidebars_)
+            sidebars_->toggle(SidebarService::Location::Primary);
+    });
     connect(titleBar_, &WorkbenchTitleBar::toggleBottomPanelRequested, this,
             [this] { toggleTerminalPanel(); });
     setMenuWidget(titleBar_);
@@ -850,7 +846,8 @@ void MainWindow::buildActivityBar() {
     extensionsAction_ = bar->addAction(QIcon(), tr("Extensions"));
     extensionsAction_->setObjectName("extensionsAction");
     int coreOrder = 0;
-    for (auto* action : {explorerAction_, searchAction_, sourceControlAction_, runDebugAction_, extensionsAction_})
+    for (auto* action :
+         {explorerAction_, searchAction_, sourceControlAction_, runDebugAction_, extensionsAction_})
         action->setProperty("sidebarCoreOrder", coreOrder++);
     for (auto* action : {sourceControlAction_, runDebugAction_, extensionsAction_}) {
         action->setCheckable(true);
@@ -862,11 +859,11 @@ void MainWindow::buildActivityBar() {
     bar->widgetForAction(sourceControlAction_)->setObjectName("sourceControlActivity");
     bar->widgetForAction(extensionsAction_)->setObjectName("extensionsActivity");
     bar->widgetForAction(runDebugAction_)->setObjectName("runDebugActivity");
-    for (const auto& [activity, id] : {
-             std::pair{explorerAction_, "view.explorer"}, std::pair{searchAction_, "view.search"},
-             std::pair{sourceControlAction_, "workbench.view.scm"},
-             std::pair{runDebugAction_, "view.runDebug"},
-             std::pair{extensionsAction_, "workbench.view.extensions"}}) {
+    for (const auto& [activity, id] :
+         {std::pair{explorerAction_, "view.explorer"}, std::pair{searchAction_, "view.search"},
+          std::pair{sourceControlAction_, "workbench.view.scm"},
+          std::pair{runDebugAction_, "view.runDebug"},
+          std::pair{extensionsAction_, "workbench.view.extensions"}}) {
         auto* command = commands_->action(QString::fromLatin1(id));
         if (!command)
             continue;
@@ -1447,8 +1444,10 @@ void MainWindow::buildWorkspaceDock() {
             [this](SidebarView view, bool visible) {
                 const int index = static_cast<int>(view);
                 if (sidebars_->contains(builtInSidebarId(index))) {
-                    if (visible) sidebars_->open(builtInSidebarId(index));
-                    else sidebars_->setVisible(SidebarService::Location::Primary, false);
+                    if (visible)
+                        sidebars_->open(builtInSidebarId(index));
+                    else
+                        sidebars_->setVisible(SidebarService::Location::Primary, false);
                 }
                 if (visible && view == SidebarView::RunDebug) {
                     if (auto* debug = findChild<RunDebugPanel*>())
@@ -1459,25 +1458,29 @@ void MainWindow::buildWorkspaceDock() {
 
 void MainWindow::registerSidebarContainers() {
     const QList<QAction*> actions{explorerAction_, searchAction_, sourceControlAction_,
-                                 extensionsAction_, runDebugAction_};
-    const QStringList titles{tr("Explorer"), tr("Search"), tr("Source Control"),
-                             tr("Extensions"), tr("Run and Debug")};
+                                  extensionsAction_, runDebugAction_};
+    const QStringList titles{tr("Explorer"), tr("Search"), tr("Source Control"), tr("Extensions"),
+                             tr("Run and Debug")};
     // The temporary builder stack is not a second sidebar host. Transfer every
     // built-in container into the same registry used by extension contributions.
     for (int index = 0; index < actions.size(); ++index) {
         auto* page = workspacePages_->widget(0);
         workspacePages_->removeWidget(page);
-        if (actions[index]->actionGroup()) actions[index]->actionGroup()->removeAction(actions[index]);
+        if (actions[index]->actionGroup())
+            actions[index]->actionGroup()->removeAction(actions[index]);
         disconnect(actions[index], &QAction::triggered, this, nullptr);
-        sidebars_->addContainer(builtInSidebarId(index), titles[index], page, actions[index],
+        sidebars_->addContainer(
+            builtInSidebarId(index), titles[index], page, actions[index],
             SidebarService::Location::Primary,
-            index == static_cast<int>(SidebarView::Search) ? searchHeaderActions_ :
-            index == static_cast<int>(SidebarView::RunDebug) ? runDebugHeaderActions_ : nullptr);
+            index == static_cast<int>(SidebarView::Search)     ? searchHeaderActions_
+            : index == static_cast<int>(SidebarView::RunDebug) ? runDebugHeaderActions_
+                                                               : nullptr);
         sidebars_->setFixedLocation(builtInSidebarId(index), SidebarService::Location::Primary);
     }
     connect(sidebars_, &SidebarService::activeContainerChanged, this, [this](const QString& id) {
         for (int index = 0; index < 5; ++index) {
-            if (builtInSidebarId(index) != id) continue;
+            if (builtInSidebarId(index) != id)
+                continue;
             const auto view = static_cast<SidebarView>(index);
             if (workbenchController_->sidebarView() != view)
                 workbenchController_->showSidebar(view);
@@ -1493,7 +1496,8 @@ void MainWindow::registerSidebarContainers() {
         }
     });
     connect(sidebars_, &SidebarService::changed, this, [this] {
-        if (isVisible() && !restoringSession_ && !applyingSavedLayout_) saveLayout();
+        if (isVisible() && !restoringSession_ && !applyingSavedLayout_)
+            saveLayout();
     });
     fileSystemModel_->setParent(this);
     auto* stagingBody = workspacePages_->parentWidget();
@@ -1503,70 +1507,99 @@ void MainWindow::registerSidebarContainers() {
 
 void MainWindow::buildExtensions() {
     auto* panel = new ExtensionsPanel(commands_, workspacePages_);
-    auto* nativeViews = new NativeViewService(panel->manager()->nativeViews(), *this, activityBar_, panel, nullptr, sidebars_);
+    auto* nativeViews = new NativeViewService(panel->manager()->nativeViews(), *this, activityBar_,
+                                              panel, nullptr, sidebars_);
     nativeViews->setCodeFont(editorCodeFont());
-    connect(titleBar_, &WorkbenchTitleBar::toggleSecondarySidebarRequested,
-            this, [this] { sidebars_->toggle(SidebarService::Location::Secondary); });
-    connect(panel, &ExtensionsPanel::nativeViewOpenRequested, nativeViews, &NativeViewService::openView);
+    connect(titleBar_, &WorkbenchTitleBar::toggleSecondarySidebarRequested, this,
+            [this] { sidebars_->toggle(SidebarService::Location::Secondary); });
+    connect(panel, &ExtensionsPanel::nativeViewOpenRequested, nativeViews,
+            &NativeViewService::openView);
     commands_->registerCommand(
-        {QStringLiteral("workbench.action.toggleAuxiliaryBar"), tr("Toggle Secondary Side Bar"),
-         tr("View: Toggle Secondary Side Bar"), {}, CommandSurface::Palette,
+        {QStringLiteral("workbench.action.toggleAuxiliaryBar"),
+         tr("Toggle Secondary Side Bar"),
+         tr("View: Toggle Secondary Side Bar"),
+         {},
+         CommandSurface::Palette,
          [this] { sidebars_->toggle(SidebarService::Location::Secondary); }});
     commands_->registerCommand(
-        {QStringLiteral("workbench.action.openGlobalKeybindings"), tr("Keyboard Shortcuts"),
-         {}, {}, CommandSurface::None,
+        {QStringLiteral("workbench.action.openGlobalKeybindings"),
+         tr("Keyboard Shortcuts"),
+         {},
+         {},
+         CommandSurface::None,
          [this] { static_cast<void>(commands_->invoke("preferences.keyboardShortcuts")); }});
     new WindowStateService(*panel->manager(), *this, panel);
     registerLogLevelCommands(*commands_, panel->manager()->outputs(), this);
     panel->manager()->setDefaultShell(terminalPanel_->defaultShell());
-    connect(terminalPanel_, &TerminalPanel::defaultShellChanged, panel->manager(), &extensions::ExtensionManager::setDefaultShell);
+    connect(terminalPanel_, &TerminalPanel::defaultShellChanged, panel->manager(),
+            &extensions::ExtensionManager::setDefaultShell);
     const QPointer<EditorArea> extensionEditors(editorArea_);
-    panel->manager()->setEditorStateSource([extensionEditors] {
-        return extensionEditors ? extensionEditors->extensionEditorState() : extensions::WindowEditorState{};
-    }, [extensionEditors](const QString& editorId, const extensions::TextEditorEditData& edit) {
-        return extensionEditors && extensionEditors->applyTextEditorEdit(editorId, edit);
-    });
-    connect(editorArea_, &EditorArea::extensionEditorStateChanged, panel->manager(), &extensions::ExtensionManager::setEditorState);
-    panel->manager()->clipboard().setBackend([] {
-        auto* clipboard = QApplication::clipboard();
-        if (!clipboard) throw std::runtime_error("System clipboard is unavailable.");
-        return clipboard->text(QClipboard::Clipboard);
-    }, [](const QString& text) {
-        auto* clipboard = QApplication::clipboard();
-        if (!clipboard) throw std::runtime_error("System clipboard is unavailable.");
-        clipboard->setText(text, QClipboard::Clipboard);
-    });
+    panel->manager()->setEditorStateSource(
+        [extensionEditors] {
+            return extensionEditors ? extensionEditors->extensionEditorState()
+                                    : extensions::WindowEditorState{};
+        },
+        [extensionEditors](const QString& editorId, const extensions::TextEditorEditData& edit) {
+            return extensionEditors && extensionEditors->applyTextEditorEdit(editorId, edit);
+        });
+    connect(editorArea_, &EditorArea::extensionEditorStateChanged, panel->manager(),
+            &extensions::ExtensionManager::setEditorState);
+    panel->manager()->clipboard().setBackend(
+        [] {
+            auto* clipboard = QApplication::clipboard();
+            if (!clipboard)
+                throw std::runtime_error("System clipboard is unavailable.");
+            return clipboard->text(QClipboard::Clipboard);
+        },
+        [](const QString& text) {
+            auto* clipboard = QApplication::clipboard();
+            if (!clipboard)
+                throw std::runtime_error("System clipboard is unavailable.");
+            clipboard->setText(text, QClipboard::Clipboard);
+        });
     const QPointer<FileDialogDefaults> dialogDefaults = new FileDialogDefaults(
         *editorSessionController_, *workbenchController_, panel->manager()->configuration(), panel);
-    new FileDialogService(panel->manager()->dialogs(), this, [dialogDefaults] {
-        return dialogDefaults ? dialogDefaults->defaultUri() : QUrl::fromLocalFile(QDir::homePath());
-    }, panel);
+    new FileDialogService(
+        panel->manager()->dialogs(), this,
+        [dialogDefaults] {
+            return dialogDefaults ? dialogDefaults->defaultUri()
+                                  : QUrl::fromLocalFile(QDir::homePath());
+        },
+        panel);
     new InputBoxService(panel->manager()->inputBox(), this, panel);
     new QuickPickService(panel->manager()->quickPick(), this, panel);
     new StatusBarService(panel->manager()->statusBar(), *statusBar(), panel);
     auto* uriService = new ExternalUriService(*panel->manager(), this, panel);
-    connect(uriService, &ExternalUriService::error, this, [this](const QString& error) { statusBar()->showMessage(error, 5000); });
+    connect(uriService, &ExternalUriService::error, this,
+            [this](const QString& error) { statusBar()->showMessage(error, 5000); });
     connect(uriService, &ExternalUriService::workspaceRequested, this, [this](const QUrl& uri) {
         QString error;
-        if (!openWorkspaceFolder(uri.toLocalFile(), &error)) statusBar()->showMessage(error, 5000);
+        if (!openWorkspaceFolder(uri.toLocalFile(), &error))
+            statusBar()->showMessage(error, 5000);
     });
     connect(&panel->manager()->statusBar(), &extensions::WorkbenchStatusBar::error, this,
-        [this](const QString& error) { statusBar()->showMessage(error, 5000); });
+            [this](const QString& error) { statusBar()->showMessage(error, 5000); });
     auto* messageService = new WindowMessageService(panel->manager()->messages(), this, panel);
     messageService->attachProgress(panel->manager()->progress());
-    auto* statusProgress = new StatusProgressService(panel->manager()->progress(), *statusBar(), panel);
-    connect(statusProgress, &StatusProgressService::revealRequested, messageService, &WindowMessageService::revealProgress);
-    connect(messageService, &WindowMessageService::progressVisibilityChanged, statusProgress, &StatusProgressService::setNotificationVisible);
+    auto* statusProgress =
+        new StatusProgressService(panel->manager()->progress(), *statusBar(), panel);
+    connect(statusProgress, &StatusProgressService::revealRequested, messageService,
+            &WindowMessageService::revealProgress);
+    connect(messageService, &WindowMessageService::progressVisibilityChanged, statusProgress,
+            &StatusProgressService::setNotificationVisible);
     auto* viewProgress = new ViewProgressService(panel->manager()->progress(), panel);
-    viewProgress->registerView(QStringLiteral("workbench.scm"), *workspacePages_->widget(static_cast<int>(SidebarView::SourceControl)),
+    viewProgress->registerView(
+        QStringLiteral("workbench.scm"),
+        *workspacePages_->widget(static_cast<int>(SidebarView::SourceControl)),
         findChild<QWidget*>(QStringLiteral("sourceControlActivity")));
-    viewProgress->registerView(QStringLiteral("workbench.view.explorer"), *workspacePages_->widget(static_cast<int>(SidebarView::Explorer)));
+    viewProgress->registerView(QStringLiteral("workbench.view.explorer"),
+                               *workspacePages_->widget(static_cast<int>(SidebarView::Explorer)));
     viewProgress->registerView(QStringLiteral("workbench.view.extensions"), *panel);
     connect(messageService, &WindowMessageService::manageExtensionRequested, this,
-        [this, panel](const QString& id) {
-            workbenchController_->showSidebar(SidebarView::Extensions);
-            panel->revealExtension(id);
-        });
+            [this, panel](const QString& id) {
+                workbenchController_->showSidebar(SidebarView::Extensions);
+                panel->revealExtension(id);
+            });
     auto& output = panel->manager()->outputs();
     outputPanel_ = new OutputPanel(output, bottomTabs_);
     QFont outputFont(settings_.editorFontFamily());
@@ -1575,16 +1608,18 @@ void MainWindow::buildExtensions() {
     bottomTabs_->addTab(outputPanel_, tr("Output"));
     connect(&output, &extensions::WorkbenchOutput::revealRequested, this,
             [this](const QString& id, bool preserveFocus) {
-        const QPointer<QWidget> focus(QApplication::focusWidget());
-        outputPanel_->selectChannel(id);
-        workbenchController_->showBottomPanel(BottomPanelView::Output);
-        if (preserveFocus) {
-            if (focus) focus->setFocus(Qt::OtherFocusReason);
-        } else outputPanel_->focusOutput();
-    });
-    connect(&output, &extensions::WorkbenchOutput::hideRequested, this,
-            [this](const QString& id) {
-        if (outputPanel_->selectedChannel() == id && workbenchController_->bottomPanelView() == BottomPanelView::Output)
+                const QPointer<QWidget> focus(QApplication::focusWidget());
+                outputPanel_->selectChannel(id);
+                workbenchController_->showBottomPanel(BottomPanelView::Output);
+                if (preserveFocus) {
+                    if (focus)
+                        focus->setFocus(Qt::OtherFocusReason);
+                } else
+                    outputPanel_->focusOutput();
+            });
+    connect(&output, &extensions::WorkbenchOutput::hideRequested, this, [this](const QString& id) {
+        if (outputPanel_->selectedChannel() == id &&
+            workbenchController_->bottomPanelView() == BottomPanelView::Output)
             workbenchController_->setBottomPanelVisible(false);
     });
     connect(&output, &extensions::WorkbenchOutput::channelError, this,
@@ -1596,104 +1631,165 @@ void MainWindow::buildExtensions() {
             panel->manager()->documents().update(*snapshot);
     };
     connect(editorArea_, &EditorArea::documentOpened, panel,
-        [synchronizeDocument](core::DocumentId id, const QString&, const QByteArray&, qint64, core::DocumentStorageMode) { synchronizeDocument(id); });
+            [synchronizeDocument](core::DocumentId id, const QString&, const QByteArray&, qint64,
+                                  core::DocumentStorageMode) { synchronizeDocument(id); });
     connect(editorArea_, &EditorArea::documentEdited, panel,
-        [this, panel, synchronizeDocument](const core::DocumentEdit& edit) {
-            const extensions::Range range(edit.range.start.line, edit.range.start.utf16Column,
-                edit.range.end.line, edit.range.end.utf16Column);
-            const auto metadata = editorArea_->extensionDocumentMetadata(edit.documentId);
-            if (!metadata) return;
-            std::optional<extensions::TextDocumentChangeReason> reason;
-            if (edit.reason == core::DocumentEditReason::Undo) reason = extensions::TextDocumentChangeReason::Undo;
-            else if (edit.reason == core::DocumentEditReason::Redo) reason = extensions::TextDocumentChangeReason::Redo;
-            if (!panel->manager()->documents().change(QString::number(edit.documentId.value()), edit.version + 1,
-                    range, QString::fromUtf8(edit.insertedText), metadata->dirty, reason)) synchronizeDocument(edit.documentId);
-        });
+            [this, panel, synchronizeDocument](const core::DocumentEdit& edit) {
+                const extensions::Range range(edit.range.start.line, edit.range.start.utf16Column,
+                                              edit.range.end.line, edit.range.end.utf16Column);
+                const auto metadata = editorArea_->extensionDocumentMetadata(edit.documentId);
+                if (!metadata)
+                    return;
+                std::optional<extensions::TextDocumentChangeReason> reason;
+                if (edit.reason == core::DocumentEditReason::Undo)
+                    reason = extensions::TextDocumentChangeReason::Undo;
+                else if (edit.reason == core::DocumentEditReason::Redo)
+                    reason = extensions::TextDocumentChangeReason::Redo;
+                if (!panel->manager()->documents().change(
+                        QString::number(edit.documentId.value()), edit.version + 1, range,
+                        QString::fromUtf8(edit.insertedText), metadata->dirty, reason))
+                    synchronizeDocument(edit.documentId);
+            });
     connect(editorArea_, &EditorArea::documentEditsApplied, panel,
-        [this, panel, synchronizeDocument](core::DocumentId id, const QVector<core::DocumentEdit>& edits) {
-            const auto metadata = editorArea_->extensionDocumentMetadata(id);
-            if (!metadata || edits.isEmpty()) return;
-            QVector<extensions::TextEdit> changes;
-            changes.reserve(edits.size());
-            for (const auto& edit : edits) changes.append(extensions::TextEdit(
-                extensions::Range(edit.range.start.line, edit.range.start.utf16Column,
-                    edit.range.end.line, edit.range.end.utf16Column), QString::fromUtf8(edit.insertedText)));
-            if (!panel->manager()->documents().changeBatch(QString::number(id.value()), edits.first().version + 1,
-                    changes, metadata->dirty)) synchronizeDocument(id);
-        });
+            [this, panel, synchronizeDocument](core::DocumentId id,
+                                               const QVector<core::DocumentEdit>& edits) {
+                const auto metadata = editorArea_->extensionDocumentMetadata(id);
+                if (!metadata || edits.isEmpty())
+                    return;
+                QVector<extensions::TextEdit> changes;
+                changes.reserve(edits.size());
+                for (const auto& edit : edits)
+                    changes.append(extensions::TextEdit(
+                        extensions::Range(edit.range.start.line, edit.range.start.utf16Column,
+                                          edit.range.end.line, edit.range.end.utf16Column),
+                        QString::fromUtf8(edit.insertedText)));
+                if (!panel->manager()->documents().changeBatch(QString::number(id.value()),
+                                                               edits.first().version + 1, changes,
+                                                               metadata->dirty))
+                    synchronizeDocument(id);
+            });
     connect(editorArea_, &EditorArea::documentSnapshotChanged, panel,
-        [this, panel](core::DocumentId id, core::DocumentEditReason reason) {
-            auto snapshot = editorArea_->extensionDocumentSnapshot(id);
-            if (!snapshot) return;
-            if (reason == core::DocumentEditReason::Undo) snapshot->reason = extensions::TextDocumentChangeReason::Undo;
-            else if (reason == core::DocumentEditReason::Redo) snapshot->reason = extensions::TextDocumentChangeReason::Redo;
-            panel->manager()->documents().update(*snapshot);
-        });
+            [this, panel](core::DocumentId id, core::DocumentEditReason reason) {
+                auto snapshot = editorArea_->extensionDocumentSnapshot(id);
+                if (!snapshot)
+                    return;
+                if (reason == core::DocumentEditReason::Undo)
+                    snapshot->reason = extensions::TextDocumentChangeReason::Undo;
+                else if (reason == core::DocumentEditReason::Redo)
+                    snapshot->reason = extensions::TextDocumentChangeReason::Redo;
+                panel->manager()->documents().update(*snapshot);
+            });
     connect(editorArea_, &EditorArea::documentSnapshotApplied, panel,
-        [panel](const extensions::TextDocumentSnapshot& snapshot) { panel->manager()->documents().update(snapshot); });
+            [panel](const extensions::TextDocumentSnapshot& snapshot) {
+                panel->manager()->documents().update(snapshot);
+            });
     connect(editorArea_, &EditorArea::documentPathChanged, panel,
-        [synchronizeDocument](const core::DocumentPathChange& change) { synchronizeDocument(change.documentId); });
+            [synchronizeDocument](const core::DocumentPathChange& change) {
+                synchronizeDocument(change.documentId);
+            });
     connect(editorArea_, &EditorArea::documentSaved, panel,
-        [panel, synchronizeDocument](core::DocumentId id) {
-            synchronizeDocument(id);
-            panel->manager()->documents().saved(QString::number(id.value()));
-        });
+            [panel, synchronizeDocument](core::DocumentId id) {
+                synchronizeDocument(id);
+                panel->manager()->documents().saved(QString::number(id.value()));
+            });
     // Modification flags can change before the document version is advanced;
     // defer metadata synchronization until the editor finishes that notification.
-    connect(editorArea_, &EditorArea::documentMetadataChanged, panel,
+    connect(
+        editorArea_, &EditorArea::documentMetadataChanged, panel,
         [this, panel, synchronizeDocument](core::DocumentId id) {
             if (const auto metadata = editorArea_->extensionDocumentMetadata(id))
-                if (!panel->manager()->documents().metadata(*metadata)) synchronizeDocument(id);
-        }, Qt::QueuedConnection);
+                if (!panel->manager()->documents().metadata(*metadata))
+                    synchronizeDocument(id);
+        },
+        Qt::QueuedConnection);
     connect(editorArea_, &EditorArea::documentClosed, panel,
-        [panel](core::DocumentId id, const QString&, qint64) { panel->manager()->documents().close(QString::number(id.value())); });
-    panel->manager()->documents().setSaveDelegate([this, panel, synchronizeDocument](const QString& identity, QString* error) {
-        bool valid = false;
-        const auto value = identity.toULongLong(&valid);
-        if (!valid || value == 0) { if (error) *error = tr("Invalid document identity."); return false; }
-        const auto id = core::DocumentId(value);
-        if (const auto model = editorArea_->documentModels().find(id);
-            model && model->session().filePath().isEmpty() && model->resource().scheme() != "untitled") return false;
-        if (const auto model = editorArea_->documentModels().find(id);
-            model && model->session().filePath().isEmpty())
-            return panel->manager()->documents().saveResource(model->resource(), false, error).has_value();
-        const auto saved = editorArea_->saveDocument(id, error);
-        synchronizeDocument(id);
-        return saved;
-    });
-    for (const auto& document : editorArea_->documents()) synchronizeDocument(document.documentId);
-    const QPointer<WorkbenchDocumentOpenService> opens = new WorkbenchDocumentOpenService(editorArea_, panel);
+            [panel](core::DocumentId id, const QString&, qint64) {
+                panel->manager()->documents().close(QString::number(id.value()));
+            });
+    panel->manager()->documents().setSaveDelegate(
+        [this, panel, synchronizeDocument](const QString& identity, QString* error) {
+            bool valid = false;
+            const auto value = identity.toULongLong(&valid);
+            if (!valid || value == 0) {
+                if (error)
+                    *error = tr("Invalid document identity.");
+                return false;
+            }
+            const auto id = core::DocumentId(value);
+            if (const auto model = editorArea_->documentModels().find(id);
+                model && model->session().filePath().isEmpty() &&
+                model->resource().scheme() != "untitled")
+                return false;
+            if (const auto model = editorArea_->documentModels().find(id);
+                model && model->session().filePath().isEmpty())
+                return panel->manager()
+                    ->documents()
+                    .saveResource(model->resource(), false, error)
+                    .has_value();
+            const auto saved = editorArea_->saveDocument(id, error);
+            synchronizeDocument(id);
+            return saved;
+        });
+    for (const auto& document : editorArea_->documents())
+        synchronizeDocument(document.documentId);
+    const QPointer<WorkbenchDocumentOpenService> opens =
+        new WorkbenchDocumentOpenService(editorArea_, panel);
     opens->setContentProviders(&panel->manager()->contentProviders());
-    const QPointer<WorkbenchDiffCommand> diffCommand = new WorkbenchDiffCommand(editorArea_, opens, panel);
-    panel->manager()->setDiffCommandHandler([diffCommand](const QString& owner, const QJsonArray& arguments) {
-        if (!diffCommand) throw std::runtime_error("Diff editor service stopped.");
-        return diffCommand->execute(owner, arguments);
-    });
-    const QPointer<WorkbenchWorkspaceEditService> edits = new WorkbenchWorkspaceEditService(editorArea_, opens, panel);
+    const QPointer<WorkbenchDiffCommand> diffCommand =
+        new WorkbenchDiffCommand(editorArea_, opens, panel);
+    panel->manager()->setDiffCommandHandler(
+        [diffCommand](const QString& owner, const QJsonArray& arguments) {
+            if (!diffCommand)
+                throw std::runtime_error("Diff editor service stopped.");
+            return diffCommand->execute(owner, arguments);
+        });
+    const QPointer<WorkbenchWorkspaceEditService> edits =
+        new WorkbenchWorkspaceEditService(editorArea_, opens, panel);
     edits->setReviewService(new WorkspaceEditReviewService(this, panel));
     panel->manager()->documents().setApplyEditDelegate(
         [edits](const QString& owner, const extensions::WorkspaceEditRequest& request) {
-            if (!edits) throw std::runtime_error("Workspace edit service stopped.");
+            if (!edits)
+                throw std::runtime_error("Workspace edit service stopped.");
             return edits->apply(owner, request);
-        }, [edits](const QString& owner) { if (edits) edits->removeOwner(owner); });
+        },
+        [edits](const QString& owner) {
+            if (edits)
+                edits->removeOwner(owner);
+        });
     new VirtualDocumentUpdates(editorArea_, &panel->manager()->contentProviders(), panel);
     panel->manager()->documents().setOpenDelegate(
-        [opens](const QString& owner, const QUrl& uri, const extensions::TextDocumentOpenOptions& options) {
-            if (!opens) throw std::runtime_error("Workbench document opening service stopped.");
+        [opens](const QString& owner, const QUrl& uri,
+                const extensions::TextDocumentOpenOptions& options) {
+            if (!opens)
+                throw std::runtime_error("Workbench document opening service stopped.");
             return opens->open(uri, options, owner);
         },
         [opens](const QString& owner, const extensions::UntitledTextDocumentOptions& options) {
-            if (!opens) throw std::runtime_error("Workbench document opening service stopped.");
+            if (!opens)
+                throw std::runtime_error("Workbench document opening service stopped.");
             return opens->create(options, owner);
-        }, [opens](const QString& owner) { if (opens) opens->removeOwner(owner); });
-    const QPointer<WorkbenchDocumentSaveService> saves = new WorkbenchDocumentSaveService(editorArea_, this, panel);
+        },
+        [opens](const QString& owner) {
+            if (opens)
+                opens->removeOwner(owner);
+        });
+    const QPointer<WorkbenchDocumentSaveService> saves =
+        new WorkbenchDocumentSaveService(editorArea_, this, panel);
     panel->manager()->documents().setWorkspaceSaveDelegate(
         [saves](const QUrl& uri, bool saveAs, QString* error) -> std::optional<QUrl> {
-            if (!saves) { if (error) *error = QStringLiteral("Workbench save service has stopped."); return {}; }
+            if (!saves) {
+                if (error)
+                    *error = QStringLiteral("Workbench save service has stopped.");
+                return {};
+            }
             return saves->saveResource(uri, saveAs, error);
         },
         [saves](bool includeUntitled, QString* error) {
-            if (!saves) { if (error) *error = QStringLiteral("Workbench save service has stopped."); return false; }
+            if (!saves) {
+                if (error)
+                    *error = QStringLiteral("Workbench save service has stopped.");
+                return false;
+            }
             return saves->saveAll(includeUntitled, error);
         });
     auto* chatPanel = new chat::ParticipantChatPanel(panel->manager(), this);
@@ -1708,54 +1804,65 @@ void MainWindow::buildExtensions() {
     connect(panel->manager(), &extensions::ExtensionManager::changed, this, updateChatAvailability);
     updateChatAvailability();
     commands_->registerCommand(
-        {QStringLiteral("workbench.action.chat.open"), tr("Open Chat"), tr("Chat: Open Chat"),
-         {}, CommandSurface::Palette, [this, manager = panel->manager()] {
+        {QStringLiteral("workbench.action.chat.open"),
+         tr("Open Chat"),
+         tr("Chat: Open Chat"),
+         {},
+         CommandSurface::Palette,
+         [this, manager = panel->manager()] {
              if (manager->chatParticipantContributions().isEmpty()) {
                  statusBar()->showMessage(
                      tr("No chat participant extension is enabled. Extensions with their own "
-                        "views open from the activity bar."), 7000);
+                        "views open from the activity bar."),
+                     7000);
                  return;
              }
              sidebars_->open("workbench.panel.chat", true);
          }});
-    connect(chatPanel, &chat::ParticipantChatPanel::resourceActivated, this,
+    connect(
+        chatPanel, &chat::ParticipantChatPanel::resourceActivated, this,
         [this](const QUrl& uri, int line, int character) {
-            if (!uri.isLocalFile()) return;
+            if (!uri.isLocalFile())
+                return;
             QString error;
             if (!editorSessionController_->openMatch(uri.toLocalFile(), line, character, 0, &error))
                 statusBar()->showMessage(error, 5000);
         });
     connect(workbenchController_, &WorkbenchController::workspaceChanged, chatPanel,
-        [chatPanel](const QString&, const QString&) { chatPanel->clearSession(); });
+            [chatPanel](const QString&, const QString&) { chatPanel->clearSession(); });
     panel->setConfigurationWriteGuard([this](const QString& path) -> QString {
         for (const auto& document : editorArea_->documents()) {
-            if (!core::pathsReferToSameEntry(document.filePath, path)) continue;
+            if (!core::pathsReferToSameEntry(document.filePath, path))
+                continue;
             if (!document.loaded)
                 return tr("Settings are still loading. Retry the update after loading completes.");
             if (document.modified)
-                return tr("Settings have unsaved changes. Save them before this extension updates the file.");
+                return tr("Settings have unsaved changes. Save them before this extension updates "
+                          "the file.");
         }
         return {};
     });
     connect(panel, &ExtensionsPanel::configurationFileUpdated, this, [this](const QString& path) {
         for (const auto& document : editorArea_->documents()) {
-            if (!core::pathsReferToSameEntry(document.filePath, path) || document.modified || !document.loaded) continue;
+            if (!core::pathsReferToSameEntry(document.filePath, path) || document.modified ||
+                !document.loaded)
+                continue;
             QString error;
             if (!editorArea_->reloadDocument(document.documentId, &error))
-                statusBar()->showMessage(tr("Could not reload updated settings: %1").arg(error), 7000);
+                statusBar()->showMessage(tr("Could not reload updated settings: %1").arg(error),
+                                         7000);
         }
     });
     connect(panel, &ExtensionsPanel::configurationDiagnostic, this,
             [this](const QString& path, const QString& error) {
-        statusBar()->showMessage(path.isEmpty() ? error : path + ": " + error, 7000);
-    });
+                statusBar()->showMessage(path.isEmpty() ? error : path + ": " + error, 7000);
+            });
     workspacePages_->addWidget(panel);
     const auto pendingFormats = std::make_shared<QHash<quint64, FormatDocumentSnapshot>>();
     commands_->registerCommand(
-        {QStringLiteral("editor.formatDocument"), tr("Format Document"),
-         tr("Format Document"), QKeySequence(QStringLiteral("Alt+Shift+F")),
-         CommandSurface::Palette | CommandSurface::ShortcutEditor,
-         [this, panel, pendingFormats] {
+        {QStringLiteral("editor.formatDocument"), tr("Format Document"), tr("Format Document"),
+         QKeySequence(QStringLiteral("Alt+Shift+F")),
+         CommandSurface::Palette | CommandSurface::ShortcutEditor, [this, panel, pendingFormats] {
              const auto snapshot = editorArea_->currentFormatSnapshot();
              if (!snapshot) {
                  statusBar()->showMessage(tr("No editable document to format."), 5000);
@@ -1771,15 +1878,16 @@ void MainWindow::buildExtensions() {
                  QVector<QuickPickItem> choices;
                  choices.reserve(providers.size());
                  for (const auto& provider : providers)
-                     choices.append({provider.extensionId, provider.extensionName,
-                                     provider.extensionId});
+                     choices.append(
+                         {provider.extensionId, provider.extensionName, provider.extensionId});
                  QuickOpenDialog picker(tr("Select Formatter"), tr("Choose a formatter"),
                                         std::move(choices), {}, this);
-                 if (picker.exec() != QDialog::Accepted) return;
+                 if (picker.exec() != QDialog::Accepted)
+                     return;
                  extensionId = picker.selectedItemId();
              }
-             const auto id = panel->requestDocumentFormat(snapshot->languageId, snapshot->text,
-                                                          extensionId);
+             const auto id =
+                 panel->requestDocumentFormat(snapshot->languageId, snapshot->text, extensionId);
              if (!id) {
                  statusBar()->showMessage(tr("No available formatter for this document."), 5000);
                  return;
@@ -1789,7 +1897,8 @@ void MainWindow::buildExtensions() {
     connect(panel, &ExtensionsPanel::documentFormatResult, this,
             [this, pendingFormats](quint64 id, const QString& text, const QString& error) {
                 const auto it = pendingFormats->find(id);
-                if (it == pendingFormats->end()) return;
+                if (it == pendingFormats->end())
+                    return;
                 const auto snapshot = *it;
                 pendingFormats->erase(it);
                 if (!error.isEmpty()) {
@@ -1842,8 +1951,9 @@ void MainWindow::buildExtensions() {
     connect(panel, &ExtensionsPanel::detailsRequested, this, [this, panel](const QString& id) {
         auto* page = panel->createDetailsPage(id);
         page->setCodeFont(editorCodeFont());
-        editorArea_->openAuxiliaryTab("extension:" + id, tr("Extension: %1").arg(page->windowTitle()),
-                                     page, false, ":/icons/extensions.svg");
+        editorArea_->openAuxiliaryTab("extension:" + id,
+                                      tr("Extension: %1").arg(page->windowTitle()), page, false,
+                                      ":/icons/extensions.svg");
     });
 }
 
@@ -1854,83 +1964,136 @@ void MainWindow::buildRunDebug() {
     connect(panel, &RunDebugPanel::openFileRequested, this, &MainWindow::chooseFile);
     DebugConfigurationPicker* configurationPicker = nullptr;
     if (auto* extensionPanel = findChild<ExtensionsPanel*>()) {
-        configurationPicker = new DebugConfigurationPicker(extensionPanel->manager(),
-            [this] { return workbenchController_->workspacePath(); }, this);
-        connect(panel, &RunDebugPanel::selectDebugConfigurationRequested, configurationPicker, &DebugConfigurationPicker::selectAndStart);
-        connect(panel, &RunDebugPanel::selectDynamicConfigurationRequested, configurationPicker, &DebugConfigurationPicker::selectDynamic);
-        connect(configurationPicker, &DebugConfigurationPicker::configurationSelected, panel, &RunDebugPanel::startSelectedConfiguration);
-        connect(configurationPicker, &DebugConfigurationPicker::dynamicConfigurationSelected, panel, &RunDebugPanel::selectDynamicConfiguration);
-        connect(configurationPicker, &DebugConfigurationPicker::openConfiguration, this, [this, panel](const QString& path) {
-            QString error;
-            if (!editorSessionController_->openFile(path, &error)) ConfirmationDialog::showMessage(this, tr("Open launch.json"), error);
-            panel->setWorkspace(workbenchController_->workspacePath());
-        });
+        configurationPicker = new DebugConfigurationPicker(
+            extensionPanel->manager(), [this] { return workbenchController_->workspacePath(); },
+            this);
+        connect(panel, &RunDebugPanel::selectDebugConfigurationRequested, configurationPicker,
+                &DebugConfigurationPicker::selectAndStart);
+        connect(panel, &RunDebugPanel::selectDynamicConfigurationRequested, configurationPicker,
+                &DebugConfigurationPicker::selectDynamic);
+        connect(configurationPicker, &DebugConfigurationPicker::configurationSelected, panel,
+                &RunDebugPanel::startSelectedConfiguration);
+        connect(configurationPicker, &DebugConfigurationPicker::dynamicConfigurationSelected, panel,
+                &RunDebugPanel::selectDynamicConfiguration);
+        connect(configurationPicker, &DebugConfigurationPicker::openConfiguration, this,
+                [this, panel](const QString& path) {
+                    QString error;
+                    if (!editorSessionController_->openFile(path, &error))
+                        ConfirmationDialog::showMessage(this, tr("Open launch.json"), error);
+                    panel->setWorkspace(workbenchController_->workspacePath());
+                });
     }
     panel->setVariableContextSource([this] {
         debug::VariableContext context;
-        context.file = editorArea_->currentFile(); context.selectedText = editorArea_->selectedText();
+        context.file = editorArea_->currentFile();
+        context.selectedText = editorArea_->selectedText();
         const auto state = editorArea_->extensionEditorState();
         for (const auto& editor : state.editors)
             if (state.activeEditorId == editor.id && !editor.selections.isEmpty()) {
-                context.lineNumber = editor.selections.first().active().line() + 1; break;
+                context.lineNumber = editor.selections.first().active().line() + 1;
+                break;
             }
         return context;
     });
     if (auto* extensions = findChild<ExtensionsPanel*>()) {
         const auto configurations = std::make_shared<QHash<quint64, quint64>>();
-        connect(panel, &RunDebugPanel::debugSessionEvent, extensions->manager(), &extensions::ExtensionManager::publishDebugSessionEvent);
-        connect(panel, &RunDebugPanel::debugTrackerEvent, extensions->manager(), &extensions::ExtensionManager::publishDebugTrackerEvent);
-        connect(extensions->manager(), &extensions::ExtensionManager::debugSessionOwnerUnavailable, panel, &RunDebugPanel::cancelOwnedDebugSession);
+        connect(panel, &RunDebugPanel::debugSessionEvent, extensions->manager(),
+                &extensions::ExtensionManager::publishDebugSessionEvent);
+        connect(panel, &RunDebugPanel::debugTrackerEvent, extensions->manager(),
+                &extensions::ExtensionManager::publishDebugTrackerEvent);
+        connect(extensions->manager(), &extensions::ExtensionManager::debugSessionOwnerUnavailable,
+                panel, &RunDebugPanel::cancelOwnedDebugSession);
         const QPointer<RunDebugPanel> sessionPanel(panel);
         const QPointer<ExtensionsPanel> extensionPanel(extensions);
-        extensions->manager()->setDebugStartHandler([this, sessionPanel, extensionPanel](const QJsonValue& folder,
-            const QJsonValue& configuration, const QJsonObject& options, extensions::CancellationToken cancellation) {
-            if (!sessionPanel || !extensionPanel) throw std::runtime_error("Debug workbench is unavailable.");
-            const auto saveMode = extensionPanel->manager()->configuration().model().get("debug.saveBeforeStart").toString("allEditors");
-            if (!options.value("suppressSaveBeforeStart").toBool() && saveMode != "none") {
-                QString error;
-                if (!extensionPanel->manager()->documents().saveAll(false, &error)) {
-                    QPromise<bool> promise; promise.start(); auto result = promise.future();
-                    if (!error.isEmpty()) promise.setException(std::make_exception_ptr(std::runtime_error(error.toStdString())));
-                    else promise.addResult(false);
-                    promise.finish(); return result;
+        extensions->manager()->setDebugStartHandler(
+            [this, sessionPanel, extensionPanel](
+                const QJsonValue& folder, const QJsonValue& configuration,
+                const QJsonObject& options, extensions::CancellationToken cancellation) {
+                if (!sessionPanel || !extensionPanel)
+                    throw std::runtime_error("Debug workbench is unavailable.");
+                const auto saveMode = extensionPanel->manager()
+                                          ->configuration()
+                                          .model()
+                                          .get("debug.saveBeforeStart")
+                                          .toString("allEditors");
+                if (!options.value("suppressSaveBeforeStart").toBool() && saveMode != "none") {
+                    QString error;
+                    if (!extensionPanel->manager()->documents().saveAll(false, &error)) {
+                        QPromise<bool> promise;
+                        promise.start();
+                        auto result = promise.future();
+                        if (!error.isEmpty())
+                            promise.setException(
+                                std::make_exception_ptr(std::runtime_error(error.toStdString())));
+                        else
+                            promise.addResult(false);
+                        promise.finish();
+                        return result;
+                    }
                 }
-            }
-            extensionPanel->manager()->configuration().refresh();
-            if (!options.value("suppressDebugView").toBool()) workbenchController_->showSidebar(SidebarView::RunDebug);
-            return sessionPanel->startFromExtension(folder, configuration, options, cancellation);
-        });
-        extensions->manager()->setDebugSessionHandler([sessionPanel](const QString& id, const QString& operation,
-            const QString& command, const QJsonValue& arguments) {
-            if (sessionPanel) return sessionPanel->handleDebugSessionRequest(id, operation, command, arguments);
-            QPromise<QJsonValue> promise; promise.start(); auto result = promise.future();
-            promise.setException(std::make_exception_ptr(std::runtime_error("Debug workbench is unavailable.")));
-            promise.finish(); return result;
+                extensionPanel->manager()->configuration().refresh();
+                if (!options.value("suppressDebugView").toBool())
+                    workbenchController_->showSidebar(SidebarView::RunDebug);
+                return sessionPanel->startFromExtension(folder, configuration, options,
+                                                        cancellation);
+            });
+        extensions->manager()->setDebugSessionHandler([sessionPanel](const QString& id,
+                                                                     const QString& operation,
+                                                                     const QString& command,
+                                                                     const QJsonValue& arguments) {
+            if (sessionPanel)
+                return sessionPanel->handleDebugSessionRequest(id, operation, command, arguments);
+            QPromise<QJsonValue> promise;
+            promise.start();
+            auto result = promise.future();
+            promise.setException(
+                std::make_exception_ptr(std::runtime_error("Debug workbench is unavailable.")));
+            promise.finish();
+            return result;
         });
         connect(panel, &RunDebugPanel::debugConfigurationRequested, extensions,
-            [panel, extensions, configurations](quint64 local, const QString& type, const QString& method, const QJsonObject& configuration) {
-                const auto id = extensions->manager()->requestDebugConfiguration(type, method, configuration,
-                    extensions::DebugConfigurationProviderTriggerKind::Initial, panel->launchFolder());
-                if (!id) { panel->completeDebugConfigurationRequest(local, {}, QObject::tr("Could not activate debug configuration providers.")); return; }
-                configurations->insert(id, local);
-            });
-        connect(extensions->manager(), &extensions::ExtensionManager::debugConfigurationResult, panel,
-            [panel, configurations](quint64 id, const QJsonValue& configuration, const QString& error) {
-                if (!configurations->contains(id)) return;
-                panel->completeDebugConfigurationRequest(configurations->take(id), configuration, error);
-            });
+                [panel, extensions, configurations](quint64 local, const QString& type,
+                                                    const QString& method,
+                                                    const QJsonObject& configuration) {
+                    const auto id = extensions->manager()->requestDebugConfiguration(
+                        type, method, configuration,
+                        extensions::DebugConfigurationProviderTriggerKind::Initial,
+                        panel->launchFolder());
+                    if (!id) {
+                        panel->completeDebugConfigurationRequest(
+                            local, {},
+                            QObject::tr("Could not activate debug configuration providers."));
+                        return;
+                    }
+                    configurations->insert(id, local);
+                });
+        connect(extensions->manager(), &extensions::ExtensionManager::debugConfigurationResult,
+                panel,
+                [panel, configurations](quint64 id, const QJsonValue& configuration,
+                                        const QString& error) {
+                    if (!configurations->contains(id))
+                        return;
+                    panel->completeDebugConfigurationRequest(configurations->take(id),
+                                                             configuration, error);
+                });
         connect(panel, &RunDebugPanel::debugConfigurationCanceled, extensions,
-            [extensions, configurations](quint64 local) {
-                for (auto it = configurations->begin(); it != configurations->end(); ++it) {
-                    if (it.value() != local) continue;
-                    const auto id = it.key(); configurations->erase(it); extensions->manager()->cancelDebugConfiguration(id); break;
-                }
-            });
+                [extensions, configurations](quint64 local) {
+                    for (auto it = configurations->begin(); it != configurations->end(); ++it) {
+                        if (it.value() != local)
+                            continue;
+                        const auto id = it.key();
+                        configurations->erase(it);
+                        extensions->manager()->cancelDebugConfiguration(id);
+                        break;
+                    }
+                });
         const auto pendingAdapters = std::make_shared<QHash<quint64, quint64>>();
         connect(panel, &RunDebugPanel::debugAdapterRequested, extensions,
                 [panel, extensions, pendingAdapters](quint64 localId, const QString& type,
-                                                      const QJsonObject& configuration, const QString& sessionId) {
-                    const auto hostId = extensions->requestDebugAdapter(type, configuration, sessionId, panel->launchFolder());
+                                                     const QJsonObject& configuration,
+                                                     const QString& sessionId) {
+                    const auto hostId = extensions->requestDebugAdapter(
+                        type, configuration, sessionId, panel->launchFolder());
                     if (!hostId) {
                         panel->completeDebugAdapterRequest(
                             localId, {},
@@ -1942,16 +2105,18 @@ void MainWindow::buildRunDebug() {
                 });
         connect(extensions, &ExtensionsPanel::debugAdapterResult, this,
                 [panel, pendingAdapters](quint64 hostId, const QJsonObject& descriptor,
-                                          const QString& error) {
+                                         const QString& error) {
                     const auto it = pendingAdapters->find(hostId);
-                    if (it == pendingAdapters->end()) return;
+                    if (it == pendingAdapters->end())
+                        return;
                     const auto localId = *it;
                     panel->completeDebugAdapterRequest(localId, descriptor, error);
                 });
         connect(panel, &RunDebugPanel::debugAdapterReleased, extensions,
                 [extensions, pendingAdapters](quint64 localId) {
                     for (auto it = pendingAdapters->begin(); it != pendingAdapters->end(); ++it) {
-                        if (it.value() != localId) continue;
+                        if (it.value() != localId)
+                            continue;
                         const auto hostId = it.key();
                         pendingAdapters->erase(it);
                         extensions->manager()->releaseDebugAdapter(hostId);
@@ -1977,7 +2142,8 @@ void MainWindow::buildRunDebug() {
             QList<QPair<QString, QString>> choices;
             for (const auto& debugger : debuggers)
                 if (schemas.contains(debugger.type))
-                    choices.append({debugger.type, debugger.label.isEmpty() ? debugger.type : debugger.label});
+                    choices.append(
+                        {debugger.type, debugger.label.isEmpty() ? debugger.type : debugger.label});
             std::sort(choices.begin(), choices.end(), [](const auto& left, const auto& right) {
                 return left.second.localeAwareCompare(right.second) < 0;
             });
@@ -1993,22 +2159,27 @@ void MainWindow::buildRunDebug() {
     runDebugHeaderActions_->setParent(header);
     static_cast<QHBoxLayout*>(header->layout())->addWidget(runDebugHeaderActions_);
     runDebugHeaderActions_->hide();
-    connect(panel, &RunDebugPanel::titleActionsAvailabilityChanged, this,
-            [this](bool available) {
-                runDebugHeaderActions_->setVisible(
-                    available && sidebars_->containerVisible(builtInSidebarId(static_cast<int>(SidebarView::RunDebug))));
-            });
+    connect(panel, &RunDebugPanel::titleActionsAvailabilityChanged, this, [this](bool available) {
+        runDebugHeaderActions_->setVisible(
+            available &&
+            sidebars_->containerVisible(builtInSidebarId(static_cast<int>(SidebarView::RunDebug))));
+    });
     connect(panel, &RunDebugPanel::configurationRequested, this, [this, configurationPicker] {
-        if (configurationPicker) configurationPicker->createLaunch();
-        else ConfirmationDialog::showMessage(this, tr("Run and Debug"), tr("Enable a debugger extension to create a configuration."));
+        if (configurationPicker)
+            configurationPicker->createLaunch();
+        else
+            ConfirmationDialog::showMessage(
+                this, tr("Run and Debug"),
+                tr("Enable a debugger extension to create a configuration."));
     });
     connect(panel, &RunDebugPanel::outputReset, debugConsole_, &QPlainTextEdit::clear);
-    auto* terminalController = new DebugTerminalController(panel, terminalPanel_,
-        [this] { return workbenchController_->workspacePath(); }, this);
+    auto* terminalController = new DebugTerminalController(
+        panel, terminalPanel_, [this] { return workbenchController_->workspacePath(); }, this);
     connect(terminalController, &DebugTerminalController::terminalCreated, this,
-        [this] { workbenchController_->showBottomPanel(BottomPanelView::Terminal); });
+            [this] { workbenchController_->showBottomPanel(BottomPanelView::Terminal); });
     connect(debugConsoleInput_, &QLineEdit::returnPressed, this, [this, panel] {
-        if (!panel->isPaused() || debugConsoleInput_->text().trimmed().isEmpty()) return;
+        if (!panel->isPaused() || debugConsoleInput_->text().trimmed().isEmpty())
+            return;
         const QString expression = debugConsoleInput_->text();
         debugConsoleInput_->clear();
         panel->evaluateConsole(expression);
@@ -2016,29 +2187,33 @@ void MainWindow::buildRunDebug() {
     connect(panel, &RunDebugPanel::consoleAvailabilityChanged, debugConsoleInput_,
             [this](bool available) {
                 debugConsoleInput_->setEnabled(available);
-                debugConsoleInput_->setPlaceholderText(available ? tr("Expression to evaluate")
-                    : tr("Please start or pause a debug session to evaluate expressions"));
+                debugConsoleInput_->setPlaceholderText(
+                    available
+                        ? tr("Expression to evaluate")
+                        : tr("Please start or pause a debug session to evaluate expressions"));
             });
     connect(panel, &RunDebugPanel::openLocationRequested, this,
             [this](const QString& path, int line) {
-        QString error;
-        if (!editorSessionController_->openLocation(path, line, &error))
-            ConfirmationDialog::showMessage(this, tr("Open source"), error);
-    });
+                QString error;
+                if (!editorSessionController_->openLocation(path, line, &error))
+                    ConfirmationDialog::showMessage(this, tr("Open source"), error);
+            });
     connect(panel, &RunDebugPanel::breakpointsChanged, editorArea_,
             &EditorArea::setDebugBreakpoints);
     connect(panel, &RunDebugPanel::pausedLocationChanged, this,
             [this](const QString& path, int line) {
-        editorArea_->setDebugExecutionLocation(path, line);
-        if (!QFileInfo(path).isAbsolute() || line <= 0) return;
-        QString error;
-        if (!editorSessionController_->openLocation(path, line, &error) && !error.isEmpty())
-            statusBar()->showMessage(error, 5000);
-    });
+                editorArea_->setDebugExecutionLocation(path, line);
+                if (!QFileInfo(path).isAbsolute() || line <= 0)
+                    return;
+                QString error;
+                if (!editorSessionController_->openLocation(path, line, &error) && !error.isEmpty())
+                    statusBar()->showMessage(error, 5000);
+            });
     connect(editorArea_, &EditorArea::breakpointToggleRequested, panel,
             &RunDebugPanel::toggleBreakpoint);
     connect(panel, &RunDebugPanel::outputReceived, this, [this, panel](const QString& text) {
-        if (text.isEmpty()) return;
+        if (text.isEmpty())
+            return;
         debugConsole_->moveCursor(QTextCursor::End);
         debugConsole_->insertPlainText(text);
         if (!panel->usesIntegratedTerminal())
@@ -2051,10 +2226,12 @@ void MainWindow::buildRunDebug() {
 
 void MainWindow::buildSourceControl() {
     auto* panel = new SourceControlPanel(workspacePages_);
-    commands_->registerCommand(
-        {QStringLiteral("git.deleteWorktree"), tr("Git: Delete Worktree..."),
-         tr("Git: Delete Worktree..."), {}, CommandSurface::Palette,
-         [panel] { panel->deleteWorktree(); }});
+    commands_->registerCommand({QStringLiteral("git.deleteWorktree"),
+                                tr("Git: Delete Worktree..."),
+                                tr("Git: Delete Worktree..."),
+                                {},
+                                CommandSurface::Palette,
+                                [panel] { panel->deleteWorktree(); }});
     connect(panel, &SourceControlPanel::gitStatusChanged, fileSystemModel_,
             &ExplorerFileSystemModel::setGitStatus);
     panel->setGitPreferences(settings_.gitPreferences());
@@ -2099,15 +2276,14 @@ void MainWindow::buildSourceControl() {
     connect(panel, &SourceControlPanel::comparisonRequested, editorArea_,
             &EditorArea::openGitComparison);
     const auto offerOpen = [this](const QString& path, const QString& title) {
-        const auto choice = ConfirmationDialog::ask(
-            this, title, tr("Open %1?").arg(path), tr("Open in Current Window"),
-            tr("Open in New Window"), tr("Later"));
+        const auto choice = ConfirmationDialog::ask(this, title, tr("Open %1?").arg(path),
+                                                    tr("Open in Current Window"),
+                                                    tr("Open in New Window"), tr("Later"));
         if (choice == ConfirmationChoice::Secondary) {
-            if (!QProcess::startDetached(QApplication::applicationFilePath(),
-                                         {QStringLiteral("--new-window"),
-                                          QStringLiteral("--folder"), path}))
-                ConfirmationDialog::showMessage(this, title,
-                                                tr("Could not open a new window."));
+            if (!QProcess::startDetached(
+                    QApplication::applicationFilePath(),
+                    {QStringLiteral("--new-window"), QStringLiteral("--folder"), path}))
+                ConfirmationDialog::showMessage(this, title, tr("Could not open a new window."));
         } else if (choice == ConfirmationChoice::Primary) {
             QString error;
             if (!openWorkspaceFolder(path, &error) && !error.isEmpty())
@@ -2115,19 +2291,15 @@ void MainWindow::buildSourceControl() {
         }
     };
     connect(panel, &SourceControlPanel::repositoryCloned, this,
-            [offerOpen, this](const QString& path) {
-                offerOpen(path, tr("Repository Cloned"));
-            });
+            [offerOpen, this](const QString& path) { offerOpen(path, tr("Repository Cloned")); });
     connect(panel, &SourceControlPanel::worktreeCreated, this,
-            [offerOpen, this](const QString& path) {
-                offerOpen(path, tr("Worktree Created"));
-            });
+            [offerOpen, this](const QString& path) { offerOpen(path, tr("Worktree Created")); });
     connect(panel, &SourceControlPanel::openWorktreeRequested, this,
             [this](const QString& path, bool newWindow) {
                 if (newWindow) {
-                    if (!QProcess::startDetached(QApplication::applicationFilePath(),
-                                                 {QStringLiteral("--new-window"),
-                                                  QStringLiteral("--folder"), path}))
+                    if (!QProcess::startDetached(
+                            QApplication::applicationFilePath(),
+                            {QStringLiteral("--new-window"), QStringLiteral("--folder"), path}))
                         ConfirmationDialog::showMessage(this, tr("Open Worktree"),
                                                         tr("Could not open a new window."));
                     return;
@@ -2140,10 +2312,10 @@ void MainWindow::buildSourceControl() {
             [this](const QString& mainRepository, const QString& linkedWorktree) {
                 if (ConfirmationDialog::ask(
                         this, tr("Delete Worktree"),
-                        tr("Switch to the main repository, then remove this worktree? Git will refuse if it has uncommitted changes.\n%1")
+                        tr("Switch to the main repository, then remove this worktree? Git will "
+                           "refuse if it has uncommitted changes.\n%1")
                             .arg(linkedWorktree),
-                        tr("Switch and Delete"), {}, tr("Cancel")) !=
-                    ConfirmationChoice::Primary)
+                        tr("Switch and Delete"), {}, tr("Cancel")) != ConfirmationChoice::Primary)
                     return;
                 QString error;
                 if (!openWorkspaceFolder(mainRepository, &error)) {
@@ -2159,16 +2331,18 @@ void MainWindow::buildSourceControl() {
                     if (!service)
                         return;
                     auto connection = std::make_shared<QMetaObject::Connection>();
-                    *connection = connect(service, &workspace::GitService::changed, source,
-                        [service, mainRepository, linkedWorktree, connection] {
-                            if (service->busy() || service->repository().isEmpty())
-                                return;
-                            if (QDir::cleanPath(service->repository()).compare(
-                                    QDir::cleanPath(mainRepository), Qt::CaseInsensitive) != 0)
-                                return;
-                            disconnect(*connection);
-                            service->deleteWorktree(linkedWorktree);
-                        });
+                    *connection =
+                        connect(service, &workspace::GitService::changed, source,
+                                [service, mainRepository, linkedWorktree, connection] {
+                                    if (service->busy() || service->repository().isEmpty())
+                                        return;
+                                    if (QDir::cleanPath(service->repository())
+                                            .compare(QDir::cleanPath(mainRepository),
+                                                     Qt::CaseInsensitive) != 0)
+                                        return;
+                                    disconnect(*connection);
+                                    service->deleteWorktree(linkedWorktree);
+                                });
                 }
             });
 }
@@ -2307,10 +2481,12 @@ void MainWindow::buildBottomPanel() {
     debugConsoleInput_->setObjectName(QStringLiteral("debugConsoleInput"));
     debugConsoleInput_->setFont(panelFont);
     debugConsoleInput_->setEnabled(false);
-    debugConsoleInput_->setPlaceholderText(tr("Please start a debug session to evaluate expressions"));
+    debugConsoleInput_->setPlaceholderText(
+        tr("Please start a debug session to evaluate expressions"));
     promptLayout->addWidget(debugConsoleInput_, 1);
     consoleLayout->addWidget(promptRow);
-    debugConsoleTools_ = components::createTextPanelTools(*debugConsole_, "debugConsole", bottomTabs_);
+    debugConsoleTools_ =
+        components::createTextPanelTools(*debugConsole_, "debugConsole", bottomTabs_);
     debugConsoleTools_->hide();
     bottomTabs_->addTab(debugConsolePage_, tr("Debug Console"));
     connect(terminalPanel_, &TerminalPanel::closePanelRequested, workbenchController_,
@@ -2326,9 +2502,11 @@ void MainWindow::buildBottomPanel() {
             [this] { setBottomPanelMaximized(!bottomPanelMaximized_); });
     const auto updatePanelHeader = [this](int index) {
         const QWidget* current = bottomTabs_->widget(index);
-        panelHeader_->setTools(current == terminalPanel_ ? terminalPanel_->controlsWidget()
-            : current == debugConsolePage_ ? debugConsoleTools_
-            : outputPanel_ && current == outputPanel_ ? outputPanel_->controlsWidget() : nullptr);
+        panelHeader_->setTools(current == terminalPanel_      ? terminalPanel_->controlsWidget()
+                               : current == debugConsolePage_ ? debugConsoleTools_
+                               : outputPanel_ && current == outputPanel_
+                                   ? outputPanel_->controlsWidget()
+                                   : nullptr);
         settings_.saveBottomPanelTab(index);
         if (!restoringSession_)
             persistSettings();
@@ -2352,10 +2530,11 @@ void MainWindow::buildBottomPanel() {
             [this](BottomPanelView view, bool visible) {
                 if (!visible && bottomPanelMaximized_)
                     setBottomPanelMaximized(false);
-                bottomTabs_->setCurrentWidget(
-                    view == BottomPanelView::DebugConsole ? debugConsolePage_
-                    : view == BottomPanelView::Output && outputPanel_ ? static_cast<QWidget*>(outputPanel_)
-                    : static_cast<QWidget*>(terminalPanel_));
+                bottomTabs_->setCurrentWidget(view == BottomPanelView::DebugConsole
+                                                  ? debugConsolePage_
+                                              : view == BottomPanelView::Output && outputPanel_
+                                                  ? static_cast<QWidget*>(outputPanel_)
+                                                  : static_cast<QWidget*>(terminalPanel_));
                 bottomDock_->setVisible(visible);
             });
     connect(bottomDock_, &QDockWidget::visibilityChanged, this, [this](bool visible) {
@@ -2400,10 +2579,14 @@ void MainWindow::buildStatusBar() {
     statusBar()->addPermanentWidget(encodingStatusButton_);
     statusBar()->addPermanentWidget(lineEndingStatus_);
     statusBar()->addPermanentWidget(languageStatus_);
-    connect(editorArea_, &EditorArea::currentFileChanged, this, &MainWindow::updateDocumentModeStatus);
-    connect(editorArea_, &EditorArea::currentEncodingChanged, this, &MainWindow::updateDocumentModeStatus);
-    connect(editorArea_, &EditorArea::documentSnapshotChanged, this, &MainWindow::updateDocumentModeStatus);
-    connect(editorArea_, &EditorArea::documentSnapshotApplied, this, &MainWindow::updateDocumentModeStatus);
+    connect(editorArea_, &EditorArea::currentFileChanged, this,
+            &MainWindow::updateDocumentModeStatus);
+    connect(editorArea_, &EditorArea::currentEncodingChanged, this,
+            &MainWindow::updateDocumentModeStatus);
+    connect(editorArea_, &EditorArea::documentSnapshotChanged, this,
+            &MainWindow::updateDocumentModeStatus);
+    connect(editorArea_, &EditorArea::documentSnapshotApplied, this,
+            &MainWindow::updateDocumentModeStatus);
     updateEncodingStatus(core::TextEncoding::Utf8);
     updateDocumentModeStatus();
 }
@@ -2421,7 +2604,8 @@ void MainWindow::toggleTerminalPanel() {
 void MainWindow::setBottomPanelMaximized(bool maximized) {
     if (bottomPanelMaximized_ == maximized || !bottomDock_ || !editorArea_)
         return;
-    if (panelHeader_) panelHeader_->setMaximized(maximized);
+    if (panelHeader_)
+        panelHeader_->setMaximized(maximized);
     if (maximized) {
         bottomPanelRestoreHeight_ = bottomDock_->height();
         bottomPanelMaximized_ = true;
@@ -2434,14 +2618,17 @@ void MainWindow::setBottomPanelMaximized(bool maximized) {
     const int restoreHeight =
         bottomPanelRestoreHeight_ > 0 ? bottomPanelRestoreHeight_ : ThemeMetrics::bottomPanelHeight;
     resizeDocks({bottomDock_}, {restoreHeight}, Qt::Vertical);
-    QMetaObject::invokeMethod(this, [this, restoreHeight] {
-        // The central editor becomes a layout participant on the next turn.
-        // Reapply once then, including a quick maximize/restore double click.
-        if (!bottomPanelMaximized_ && bottomDock_->isVisible()) {
-            layout()->activate();
-            resizeDocks({bottomDock_}, {restoreHeight}, Qt::Vertical);
-        }
-    }, Qt::QueuedConnection);
+    QMetaObject::invokeMethod(
+        this,
+        [this, restoreHeight] {
+            // The central editor becomes a layout participant on the next turn.
+            // Reapply once then, including a quick maximize/restore double click.
+            if (!bottomPanelMaximized_ && bottomDock_->isVisible()) {
+                layout()->activate();
+                resizeDocks({bottomDock_}, {restoreHeight}, Qt::Vertical);
+            }
+        },
+        Qt::QueuedConnection);
 }
 
 void MainWindow::showEncodingMenu() {
@@ -2559,11 +2746,20 @@ void MainWindow::updateEncodingStatus(core::TextEncoding encoding) {
 void MainWindow::updateDocumentModeStatus() {
     QString lineEnding;
     switch (editorArea_->currentLineEnding()) {
-    case core::LineEnding::None: break;
-    case core::LineEnding::Lf: lineEnding = QStringLiteral("LF"); break;
-    case core::LineEnding::CrLf: lineEnding = QStringLiteral("CRLF"); break;
-    case core::LineEnding::Cr: lineEnding = QStringLiteral("CR"); break;
-    case core::LineEnding::Mixed: lineEnding = tr("Mixed"); break;
+    case core::LineEnding::None:
+        break;
+    case core::LineEnding::Lf:
+        lineEnding = QStringLiteral("LF");
+        break;
+    case core::LineEnding::CrLf:
+        lineEnding = QStringLiteral("CRLF");
+        break;
+    case core::LineEnding::Cr:
+        lineEnding = QStringLiteral("CR");
+        break;
+    case core::LineEnding::Mixed:
+        lineEnding = tr("Mixed");
+        break;
     }
     const auto language = editorArea_->currentLanguageId();
     lineEndingStatus_->setText(lineEnding);
@@ -2651,11 +2847,15 @@ void MainWindow::applyEditorSettings() {
     editorArea_->setDefaultEncoding(settings_.fileEncoding());
     QFont panelFont(settings_.editorFontFamily());
     panelFont.setPixelSize(settings_.editorFontSize());
-    if (debugConsole_) debugConsole_->setFont(panelFont);
-    if (debugConsoleInput_) debugConsoleInput_->setFont(panelFont);
-    if (outputPanel_) outputPanel_->setTextFont(panelFont);
+    if (debugConsole_)
+        debugConsole_->setFont(panelFont);
+    if (debugConsoleInput_)
+        debugConsoleInput_->setFont(panelFont);
+    if (outputPanel_)
+        outputPanel_->setTextFont(panelFont);
     const auto codeFont = editorCodeFont();
-    for (auto* views : findChildren<NativeViewService*>()) views->setCodeFont(codeFont);
+    for (auto* views : findChildren<NativeViewService*>())
+        views->setCodeFont(codeFont);
     for (auto* details : editorArea_->findChildren<ExtensionDetailsPage*>())
         details->setCodeFont(codeFont);
 }
@@ -2776,7 +2976,8 @@ void MainWindow::restoreLayout() {
     // Older Qt visibility menus could hide the entire navigation rail. It is
     // fixed workbench navigation, not an optional user toolbar.
     activityBar_->show();
-    if (settings_.sidebarState().isEmpty()) sidebars_->migrateLegacyDockState();
+    if (settings_.sidebarState().isEmpty())
+        sidebars_->migrateLegacyDockState();
     // Saved Qt layout visibility must not reopen unavailable contributed views
     // (for example the participant Chat dock when only native views are installed).
     for (auto* dock : findChildren<QDockWidget*>())
@@ -2793,7 +2994,8 @@ QMenu* MainWindow::createPopupMenu() {
 
 void MainWindow::applySavedWorkbenchLayout() {
     const core::WorkbenchLayout layout = settings_.workbenchLayout();
-    const auto sidebarState = sidebarLayoutRestored_ ? sidebars_->saveState() : settings_.sidebarState();
+    const auto sidebarState =
+        sidebarLayoutRestored_ ? sidebars_->saveState() : settings_.sidebarState();
     const auto sidebarView = static_cast<SidebarView>(
         qBound(static_cast<int>(SidebarView::Explorer), layout.primarySidebarView,
                static_cast<int>(SidebarView::RunDebug)));
@@ -3569,7 +3771,8 @@ void MainWindow::showEvent(QShowEvent* event) {
         applyingSavedLayout_ = true;
         applySavedWorkbenchLayout();
         applyingSavedLayout_ = false;
-        if (panelHeader_) panelHeader_->show();
+        if (panelHeader_)
+            panelHeader_->show();
     });
 }
 
@@ -3654,8 +3857,8 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
             saveLayout();
     };
     if (dockResizeAxis_ != DockResizeAxis::None &&
-        ((watched == this && (event->type() == QEvent::WindowDeactivate ||
-                             event->type() == QEvent::UngrabMouse)) ||
+        ((watched == this &&
+          (event->type() == QEvent::WindowDeactivate || event->type() == QEvent::UngrabMouse)) ||
          event->type() == QEvent::ApplicationDeactivate ||
          (belongsToThisWindow && event->type() == QEvent::KeyPress &&
           static_cast<QKeyEvent*>(event)->key() == Qt::Key_Escape))) {
@@ -3710,7 +3913,7 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
                 dockResizeInitialSize_ =
                     hit.axis == DockResizeAxis::Horizontal ? hit.dock->width() : hit.dock->height();
                 grabMouse(QCursor(hit.axis == DockResizeAxis::Horizontal ? Qt::SizeHorCursor
-                                                                        : Qt::SizeVerCursor));
+                                                                         : Qt::SizeVerCursor));
                 return true;
             }
         }
@@ -3726,10 +3929,11 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
             }
             const QPoint position = mouseEvent->globalPosition().toPoint();
             if (dockResizeAxis_ == DockResizeAxis::Horizontal) {
-                const int requestedWidth = dockResizeInitialSize_ +
+                const int requestedWidth =
+                    dockResizeInitialSize_ +
                     dockResizeDirection_ * (position.x() - dockResizePressPosition_.x());
                 if (sidebars_ && sidebars_->resizeFromDrag(*dockResizeTarget_, requestedWidth,
-                                                          dockResizeInitialSize_)) {
+                                                           dockResizeInitialSize_)) {
                     dockResizeCollapsed_ = dockResizeTarget_ && dockResizeTarget_->isHidden();
                     return true;
                 }
@@ -3768,7 +3972,7 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
             if (dockResizeCursorTarget_ != cursorTarget)
                 clearDockResizeCursor();
             cursorTarget->setCursor(axis == DockResizeAxis::Horizontal ? Qt::SizeHorCursor
-                                                                        : Qt::SizeVerCursor);
+                                                                       : Qt::SizeVerCursor);
             dockResizeCursorTarget_ = cursorTarget;
         } else {
             clearDockResizeCursor();
@@ -3791,7 +3995,8 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
     }
     const bool explorerEvent =
         watched == fileTree_ || (fileTree_ && watched == fileTree_->viewport());
-    if (fileTree_ && watched == fileTree_->viewport() && event->type() == QEvent::MouseButtonPress) {
+    if (fileTree_ && watched == fileTree_->viewport() &&
+        event->type() == QEvent::MouseButtonPress) {
         const auto* mouseEvent = static_cast<QMouseEvent*>(event);
         if (mouseEvent->button() == Qt::LeftButton &&
             !fileTree_->indexAt(mouseEvent->position().toPoint()).isValid() &&

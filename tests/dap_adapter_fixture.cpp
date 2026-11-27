@@ -1,7 +1,7 @@
 #include "debug/DapProtocol.h"
 #include <QCoreApplication>
-#include <QJsonArray>
 #include <QDir>
+#include <QJsonArray>
 #include <cstdio>
 #include <cstdlib>
 #ifdef Q_OS_WIN
@@ -14,13 +14,16 @@ int main(int argc, char** argv) {
     QCoreApplication application(argc, argv);
     if (application.arguments().contains("--terminal-target")) {
         std::printf("TERMINAL_READY\nARG:%s\nENV:%s\nCWD:%s\n",
-            application.arguments().last().toUtf8().constData(), qgetenv("LITECODE_DEBUG_TEST").constData(),
-            QDir::currentPath().toUtf8().constData());
+                    application.arguments().last().toUtf8().constData(),
+                    qgetenv("LITECODE_DEBUG_TEST").constData(),
+                    QDir::currentPath().toUtf8().constData());
         std::fflush(stdout);
         char input[256]{};
-        if (!std::fgets(input, sizeof(input), stdin)) return 2;
+        if (!std::fgets(input, sizeof(input), stdin))
+            return 2;
         const auto text = QByteArray(input).trimmed();
-        std::printf("TERMINAL_INPUT:%s\n", text.constData()); std::fflush(stdout);
+        std::printf("TERMINAL_INPUT:%s\n", text.constData());
+        std::fflush(stdout);
         return 0;
     }
 #ifdef Q_OS_WIN
@@ -66,15 +69,16 @@ int main(int argc, char** argv) {
                 } else if (command == "configurationDone") {
                     reply(request, {});
                     reply(pendingLaunch, {});
-                    write({{"type", "event"}, {"event", "output"},
-                           {"body", QJsonObject{{"category", "telemetry"},
-                                                {"output", "debugpy"}}}});
-                    write({{"type", "event"}, {"event", "output"},
-                           {"body", QJsonObject{{"category", "stdout"},
-                                                {"output", "hello"}}}});
-                    write({{"type", "event"}, {"event", "output"},
-                           {"body", QJsonObject{{"category", "stdout"},
-                                                {"output", " world\n"}}}});
+                    write(
+                        {{"type", "event"},
+                         {"event", "output"},
+                         {"body", QJsonObject{{"category", "telemetry"}, {"output", "debugpy"}}}});
+                    write({{"type", "event"},
+                           {"event", "output"},
+                           {"body", QJsonObject{{"category", "stdout"}, {"output", "hello"}}}});
+                    write({{"type", "event"},
+                           {"event", "output"},
+                           {"body", QJsonObject{{"category", "stdout"}, {"output", " world\n"}}}});
                 } else if (command == "disconnect") {
                     // An attach test uses this adapter's echo to audit detach policy.
                     const auto terminate =
@@ -93,18 +97,20 @@ int main(int argc, char** argv) {
                     reply(request,
                           {{"threads", QJsonArray{QJsonObject{{"id", 1}, {"name", "fixture"}}}}});
                 } else if (command == "stackTrace") {
-                    const QString sourcePath = pendingLaunch.value("arguments").toObject()
-                                                   .value("program").toString("fixture.cpp");
+                    const QString sourcePath = pendingLaunch.value("arguments")
+                                                   .toObject()
+                                                   .value("program")
+                                                   .toString("fixture.cpp");
                     const QJsonObject source{{"path", sourcePath}};
-                    const QJsonObject frame{{"id", 11}, {"name", "fixtureFrame"},
-                                            {"line", 7}, {"source", source}};
+                    const QJsonObject frame{
+                        {"id", 11}, {"name", "fixtureFrame"}, {"line", 7}, {"source", source}};
                     reply(request, {{"stackFrames", QJsonArray{frame}}});
                 } else if (command == "scopes") {
                     const QJsonObject scope{{"name", "Locals"}, {"variablesReference", 12}};
                     reply(request, {{"scopes", QJsonArray{scope}}});
                 } else if (command == "variables") {
-                    const QJsonObject variable{{"name", "answer"}, {"value", "42"},
-                                               {"variablesReference", 0}};
+                    const QJsonObject variable{
+                        {"name", "answer"}, {"value", "42"}, {"variablesReference", 0}};
                     reply(request, {{"variables", QJsonArray{variable}}});
                 } else if (command == "evaluate") {
                     reply(request, {{"result", "120"}, {"variablesReference", 0}});

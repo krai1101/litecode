@@ -7,4 +7,4 @@ class UriHandler {
     virtual ~UriHandler() = default;
     virtual ProviderResult<void> handleUri(const QUrl& uri) = 0;
 };
-}
+} // namespace litecode::extensions

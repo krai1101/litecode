@@ -62,7 +62,8 @@ class TaskConfigurationTests final : public QObject {
         QVERIFY(QDir(workspace.path()).mkdir(".litecode"));
         QFile legacy(workspace.filePath(".litecode/tasks.json"));
         QVERIFY(legacy.open(QIODevice::WriteOnly));
-        legacy.write(R"({"version":"2.0.0","tasks":[{"label":"legacy","type":"process","command":"legacy"}]})");
+        legacy.write(
+            R"({"version":"2.0.0","tasks":[{"label":"legacy","type":"process","command":"legacy"}]})");
         legacy.close();
         QFile current(workspace.filePath(".vscode/tasks.json"));
         QVERIFY(current.open(QIODevice::WriteOnly));
@@ -128,6 +129,39 @@ class TaskConfigurationTests final : public QObject {
         QVERIFY(!finished.first().first().toBool());
         QVERIFY(finished.first().at(1).toString().contains("3"));
         QVERIFY(!output.contains("> Task: later"));
+    }
+
+    void cancellingTaskAllowsRestartAfterProcessStops() {
+        QTemporaryDir workspace;
+        QVERIFY(QDir(workspace.path()).mkdir(".vscode"));
+        QFile file(workspace.filePath(".vscode/tasks.json"));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+#ifdef Q_OS_WIN
+        file.write(R"({"version":"2.0.0","tasks":[
+          {"label":"wait","type":"process","command":"ping.exe","args":["-n","15","127.0.0.1"]},
+          {"label":"next","type":"process","command":"cmd.exe","args":["/c","exit 0"]}
+        ]})");
+#else
+        file.write(R"({"version":"2.0.0","tasks":[
+          {"label":"wait","type":"process","command":"/bin/sleep","args":["15"]},
+          {"label":"next","type":"process","command":"/bin/true"}
+        ]})");
+#endif
+        file.close();
+        TaskRunner runner;
+        QSignalSpy finished(&runner, &TaskRunner::finished);
+        VariableContext context;
+        context.workspaceFolder = workspace.path();
+        context.environment = QProcessEnvironment::systemEnvironment();
+        QVERIFY(runner.start(workspace.path(), "wait", context));
+        runner.stop();
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 1, 5000);
+        QVERIFY(!finished.first().first().toBool());
+        QCOMPARE(finished.first().at(1).toString(), QString("Task cancelled."));
+        QVERIFY(!runner.active());
+        QVERIFY(runner.start(workspace.path(), "next", context));
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 2, 5000);
+        QVERIFY(finished.last().first().toBool());
     }
 };
 QTEST_GUILESS_MAIN(TaskConfigurationTests)

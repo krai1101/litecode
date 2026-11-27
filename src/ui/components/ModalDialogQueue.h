@@ -16,6 +16,7 @@ class ModalDialogQueue final : public QObject {
     static ModalDialogQueue& forWindow(QWidget& window);
     void enqueue(QObject& service, const QString& key, std::function<void()> show);
     void release(QObject& service, const QString& key);
+
   private:
     explicit ModalDialogQueue(QObject* parent);
     void schedule();

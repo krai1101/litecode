@@ -15,12 +15,14 @@ class HostTextEditorEdit final : public TextEditorEdit {
     // valid only on the callback thread and only until that callback returns.
     // No document mutation or RPC is performed when collection fails.
     static TextEditorEditData collect(std::shared_ptr<HostTextDocument> document,
-        const Callback& callback, bool undoStopBefore = true, bool undoStopAfter = true);
+                                      const Callback& callback, bool undoStopBefore = true,
+                                      bool undoStopAfter = true);
     void replace(const Position& location, const QString& value) override;
     void replace(const Range& location, const QString& value) override;
     void insert(const Position& location, const QString& value) override;
     void delete_(const Range& location) override;
     void setEndOfLine(EndOfLine endOfLine) override;
+
   private:
     HostTextEditorEdit(std::shared_ptr<HostTextDocument> document, bool before, bool after);
     void requireActive() const;

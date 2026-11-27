@@ -34,8 +34,8 @@ class CodexRuntimeTests final : public QObject {
         QTRY_VERIFY(session.server().ready());
         QTRY_VERIFY(!session.models().isEmpty());
         QSignalSpy accepted(&session, &codex::ChatSession::submissionAccepted);
-        session.submit(QJsonArray{QJsonObject{{"type", "text"}, {"text", "fixture wait"}}},
-                       {}, {}, false);
+        session.submit(QJsonArray{QJsonObject{{"type", "text"}, {"text", "fixture wait"}}}, {}, {},
+                       false);
         QTRY_COMPARE(accepted.size(), 1);
         QTRY_COMPARE(session.turns().size(), 1);
         QTRY_COMPARE(session.turns().first().items.size(), 1);
@@ -50,8 +50,8 @@ class CodexRuntimeTests final : public QObject {
 
         QSignalSpy errors(&session, &codex::ChatSession::error);
         session.submit(
-            QJsonArray{QJsonObject{{"type", "text"}, {"text", "fixture rejected follow-up"}}},
-            {}, {}, false);
+            QJsonArray{QJsonObject{{"type", "text"}, {"text", "fixture rejected follow-up"}}}, {},
+            {}, false);
         QTRY_COMPARE(errors.size(), 1);
         QCOMPARE(session.activeTurn(), turnId);
         QCOMPARE(accepted.size(), 1);
@@ -85,11 +85,11 @@ class CodexRuntimeTests final : public QObject {
         QVERIFY(file.open(QIODevice::ReadOnly));
         QCOMPARE(file.readAll(), QByteArray("user edits\n"));
         file.close();
-        codex::TurnUndo outside(
-            "--- a/../outside.cpp\n+++ b/../outside.cpp\n@@ -1 +1 @@\n-a\n+b\n", project.path());
+        codex::TurnUndo outside("--- a/../outside.cpp\n+++ b/../outside.cpp\n@@ -1 +1 @@\n-a\n+b\n",
+                                project.path());
         QVERIFY(!outside.available());
         codex::TurnUndo deleted("--- a/deleted.cpp\n+++ /dev/null\n@@ -1 +0,0 @@\n-old\n",
-                                   project.path());
+                                project.path());
         QVERIFY(deleted.available());
         QVERIFY(deleted.apply(&error));
         QFile restored(project.filePath("deleted.cpp"));

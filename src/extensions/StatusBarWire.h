@@ -15,4 +15,4 @@ struct StatusBarState final {
 };
 QJsonObject encodeStatusBarState(const StatusBarState& state);
 std::optional<StatusBarState> decodeStatusBarState(const QJsonObject& value);
-}
+} // namespace litecode::extensions::wire

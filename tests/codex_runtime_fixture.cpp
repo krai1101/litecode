@@ -1,8 +1,8 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QThread>
 #include <QTemporaryFile>
+#include <QThread>
 #include <iostream>
 #include <string>
 namespace {
@@ -73,8 +73,9 @@ int main() {
     QTemporaryFile observedRollout;
     if (!observedRollout.open())
         return 1;
-    observedRollout.write("{\"timestamp\":\"1970-01-01T00:01:40.000Z\",\"type\":\"event_msg\","
-                          "\"payload\":{\"type\":\"task_started\",\"turn_id\":\"observed-turn\"}}\n");
+    observedRollout.write(
+        "{\"timestamp\":\"1970-01-01T00:01:40.000Z\",\"type\":\"event_msg\","
+        "\"payload\":{\"type\":\"task_started\",\"turn_id\":\"observed-turn\"}}\n");
     observedRollout.flush();
     bool signedIn = true;
     QString accountType = "fixture";
@@ -149,14 +150,15 @@ int main() {
                 accountType = "apiKey";
                 result = {{"type", "apiKey"}};
             } else if (type == "chatgptDeviceCode")
-                result = {{"type", type}, {"loginId", "fixture-device-login"},
+                result = {{"type", type},
+                          {"loginId", "fixture-device-login"},
                           {"userCode", "FIXTURE-CODE"},
                           {"verificationUrl", "https://example.invalid/device"}};
             else
-                result = {{"type", type}, {"loginId", "fixture-browser-login"},
+                result = {{"type", type},
+                          {"loginId", "fixture-browser-login"},
                           {"authUrl", "https://example.invalid/login"}};
-        }
-        else if (method == "thread/goal/get")
+        } else if (method == "thread/goal/get")
             result = {{"goal", QJsonObject{{"status", "blocked"},
                                            {"objective",
                                             QString("Long saved goal objective. ").repeated(40)}}}};
@@ -172,17 +174,23 @@ int main() {
                  QJsonObject{{"data", pagedTurns(16, 23)}, {"nextCursor", "older-fixture-page"}}}};
         else if (method == "thread/turns/list" && params.value("sortDirection") == "asc") {
             const bool second = params.value("cursor") == "markdown-next";
-            QJsonObject item = second
-                ? QJsonObject{{"type", "agentMessage"}, {"phase", "final_answer"},
-                    {"text", "Hello from the native Codex extension fixture."}}
-                : QJsonObject{{"type", "userMessage"}, {"content", QJsonArray{
-                    QJsonObject{{"type", "text"}, {"text", "fixture changes request delayed-acceptance"}}}}};
-            result = {{"data", QJsonArray{QJsonObject{
-                {"id", second ? "export-second" : "export-first"}, {"status", "completed"},
-                {"items", QJsonArray{item}}}}},
-                {"nextCursor", second ? QJsonValue(QJsonValue::Null) : QJsonValue("markdown-next")}};
-        }
-        else if (method == "thread/turns/list" && params.value("threadId") == "thread-observed") {
+            QJsonObject item =
+                second
+                    ? QJsonObject{{"type", "agentMessage"},
+                                  {"phase", "final_answer"},
+                                  {"text", "Hello from the native Codex extension fixture."}}
+                    : QJsonObject{{"type", "userMessage"},
+                                  {"content",
+                                   QJsonArray{QJsonObject{
+                                       {"type", "text"},
+                                       {"text", "fixture changes request delayed-acceptance"}}}}};
+            result = {
+                {"data", QJsonArray{QJsonObject{{"id", second ? "export-second" : "export-first"},
+                                                {"status", "completed"},
+                                                {"items", QJsonArray{item}}}}},
+                {"nextCursor",
+                 second ? QJsonValue(QJsonValue::Null) : QJsonValue("markdown-next")}};
+        } else if (method == "thread/turns/list" && params.value("threadId") == "thread-observed") {
             const bool finished = ++observedReads > 1;
             QJsonArray items{QJsonObject{
                 {"id", "observed-user"},
@@ -317,9 +325,7 @@ int main() {
                             "@@ -1 +1 @@\n-old neighbor\n+new neighbor\n";
                 }
                 notify("turn/diff/updated",
-                       {{"threadId", "thread-fixture"},
-                        {"turnId", currentTurnId},
-                        {"diff", diff}});
+                       {{"threadId", "thread-fixture"}, {"turnId", currentTurnId}, {"diff", diff}});
                 complete();
             } else if (!prompt.contains("wait"))
                 complete();

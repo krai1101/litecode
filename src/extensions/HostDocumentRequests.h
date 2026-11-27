@@ -1,10 +1,10 @@
 #pragma once
-#include <QObject>
-#include <QJsonObject>
 #include <QFuture>
-#include <QPromise>
 #include <QHash>
+#include <QJsonObject>
 #include <QMutex>
+#include <QObject>
+#include <QPromise>
 #include <functional>
 #include <memory>
 #include <utility>
@@ -17,6 +17,7 @@ class HostDocumentRequests final : public QObject {
     QFuture<bool> save(const QString& documentId);
     void complete(quint64 requestId, bool saved, const QString& error);
     void shutdown();
+
   private:
     std::function<void(const QJsonObject&)> send_;
     QMutex mutex_;

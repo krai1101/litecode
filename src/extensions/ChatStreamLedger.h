@@ -29,7 +29,10 @@ class ChatStreamLedger final {
     [[nodiscard]] static bool isValidPart(const QJsonObject& payload);
 
   private:
-    struct State { quint64 nextSequence{}; bool cancelled{}; };
+    struct State {
+        quint64 nextSequence{};
+        bool cancelled{};
+    };
     QHash<quint64, State> requests_;
 };
 

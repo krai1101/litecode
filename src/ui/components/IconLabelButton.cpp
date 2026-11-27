@@ -1,6 +1,6 @@
 #include "ui/components/IconLabelButton.h"
-#include "ui/ThemedIcon.h"
 #include "ui/Theme.h"
+#include "ui/ThemedIcon.h"
 #include "ui/styles/ComponentStyleSheets.h"
 #include <QFile>
 #include <QFontDatabase>

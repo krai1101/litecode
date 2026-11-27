@@ -9,7 +9,13 @@ class ExtensionEnvironmentTests final : public QObject {
     Q_OBJECT
   private slots:
     void globalLogGetterAndEventTrackOnlyEffectiveChanges() {
-        EnvironmentInfo info{"LiteCode", "/application", "desktop", "en", "machine", "session", QDateTime::currentDateTimeUtc()};
+        EnvironmentInfo info{"LiteCode",
+                             "/application",
+                             "desktop",
+                             "en",
+                             "machine",
+                             "session",
+                             QDateTime::currentDateTimeUtc()};
         info.logLevel = LogLevel::Warning;
         HostEnvironment host(info, {});
         QVector<LogLevel> changes;
@@ -31,8 +37,17 @@ class ExtensionEnvironmentTests final : public QObject {
         listener.dispose();
     }
     void shellChangesUpdateGetterBeforeEventAndStopOnShutdown() {
-        EnvironmentInfo info{"LiteCode", "/application", "desktop", "en", "machine", "session",
-            QDateTime::currentDateTimeUtc(), false, {}, UIKind::Desktop, "/bin/first"};
+        EnvironmentInfo info{"LiteCode",
+                             "/application",
+                             "desktop",
+                             "en",
+                             "machine",
+                             "session",
+                             QDateTime::currentDateTimeUtc(),
+                             false,
+                             {},
+                             UIKind::Desktop,
+                             "/bin/first"};
         HostEnvironment host(info, {});
         QStringList changes;
         auto subscription = host.onDidChangeShell()([&](const QString& path) {
@@ -96,8 +111,16 @@ class ExtensionEnvironmentTests final : public QObject {
         QVERIFY(!isNewAppInstall(first, {}));
     }
     void initializationRejectsMalformedTypesAndKeepsOptionalRemoteName() {
-        const EnvironmentInfo info{"LiteCode", "/application", "desktop", "en", "machine", "session",
-            QDateTime::currentDateTimeUtc(), false, QString("ssh-remote"), UIKind::Desktop};
+        const EnvironmentInfo info{"LiteCode",
+                                   "/application",
+                                   "desktop",
+                                   "en",
+                                   "machine",
+                                   "session",
+                                   QDateTime::currentDateTimeUtc(),
+                                   false,
+                                   QString("ssh-remote"),
+                                   UIKind::Desktop};
         const auto encoded = wire::encodeEnvironmentInfo(info);
         const auto decoded = wire::decodeEnvironmentInfo(encoded);
         QVERIFY(decoded);

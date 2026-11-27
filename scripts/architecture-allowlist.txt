@@ -4,3 +4,18 @@
 # any count increases or if the same forbidden pattern appears in another file. Delete an entry as
 # soon as its owning work package removes the final occurrence.
 blocking-waitpid|src/terminal/UnixPtyBackend.cpp|1|WP1: blocking reap is isolated to a self-deleting QThread worker and is never UI-reachable
+blocking-process-wait|src/app/GitAskPass.cpp|1|Standalone Git credential helper waits for the workbench IPC reply
+blocking-process-wait|src/debug/DapTransport.cpp|1|Destructor reaps the already killed adapter process
+blocking-process-wait|src/extensions/ExtensionHostMain.cpp|1|Finished future callback propagates a provider exception in the extension host
+blocking-process-wait|src/extensions/ExtensionManager.cpp|1|Destructor reaps already killed extension hosts
+blocking-process-wait|src/extensions/ExtensionSecretStorage.cpp|2|The local memento returns an already finished future carrying persistence errors
+blocking-process-wait|src/extensions/HostDebug.cpp|1|Finished future callback propagates a descriptor provider exception
+blocking-process-wait|src/extensions/HostDebugConfigurations.cpp|1|Finished future callback propagates a configuration provider exception
+blocking-process-wait|src/extensions/HostDebugTrackers.cpp|1|Finished future callback propagates a tracker provider exception
+blocking-process-wait|src/extensions/HostNativeViews.cpp|1|Finished future callback propagates a native view provider exception
+blocking-process-wait|src/extensions/HostUriHandlers.cpp|1|Finished future callback propagates a URI handler exception
+blocking-process-wait|src/extensions/SecretOperationQueue.h|1|Finished future callback propagates a secret operation exception
+blocking-process-wait|src/extensions/WindowApi.h|2|Settled future continuations forward errors without waiting for a child process
+blocking-process-wait|src/ui/extensions/NativeUriBroker.cpp|1|URI forwarding is limited to process startup with a shared three-second deadline
+blocking-process-wait|src/workspace/GitService.cpp|1|Destructor reaps the already killed Git process
+unreviewed-permanent-delete|src/ui/extensions/NativeUriBroker.cpp|1|The broker deletes only the unique endpoint announcement file it created

@@ -23,10 +23,12 @@ class ExtensionsPanel final : public QWidget {
     QStringList commandIds() const;
     QString commandTitle(const QString& id) const;
     QVector<extensions::DebuggerContribution> debuggerContributions() const;
-    quint64 requestDebugAdapter(const QString& type, const QJsonObject& configuration, const QString& sessionId = {},
-        const QJsonValue& folderOverride = QJsonValue::Undefined);
+    quint64 requestDebugAdapter(const QString& type, const QJsonObject& configuration,
+                                const QString& sessionId = {},
+                                const QJsonValue& folderOverride = QJsonValue::Undefined);
     void executeCommand(const QString& id);
-    QVector<extensions::FormatterContribution> formatterContributions(const QString& languageId) const;
+    QVector<extensions::FormatterContribution>
+    formatterContributions(const QString& languageId) const;
     quint64 requestDocumentFormat(const QString& languageId, const QString& text,
                                   const QString& extensionId = {});
   signals:

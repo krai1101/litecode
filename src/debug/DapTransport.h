@@ -60,7 +60,8 @@ class DapTransport final : public QObject {
     void setState(State state);
     void drain(QProcess* process, quint64 generation);
     void finish(QProcess* process, int exitCode, bool crashed);
-    bool startSocket(int startupTimeoutMs, const std::function<void(DapSocketConnection&)>& connect);
+    bool startSocket(int startupTimeoutMs,
+                     const std::function<void(DapSocketConnection&)>& connect);
     void finishSocket(DapSocketConnection* connection, bool unexpected);
     void abort(const QString& message);
     DapChannel channel_;

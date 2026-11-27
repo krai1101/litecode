@@ -1,12 +1,10 @@
 #include "ui/RunDebugPanel.h"
-#include "editor/LanguageSupport.h"
-#include <stdexcept>
-#include "extensions/DebugDescriptorWire.h"
-#include <QUuid>
 #include "core/SettingsService.h"
-#include "ui/debug/DebugInspectorWidget.h"
-#include "ui/components/Controls.h"
+#include "editor/LanguageSupport.h"
+#include "extensions/DebugDescriptorWire.h"
 #include "ui/ThemedIcon.h"
+#include "ui/components/Controls.h"
+#include "ui/debug/DebugInspectorWidget.h"
 #include <QApplication>
 #include <QComboBox>
 #include <QDir>
@@ -17,8 +15,10 @@
 #include <QMetaMethod>
 #include <QProcess>
 #include <QToolButton>
+#include <QUuid>
 #include <QVBoxLayout>
 #include <algorithm>
+#include <stdexcept>
 #include <utility>
 
 namespace litecode::ui {
@@ -69,7 +69,7 @@ RunDebugPanel::RunDebugPanel(QWidget* parent, core::SettingsService* settings)
     sessionLayout->setContentsMargins(0, 0, 0, 0);
     sessionLayout->setSpacing(1);
     const auto addControl = [this, sessionLayout](const QString& label, const QString& icon,
-                                                 auto handler) {
+                                                  auto handler) {
         auto* button = new components::IconButton(sessionControls_);
         button->setIconSize({16, 16});
         button->setToolTip(label);
@@ -85,9 +85,12 @@ RunDebugPanel::RunDebugPanel(QWidget* parent, core::SettingsService* settings)
         else
             pauseDebugging();
     });
-    stepOverButton_ = addControl(tr("Step Over"), ":/icons/debug-step-over.svg", &RunDebugPanel::stepOver);
-    stepIntoButton_ = addControl(tr("Step Into"), ":/icons/debug-step-into.svg", &RunDebugPanel::stepInto);
-    stepOutButton_ = addControl(tr("Step Out"), ":/icons/debug-step-out.svg", &RunDebugPanel::stepOut);
+    stepOverButton_ =
+        addControl(tr("Step Over"), ":/icons/debug-step-over.svg", &RunDebugPanel::stepOver);
+    stepIntoButton_ =
+        addControl(tr("Step Into"), ":/icons/debug-step-into.svg", &RunDebugPanel::stepInto);
+    stepOutButton_ =
+        addControl(tr("Step Out"), ":/icons/debug-step-out.svg", &RunDebugPanel::stepOut);
     stopButton_ = addControl(tr("Stop"), ":/icons/debug-stop.svg", &RunDebugPanel::stop);
     actions->addWidget(sessionControls_, 0, Qt::AlignRight);
     layout->addWidget(toolbar_);
@@ -116,15 +119,16 @@ RunDebugPanel::RunDebugPanel(QWidget* parent, core::SettingsService* settings)
     auto* welcomeBodyLayout = new QVBoxLayout(welcomeBody);
     welcomeBodyLayout->setContentsMargins(16, 14, 12, 0);
     welcomeBodyLayout->setSpacing(12);
-    welcomePrompt_ = new QLabel(tr("<a href=\"open\">Open a file</a> to run or debug it."), welcomeBody);
+    welcomePrompt_ =
+        new QLabel(tr("<a href=\"open\">Open a file</a> to run or debug it."), welcomeBody);
     welcomePrompt_->setObjectName("debugWelcomeOpenFile");
     welcomePrompt_->setTextFormat(Qt::RichText);
-    welcomePrompt_->setTextInteractionFlags(Qt::LinksAccessibleByMouse | Qt::LinksAccessibleByKeyboard);
+    welcomePrompt_->setTextInteractionFlags(Qt::LinksAccessibleByMouse |
+                                            Qt::LinksAccessibleByKeyboard);
     welcomePrompt_->setWordWrap(true);
     welcomeBodyLayout->addWidget(welcomePrompt_);
-    auto* welcomeButton =
-        new components::Button(tr("Run and Debug"), welcomeBody,
-                               components::ButtonVariant::Primary);
+    auto* welcomeButton = new components::Button(tr("Run and Debug"), welcomeBody,
+                                                 components::ButtonVariant::Primary);
     welcomeButton->setObjectName("runDebugWelcomeButton");
     welcomeButton->setProperty("uiDensity", "compact");
     welcomeButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
@@ -140,11 +144,11 @@ RunDebugPanel::RunDebugPanel(QWidget* parent, core::SettingsService* settings)
     welcomeLayout->addWidget(welcomeBody, 1);
     connect(welcomeHeader, &QToolButton::clicked, this,
             [welcomeHeader, welcomeBody, open = true]() mutable {
-        open = !open;
-        welcomeBody->setVisible(open);
-        setThemedIcon(welcomeHeader, open ? ":/icons/chevron-down.svg"
-                                          : ":/icons/chevron-right.svg");
-    });
+                open = !open;
+                welcomeBody->setVisible(open);
+                setThemedIcon(welcomeHeader,
+                              open ? ":/icons/chevron-down.svg" : ":/icons/chevron-right.svg");
+            });
     layout->addWidget(welcome, 1);
     welcomeDivider_ = new QWidget(this);
     welcomeDivider_->setObjectName("debugWelcomeDivider");
@@ -159,11 +163,10 @@ RunDebugPanel::RunDebugPanel(QWidget* parent, core::SettingsService* settings)
     connect(guidance, &QLabel::linkActivated, this, &RunDebugPanel::requestConfiguration);
     connect(configureButton_, &QToolButton::clicked, this,
             [this] { emit configurationRequested(); });
-    connect(&session_, &debug::DebugSession::errorOccurred, this,
-            [this](const QString& message) {
-                showNotice(message);
-                appendOutput(message + '\n');
-            });
+    connect(&session_, &debug::DebugSession::errorOccurred, this, [this](const QString& message) {
+        showNotice(message);
+        appendOutput(message + '\n');
+    });
     connect(&session_, &debug::DebugSession::runInTerminalRequested, this,
             &RunDebugPanel::runInTerminalRequested);
     connect(&session_, &debug::DebugSession::outputReceived, this,
@@ -172,62 +175,67 @@ RunDebugPanel::RunDebugPanel(QWidget* parent, core::SettingsService* settings)
                     return;
                 appendOutput(event.value("output").toString());
             });
-    connect(&session_, &debug::DebugSession::stateChanged, this,
-            [this](debug::DebugSession::State state) {
-                emit consoleAvailabilityChanged(state == debug::DebugSession::State::Stopped);
-                if (state == debug::DebugSession::State::Running || state == debug::DebugSession::State::Stopped)
-                    finishDebugStart(true);
-                else if (state == debug::DebugSession::State::Idle)
-                    finishDebugStart(false);
-                if (state == debug::DebugSession::State::Initializing && !debugSessionPublished_) {
-                    debugSessionPublished_ = true;
-                    emit debugSessionEvent({{"kind", "started"}, {"session", debugSessionContext_}});
-                    emit debugSessionEvent({{"kind", "active"}, {"session", debugSessionContext_}});
-                }
-                if ((state == debug::DebugSession::State::Idle || state == debug::DebugSession::State::Failed) && debugSessionPublished_) {
-                    debugSessionPublished_ = false;
-                    emit debugSessionEvent({{"kind", "terminated"}, {"session", debugSessionContext_}});
-                }
-                if (state == debug::DebugSession::State::Idle || state == debug::DebugSession::State::Failed)
-                    releaseAdapter();
-                notice_->setText(tr("Debug state: %1").arg(static_cast<int>(state)));
-                notice_->hide();
-                updateControls();
-            });
-    connect(&session_, &debug::DebugSession::stoppedAt, this,
-            [this](const QJsonObject& details) {
-                appendOutput((output_.isEmpty() || output_.endsWith('\n') ? QString()
-                              : QStringLiteral("\n")) +
-                             tr("Paused: %1\n").arg(details.value("reason").toString()));
-            });
+    connect(
+        &session_, &debug::DebugSession::stateChanged, this,
+        [this](debug::DebugSession::State state) {
+            emit consoleAvailabilityChanged(state == debug::DebugSession::State::Stopped);
+            if (state == debug::DebugSession::State::Running ||
+                state == debug::DebugSession::State::Stopped)
+                finishDebugStart(true);
+            else if (state == debug::DebugSession::State::Idle)
+                finishDebugStart(false);
+            if (state == debug::DebugSession::State::Initializing && !debugSessionPublished_) {
+                debugSessionPublished_ = true;
+                emit debugSessionEvent({{"kind", "started"}, {"session", debugSessionContext_}});
+                emit debugSessionEvent({{"kind", "active"}, {"session", debugSessionContext_}});
+            }
+            if ((state == debug::DebugSession::State::Idle ||
+                 state == debug::DebugSession::State::Failed) &&
+                debugSessionPublished_) {
+                debugSessionPublished_ = false;
+                emit debugSessionEvent({{"kind", "terminated"}, {"session", debugSessionContext_}});
+            }
+            if (state == debug::DebugSession::State::Idle ||
+                state == debug::DebugSession::State::Failed)
+                releaseAdapter();
+            notice_->setText(tr("Debug state: %1").arg(static_cast<int>(state)));
+            notice_->hide();
+            updateControls();
+        });
+    connect(&session_, &debug::DebugSession::stoppedAt, this, [this](const QJsonObject& details) {
+        appendOutput(
+            (output_.isEmpty() || output_.endsWith('\n') ? QString() : QStringLiteral("\n")) +
+            tr("Paused: %1\n").arg(details.value("reason").toString()));
+    });
     connect(&session_, &debug::DebugSession::ended, this, &RunDebugPanel::runPostTask);
     connect(&session_, &debug::DebugSession::customEventReceived, this,
-        [this](const QString& event, const QJsonValue& body) {
-            if (!debugSessionPublished_) return;
-            QJsonObject message{{"kind", "custom"}, {"session", debugSessionContext_}, {"event", event}};
-            if (!body.isUndefined()) message.insert("body", body);
-            emit debugSessionEvent(message);
-        });
+            [this](const QString& event, const QJsonValue& body) {
+                if (!debugSessionPublished_)
+                    return;
+                QJsonObject message{
+                    {"kind", "custom"}, {"session", debugSessionContext_}, {"event", event}};
+                if (!body.isUndefined())
+                    message.insert("body", body);
+                emit debugSessionEvent(message);
+            });
     connect(&session_, &debug::DebugSession::adapterTrackerEvent, this,
-        [this](const QJsonObject& event) { emit debugTrackerEvent(debugSessionId_, event); });
+            [this](const QJsonObject& event) { emit debugTrackerEvent(debugSessionId_, event); });
     connect(&session_, &debug::DebugSession::inspectionReady, this,
             [this](int requestId, const QString& command, const QJsonObject& body) {
-        if (command != QStringLiteral("evaluate") || !consoleRequests_.remove(requestId))
-            return;
-        appendOutput(body.value(QStringLiteral("result")).toString() + '\n');
-    });
+                if (command != QStringLiteral("evaluate") || !consoleRequests_.remove(requestId))
+                    return;
+                appendOutput(body.value(QStringLiteral("result")).toString() + '\n');
+            });
     connect(inspector_, &DebugInspectorWidget::openLocationRequested, this,
             &RunDebugPanel::openLocationRequested);
     connect(inspector_, &DebugInspectorWidget::activeFrameChanged, this,
             &RunDebugPanel::pausedLocationChanged);
     connect(inspector_, &DebugInspectorWidget::removeBreakpointRequested, this,
             &RunDebugPanel::toggleBreakpoint);
-    connect(runProcess_, &QProcess::readyReadStandardOutput, this, [this] {
-        appendOutput(QString::fromUtf8(runProcess_->readAllStandardOutput()));
-    });
-    connect(runProcess_, &QProcess::readyReadStandardError, this, [this] {
-        appendOutput(QString::fromUtf8(runProcess_->readAllStandardError()));
-    });
+    connect(runProcess_, &QProcess::readyReadStandardOutput, this,
+            [this] { appendOutput(QString::fromUtf8(runProcess_->readAllStandardOutput())); });
+    connect(runProcess_, &QProcess::readyReadStandardError, this,
+            [this] { appendOutput(QString::fromUtf8(runProcess_->readAllStandardError())); });
     connect(runProcess_, &QProcess::errorOccurred, this, [this] {
         appendOutput(runProcess_->errorString());
         if (runProcess_->error() == QProcess::FailedToStart)
@@ -239,32 +247,31 @@ RunDebugPanel::RunDebugPanel(QWidget* parent, core::SettingsService* settings)
         runPostTask();
         updateControls();
     });
-    connect(&taskRunner_, &debug::TaskRunner::outputReceived, this,
-            &RunDebugPanel::appendOutput);
+    connect(&taskRunner_, &debug::TaskRunner::outputReceived, this, &RunDebugPanel::appendOutput);
     connect(&taskRunner_, &debug::TaskRunner::finished, this,
             [this](bool success, const QString& error) {
-        if (!pendingStart_) {
-            if (!success && !error.isEmpty()) {
-                showNotice(error);
-                appendOutput(error + '\n');
-            }
-            updateControls();
-            return;
-        }
-        pendingStart_ = false;
-        if (success) {
-            const auto configuration = pendingConfiguration_;
-            pendingConfiguration_ = {};
-            startPrepared(configuration, pendingDebug_);
-        } else {
-            pendingConfiguration_ = {};
-            releaseAdapter();
-            finishDebugStart(false, error);
-            showNotice(error);
-            appendOutput(error + '\n');
-        }
-        updateControls();
-    });
+                if (!pendingStart_) {
+                    if (!success && !error.isEmpty()) {
+                        showNotice(error);
+                        appendOutput(error + '\n');
+                    }
+                    updateControls();
+                    return;
+                }
+                pendingStart_ = false;
+                if (success) {
+                    const auto configuration = pendingConfiguration_;
+                    pendingConfiguration_ = {};
+                    startPrepared(configuration, pendingDebug_);
+                } else {
+                    pendingConfiguration_ = {};
+                    releaseAdapter();
+                    finishDebugStart(false, error);
+                    showNotice(error);
+                    appendOutput(error + '\n');
+                }
+                updateControls();
+            });
     updateControls();
 }
 RunDebugPanel::~RunDebugPanel() {
@@ -314,7 +321,8 @@ void RunDebugPanel::setWorkspace(const QString& path) {
         breakpoints_ = settings_->debugBreakpoints(path);
     refreshBreakpoints();
     const QString selected = selector_->currentText();
-    const bool dynamicSelected = dynamicConfiguration_ && !configurations_.isEmpty() &&
+    const bool dynamicSelected =
+        dynamicConfiguration_ && !configurations_.isEmpty() &&
         selector_->currentIndex() == configurations_.size() - 1 &&
         configurations_.constLast().values == dynamicConfiguration_->values;
     QString error;
@@ -338,9 +346,8 @@ void RunDebugPanel::setDebuggerSchemas(const QHash<QString, QJsonObject>& schema
 void RunDebugPanel::setDebuggerChoices(const QList<QPair<QString, QString>>& choices) {
     selector_->clearPopupActions();
     for (const auto& [type, label] : choices) {
-        selector_->addPopupAction(tr("%1...").arg(label), [this, type] {
-            emit selectDynamicConfigurationRequested(type);
-        });
+        selector_->addPopupAction(tr("%1...").arg(label),
+                                  [this, type] { emit selectDynamicConfigurationRequested(type); });
     }
     selector_->addPopupAction(tr("Add Configuration..."), [this] { requestConfiguration(); });
 }
@@ -348,8 +355,9 @@ void RunDebugPanel::setDebuggerChoices(const QList<QPair<QString, QString>>& cho
 void RunDebugPanel::selectDynamicConfiguration(const QJsonObject& configuration) {
     if (!canStart())
         return;
-    dynamicConfiguration_ = debug::DebugConfiguration{configuration.value("name").toString(),
-        configuration.value("type").toString(), configuration.value("request").toString(), configuration};
+    dynamicConfiguration_ = debug::DebugConfiguration{
+        configuration.value("name").toString(), configuration.value("type").toString(),
+        configuration.value("request").toString(), configuration};
     setWorkspace(workspace_);
     selector_->setCurrentIndex(configurations_.size() - 1);
 }
@@ -362,7 +370,10 @@ bool RunDebugPanel::prepare(QJsonObject* configuration, bool resolve) {
         return false;
     }
     const auto selected = configurations_.at(selector_->currentIndex());
-    if (!resolve) { *configuration = selected.values; return true; }
+    if (!resolve) {
+        *configuration = selected.values;
+        return true;
+    }
     const auto attributes = debuggerSchemas_.value(selected.type);
     if (const auto schema = attributes.value(selected.request); schema.isObject()) {
         QString validationError;
@@ -384,39 +395,47 @@ bool RunDebugPanel::prepare(QJsonObject* configuration, bool resolve) {
     return true;
 }
 void RunDebugPanel::startDebugging() {
-    if (canStart() && configurations_.isEmpty() && !QFileInfo::exists(debug::DebugConfigurations::filePath(workspace_))
-        && isSignalConnected(QMetaMethod::fromSignal(&RunDebugPanel::selectDebugConfigurationRequested))) {
-        emit selectDebugConfigurationRequested(); return;
+    if (canStart() && configurations_.isEmpty() &&
+        !QFileInfo::exists(debug::DebugConfigurations::filePath(workspace_)) &&
+        isSignalConnected(
+            QMetaMethod::fromSignal(&RunDebugPanel::selectDebugConfigurationRequested))) {
+        emit selectDebugConfigurationRequested();
+        return;
     }
     beginStart(true);
 }
 bool RunDebugPanel::canStart() const {
-    return (session_.state() == debug::DebugSession::State::Idle || session_.state() == debug::DebugSession::State::Failed)
-        && runProcess_->state() == QProcess::NotRunning && !taskRunner_.active() && !pendingStart_;
+    return (session_.state() == debug::DebugSession::State::Idle ||
+            session_.state() == debug::DebugSession::State::Failed) &&
+           runProcess_->state() == QProcess::NotRunning && !taskRunner_.active() && !pendingStart_;
 }
 void RunDebugPanel::startSelectedConfiguration(const QJsonObject& configuration) {
-    if (!canStart()) return;
-    debugStartOptions_ = {}; launchFolder_ = QJsonValue::Undefined;
+    if (!canStart())
+        return;
+    debugStartOptions_ = {};
+    launchFolder_ = QJsonValue::Undefined;
     launchVariables_ = variableContextSource_ ? variableContextSource_() : debug::VariableContext{};
     launchVariables_.workspaceFolder = workspace_;
     requestConfigurationStep("resolveDebugConfiguration", configuration);
 }
 void RunDebugPanel::requestConfiguration() { emit configurationRequested(); }
-void RunDebugPanel::runWithoutDebugging() {
-    beginStart(false);
-}
+void RunDebugPanel::runWithoutDebugging() { beginStart(false); }
 void RunDebugPanel::beginStart(bool debug) {
     QJsonObject configuration;
-    if (!canStart()) return;
-    if (!prepare(&configuration, false)) return;
+    if (!canStart())
+        return;
+    if (!prepare(&configuration, false))
+        return;
     // Contributed debuggers own language launch semantics, including noDebug.
     // Keep the direct executable runner for configurations without a provider.
     if (debug || debuggerSchemas_.contains(configuration.value("type").toString())) {
-        if (!debug) configuration.insert("noDebug", true);
+        if (!debug)
+            configuration.insert("noDebug", true);
         startSelectedConfiguration(configuration);
         return;
     }
-    if (!prepare(&configuration, true)) return;
+    if (!prepare(&configuration, true))
+        return;
     if (!debug && (configuration.value("request").toString() != "launch" ||
                    configuration.value("program").toString().isEmpty())) {
         showNotice(tr("Run requires a launch configuration with a program."));
@@ -445,78 +464,110 @@ void RunDebugPanel::beginStart(bool debug) {
                 return;
             }
     }
+    launchVariables_.workspaceFolder = workspace_;
     continuePreparedStart(configuration, debug);
 }
-void RunDebugPanel::requestConfigurationStep(const QString& method, const QJsonObject& configuration) {
+void RunDebugPanel::requestConfigurationStep(const QString& method,
+                                             const QJsonObject& configuration) {
     pendingConfiguration_ = configuration;
     pendingStart_ = true;
     configurationPhase_ = method;
     pendingConfigurationRequestId_ = ++nextConfigurationRequestId_;
     updateControls();
     if (isSignalConnected(QMetaMethod::fromSignal(&RunDebugPanel::debugConfigurationRequested)))
-        emit debugConfigurationRequested(pendingConfigurationRequestId_, configuration.value("type").toString(), method, configuration);
-    else // A standalone view has no extension providers, but still substitutes variables between phases.
+        emit debugConfigurationRequested(pendingConfigurationRequestId_,
+                                         configuration.value("type").toString(), method,
+                                         configuration);
+    else // A standalone view has no extension providers, but still substitutes variables between
+         // phases.
         completeDebugConfigurationRequest(pendingConfigurationRequestId_, configuration, {});
 }
-void RunDebugPanel::completeDebugConfigurationRequest(quint64 id, const QJsonValue& value, const QString& error) {
-    if (!pendingStart_ || pendingConfigurationRequestId_ != id) return;
+void RunDebugPanel::completeDebugConfigurationRequest(quint64 id, const QJsonValue& value,
+                                                      const QString& error) {
+    if (!pendingStart_ || pendingConfigurationRequestId_ != id)
+        return;
     pendingConfigurationRequestId_ = 0;
     pendingConfiguration_ = {};
     if (!error.isEmpty() || !value.isObject()) {
         pendingStart_ = false;
-        if (!error.isEmpty()) showNotice(error);
-        else if (!value.isNull() && !value.isUndefined()) showNotice(tr("Debug configuration provider returned an invalid configuration."));
-        if (error.isEmpty() && value.isNull()) emit configurationRequested();
+        if (!error.isEmpty())
+            showNotice(error);
+        else if (!value.isNull() && !value.isUndefined())
+            showNotice(tr("Debug configuration provider returned an invalid configuration."));
+        if (error.isEmpty() && value.isNull())
+            emit configurationRequested();
         finishDebugStart(false, error);
-        updateControls(); return;
+        updateControls();
+        return;
     }
     auto configuration = value.toObject();
     if (configurationPhase_ == "resolveDebugConfiguration") {
         QString variableError;
-        const auto substituted = debug::DebugConfigurations::resolve(configuration, launchVariables_, &variableError);
-        if (!variableError.isEmpty()) { pendingStart_ = false; showNotice(variableError); updateControls(); return; }
-        requestConfigurationStep("resolveDebugConfigurationWithSubstitutedVariables", substituted.toObject());
+        const auto substituted =
+            debug::DebugConfigurations::resolve(configuration, launchVariables_, &variableError);
+        if (!variableError.isEmpty()) {
+            pendingStart_ = false;
+            showNotice(variableError);
+            updateControls();
+            return;
+        }
+        requestConfigurationStep("resolveDebugConfigurationWithSubstitutedVariables",
+                                 substituted.toObject());
         return;
     }
     pendingStart_ = false;
     const auto type = configuration.value("type").toString();
     const auto request = configuration.value("request").toString();
-    if (type.isEmpty() || !configuration.value("name").isString() || (request != "launch" && request != "attach")) {
-        showNotice(tr("Resolved debug configuration requires name, type and a launch or attach request.")); updateControls(); return;
+    if (type.isEmpty() || !configuration.value("name").isString() ||
+        (request != "launch" && request != "attach")) {
+        showNotice(
+            tr("Resolved debug configuration requires name, type and a launch or attach request."));
+        updateControls();
+        return;
     }
     const auto schema = debuggerSchemas_.value(type).value(request);
     QString validationError;
-    if (schema.isObject() && !debug::DebugConfigurations::validateAgainstSchema(configuration, schema.toObject(), &validationError)) {
-        showNotice(validationError); updateControls(); return;
+    if (schema.isObject() && !debug::DebugConfigurations::validateAgainstSchema(
+                                 configuration, schema.toObject(), &validationError)) {
+        showNotice(validationError);
+        updateControls();
+        return;
     }
     requestAdapter(configuration);
 }
 void RunDebugPanel::requestAdapter(const QJsonObject& configuration) {
     debugSessionId_ = QUuid::createUuid().toString(QUuid::WithoutBraces);
     QJsonValue folder = launchFolder_.isUndefined() ? QJsonValue(QJsonValue::Null) : launchFolder_;
-    if (launchFolder_.isUndefined() && !workspace_.isEmpty()) folder = QJsonObject{{"uri", QUrl::fromLocalFile(workspace_).toString(QUrl::FullyEncoded)},
-        {"name", QFileInfo(workspace_).fileName()}, {"index", 0}};
-    debugSessionContext_ = {{"id", debugSessionId_}, {"type", configuration.value("type")},
-        {"name", configuration.value("name")}, {"configuration", configuration}, {"workspaceFolder", folder}};
+    if (launchFolder_.isUndefined() && !workspace_.isEmpty())
+        folder = QJsonObject{{"uri", QUrl::fromLocalFile(workspace_).toString(QUrl::FullyEncoded)},
+                             {"name", QFileInfo(workspace_).fileName()},
+                             {"index", 0}};
+    debugSessionContext_ = {{"id", debugSessionId_},
+                            {"type", configuration.value("type")},
+                            {"name", configuration.value("name")},
+                            {"configuration", configuration},
+                            {"workspaceFolder", folder}};
     adapterDescriptor_ = {};
     pendingConfiguration_ = configuration;
     pendingDebug_ = true;
     pendingStart_ = true;
     pendingAdapterRequestId_ = ++nextAdapterRequestId_;
     ownedAdapterRequestId_ = pendingAdapterRequestId_;
-    emit debugAdapterRequested(pendingAdapterRequestId_, configuration.value("type").toString(), configuration, debugSessionId_);
+    emit debugAdapterRequested(pendingAdapterRequestId_, configuration.value("type").toString(),
+                               configuration, debugSessionId_);
     updateControls();
 }
-void RunDebugPanel::completeDebugAdapterRequest(quint64 requestId,
-                                               const QJsonObject& descriptor,
-                                               const QString& error) {
-    if (!pendingStart_ || pendingAdapterRequestId_ != requestId) return;
+void RunDebugPanel::completeDebugAdapterRequest(quint64 requestId, const QJsonObject& descriptor,
+                                                const QString& error) {
+    if (!pendingStart_ || pendingAdapterRequestId_ != requestId)
+        return;
     pendingAdapterRequestId_ = 0;
     pendingStart_ = false;
     QJsonObject configuration = std::exchange(pendingConfiguration_, {});
     if (!error.isEmpty() || !extensions::wire::decodeDebugAdapterDescriptor(descriptor)) {
         releaseAdapter();
-        showNotice(error.isEmpty() ? tr("Debug adapter factory returned an invalid descriptor.") : error);
+        showNotice(error.isEmpty() ? tr("Debug adapter factory returned an invalid descriptor.")
+                                   : error);
         updateControls();
         return;
     }
@@ -559,8 +610,10 @@ void RunDebugPanel::startPrepared(const QJsonObject& prepared, bool debug) {
         auto environment = QProcessEnvironment::systemEnvironment();
         const auto additions = configuration.value("env").toObject();
         for (auto it = additions.begin(); it != additions.end(); ++it) {
-            if (it.value().isNull()) environment.remove(it.key());
-            else environment.insert(it.key(), it.value().toString());
+            if (it.value().isNull())
+                environment.remove(it.key());
+            else
+                environment.insert(it.key(), it.value().toString());
         }
         runProcess_->setWorkingDirectory(cwd);
         runProcess_->setProcessEnvironment(environment);
@@ -570,14 +623,21 @@ void RunDebugPanel::startPrepared(const QJsonObject& prepared, bool debug) {
         return;
     }
     const auto descriptor = extensions::wire::decodeDebugAdapterDescriptor(adapterDescriptor_);
-    if (!descriptor) { releaseAdapter(); showNotice(tr("Debug adapter descriptor is unavailable.")); return; }
+    if (!descriptor) {
+        releaseAdapter();
+        showNotice(tr("Debug adapter descriptor is unavailable."));
+        return;
+    }
     showNotice({});
     const auto fileName = QFileInfo(configuration.value("program").toString()).fileName();
-    inspector_->setTargetName(fileName.isEmpty() ? configuration.value("name").toString() : fileName);
+    inspector_->setTargetName(fileName.isEmpty() ? configuration.value("name").toString()
+                                                 : fileName);
     const QString type = configuration.value("type").toString();
     const QString request = configuration.value("request").toString();
-    for (auto it = breakpoints_.cbegin(); !configuration.value("noDebug").toBool() && it != breakpoints_.cend(); ++it) {
-        if (!supportsBreakpoints(it.key())) continue;
+    for (auto it = breakpoints_.cbegin();
+         !configuration.value("noDebug").toBool() && it != breakpoints_.cend(); ++it) {
+        if (!supportsBreakpoints(it.key()))
+            continue;
         QJsonArray lines;
         for (int line : it.value())
             lines.append(QJsonObject{{"line", line}});
@@ -586,22 +646,28 @@ void RunDebugPanel::startPrepared(const QJsonObject& prepared, bool debug) {
     bool started = false;
     if (const auto* executable = std::get_if<extensions::DebugAdapterExecutable>(&*descriptor)) {
         debug::AdapterProcess adapter;
-        adapter.executable = executable->command; adapter.arguments = executable->args;
+        adapter.executable = executable->command;
+        adapter.arguments = executable->args;
         // Adapter cwd/env are distinct from the debug target's launch cwd/env.
         if (executable->options) {
             adapter.workingDirectory = executable->options->cwd.value_or(QString{});
             if (executable->options->env)
-                for (auto it = executable->options->env->cbegin(); it != executable->options->env->cend(); ++it)
+                for (auto it = executable->options->env->cbegin();
+                     it != executable->options->env->cend(); ++it)
                     adapter.environment.insert(it.key(), it.value());
         }
         started = session_.start(adapter, type, request, configuration);
     } else if (const auto* server = std::get_if<extensions::DebugAdapterServer>(&*descriptor)) {
-        started = session_.startServer({static_cast<quint16>(server->port), server->host.value_or(QStringLiteral("127.0.0.1"))},
-            type, request, configuration);
-    } else if (const auto* pipe = std::get_if<extensions::DebugAdapterNamedPipeServer>(&*descriptor)) {
+        started = session_.startServer({static_cast<quint16>(server->port),
+                                        server->host.value_or(QStringLiteral("127.0.0.1"))},
+                                       type, request, configuration);
+    } else if (const auto* pipe =
+                   std::get_if<extensions::DebugAdapterNamedPipeServer>(&*descriptor)) {
         started = session_.startNamedPipeServer({pipe->path}, type, request, configuration);
-    } else if (const auto* inlineAdapter = std::get_if<extensions::wire::InlineDebugAdapterEndpoint>(&*descriptor)) {
-        started = session_.startNamedPipeServer({inlineAdapter->path}, type, request, configuration);
+    } else if (const auto* inlineAdapter =
+                   std::get_if<extensions::wire::InlineDebugAdapterEndpoint>(&*descriptor)) {
+        started =
+            session_.startNamedPipeServer({inlineAdapter->path}, type, request, configuration);
     }
     if (!started) {
         releaseAdapter();
@@ -612,7 +678,8 @@ void RunDebugPanel::startPrepared(const QJsonObject& prepared, bool debug) {
 }
 void RunDebugPanel::runPostTask() {
     const QString task = std::exchange(postDebugTask_, {});
-    if (task.isEmpty() || launchWorkspace_.isEmpty()) return;
+    if (task.isEmpty() || launchWorkspace_.isEmpty())
+        return;
     debug::VariableContext context;
     context.workspaceFolder = launchWorkspace_;
     context.environment = QProcessEnvironment::systemEnvironment();
@@ -623,69 +690,85 @@ void RunDebugPanel::stop() {
     finishDebugStart(false);
     pendingStart_ = false;
     const auto configurationRequest = std::exchange(pendingConfigurationRequestId_, 0);
-    if (configurationRequest) emit debugConfigurationCanceled(configurationRequest);
+    if (configurationRequest)
+        emit debugConfigurationCanceled(configurationRequest);
     pendingAdapterRequestId_ = 0;
     pendingConfiguration_ = {};
     taskRunner_.stop();
     if (session_.state() != debug::DebugSession::State::Idle)
         session_.stop();
-    else releaseAdapter();
-    if (runProcess_->state() != QProcess::NotRunning) {
+    else
+        releaseAdapter();
+    if (runProcess_->state() != QProcess::NotRunning)
         runProcess_->kill();
-        runProcess_->waitForFinished(1000);
-    }
     updateControls();
 }
 void RunDebugPanel::cancelOwnedDebugSession(const QString& id) {
-    if (id == debugSessionId_) stop();
+    if (id == debugSessionId_)
+        stop();
 }
 void RunDebugPanel::releaseAdapter() {
     const auto id = std::exchange(ownedAdapterRequestId_, 0);
     if (id && !debugSessionPublished_ && !debugSessionContext_.isEmpty())
         emit debugSessionEvent({{"kind", "discarded"}, {"session", debugSessionContext_}});
-    if (id) emit debugAdapterReleased(id);
+    if (id)
+        emit debugAdapterReleased(id);
 }
-void RunDebugPanel::continueDebugging() {
-    session_.continueExecution(session_.stoppedThread());
-}
+void RunDebugPanel::continueDebugging() { session_.continueExecution(session_.stoppedThread()); }
 void RunDebugPanel::pauseDebugging() {
     session_.pause(session_.stoppedThread() > 0 ? session_.stoppedThread() : 1);
 }
 void RunDebugPanel::stepOver() { session_.stepOver(session_.stoppedThread()); }
 void RunDebugPanel::stepInto() { session_.stepInto(session_.stoppedThread()); }
 void RunDebugPanel::stepOut() { session_.stepOut(session_.stoppedThread()); }
-QFuture<QJsonValue> RunDebugPanel::handleDebugSessionRequest(const QString& id, const QString& operation,
-    const QString& command, const QJsonValue& arguments) {
-    QPromise<QJsonValue> promise; promise.start(); auto result = promise.future();
+QFuture<QJsonValue> RunDebugPanel::handleDebugSessionRequest(const QString& id,
+                                                             const QString& operation,
+                                                             const QString& command,
+                                                             const QJsonValue& arguments) {
+    QPromise<QJsonValue> promise;
+    promise.start();
+    auto result = promise.future();
     if (!debugSessionPublished_ || id != debugSessionId_) {
-        promise.setException(std::make_exception_ptr(std::runtime_error("Debug session is not available.")));
-        promise.finish(); return result;
+        promise.setException(
+            std::make_exception_ptr(std::runtime_error("Debug session is not available.")));
+        promise.finish();
+        return result;
     }
-    if (operation == "customRequest") return session_.customRequest(command, arguments);
-    if (operation == "stop") return session_.stopAsync();
+    if (operation == "customRequest")
+        return session_.customRequest(command, arguments);
+    if (operation == "stop")
+        return session_.stopAsync();
     if (operation == "setName" && arguments.isString() && !arguments.toString().isEmpty()) {
         debugSessionContext_.insert("name", arguments);
-        if (selector_->currentIndex() >= 0) selector_->setItemText(selector_->currentIndex(), arguments.toString());
+        if (selector_->currentIndex() >= 0)
+            selector_->setItemText(selector_->currentIndex(), arguments.toString());
         inspector_->setAccessibleName(arguments.toString());
         emit debugSessionEvent({{"kind", "changed"}, {"session", debugSessionContext_}});
         promise.addResult(QJsonValue::Undefined);
-    } else promise.setException(std::make_exception_ptr(std::runtime_error("Unsupported debug session operation.")));
-    promise.finish(); return result;
+    } else
+        promise.setException(
+            std::make_exception_ptr(std::runtime_error("Unsupported debug session operation.")));
+    promise.finish();
+    return result;
 }
 void RunDebugPanel::evaluateConsole(const QString& expression) {
-    if (expression.trimmed().isEmpty()) return;
+    if (expression.trimmed().isEmpty())
+        return;
     if (session_.state() != debug::DebugSession::State::Running &&
         session_.state() != debug::DebugSession::State::Stopped) {
         appendOutput(tr("Start a debug session to evaluate expressions.\n"));
         return;
     }
     appendOutput(QStringLiteral("> ") + expression + '\n');
-    const int request = session_.evaluate(expression, QStringLiteral("repl"), inspector_->selectedFrame());
-    if (request > 0) consoleRequests_.insert(request);
+    const int request =
+        session_.evaluate(expression, QStringLiteral("repl"), inspector_->selectedFrame());
+    if (request > 0)
+        consoleRequests_.insert(request);
 }
 QString RunDebugPanel::outputText() const { return output_; }
 void RunDebugPanel::showNotice(const QString& text) {
-    if (!text.isEmpty()) finishDebugStart(false, text);
+    if (!text.isEmpty())
+        finishDebugStart(false, text);
     notice_->setText(text);
     notice_->setVisible(!text.isEmpty());
 }
@@ -708,7 +791,8 @@ void RunDebugPanel::toggleBreakpoint(const QString& path, int line) {
     if (lines.isEmpty())
         breakpoints_.remove(QDir::cleanPath(path));
     refreshBreakpoints();
-    if (settings_) settings_->saveDebugBreakpoints(workspace_, breakpoints_);
+    if (settings_)
+        settings_->saveDebugBreakpoints(workspace_, breakpoints_);
     QJsonArray points;
     for (int current : breakpoints_.value(QDir::cleanPath(path)))
         points.append(QJsonObject{{"line", current}});
@@ -718,7 +802,8 @@ bool RunDebugPanel::hasBreakpoint(const QString& path, int line) const {
     return breakpoints_.value(QDir::cleanPath(path)).contains(line);
 }
 bool RunDebugPanel::supportsBreakpoints(const QString& path) const {
-    return !breakpointLanguages_ || breakpointLanguages_->contains(editor::languageSupportForFile(path).id);
+    return !breakpointLanguages_ ||
+           breakpointLanguages_->contains(editor::languageSupportForFile(path).id);
 }
 void RunDebugPanel::setBreakpointLanguages(const QSet<QString>& languages) {
     breakpointLanguages_ = languages;
@@ -727,8 +812,11 @@ void RunDebugPanel::setBreakpointLanguages(const QSet<QString>& languages) {
 }
 void RunDebugPanel::refreshBreakpoints() {
     auto visible = breakpoints_;
-    for (auto it = visible.begin(); it != visible.end(); )
-        if (!supportsBreakpoints(it.key())) it = visible.erase(it); else ++it;
+    for (auto it = visible.begin(); it != visible.end();)
+        if (!supportsBreakpoints(it.key()))
+            it = visible.erase(it);
+        else
+            ++it;
     inspector_->setBreakpoints(visible);
     emit breakpointsChanged(visible);
 }
@@ -737,8 +825,8 @@ void RunDebugPanel::updateControls() {
     if (!toolbar_)
         return;
     const auto state = session_.state();
-    const bool active = state != debug::DebugSession::State::Idle &&
-                        state != debug::DebugSession::State::Failed;
+    const bool active =
+        state != debug::DebugSession::State::Idle && state != debug::DebugSession::State::Failed;
     const bool running = runProcess_->state() != QProcess::NotRunning;
     const bool startingTask = taskRunner_.active() || pendingStart_;
     const bool available = !configurations_.isEmpty() && !workspace_.isEmpty();
@@ -748,8 +836,8 @@ void RunDebugPanel::updateControls() {
     welcomeDivider_->setVisible(showWelcome);
     inspector_->setInspectionVisible(!showWelcome);
     const bool toolbarAvailable = launchControls
-        ? !configurations_.isEmpty()
-        : !debugStartOptions_.value("suppressDebugToolbar").toBool();
+                                      ? !configurations_.isEmpty()
+                                      : !debugStartOptions_.value("suppressDebugToolbar").toBool();
     if (toolbar_->property("sidebarTitleActionsAvailable") != QVariant(toolbarAvailable)) {
         toolbar_->setProperty("sidebarTitleActionsAvailable", toolbarAvailable);
         if (toolbar_->parentWidget() == this)
@@ -758,8 +846,8 @@ void RunDebugPanel::updateControls() {
     }
     launchGroup_->setVisible(launchControls);
     configureButton_->setVisible(launchControls);
-    toolbar_->layout()->setContentsMargins(launchControls ? components::SidebarView::toolbarMargins()
-                                                         : QMargins{});
+    toolbar_->layout()->setContentsMargins(
+        launchControls ? components::SidebarView::toolbarMargins() : QMargins{});
     debugButton_->setEnabled(available && launchControls);
     sessionControls_->setVisible(!launchControls);
 
@@ -767,7 +855,8 @@ void RunDebugPanel::updateControls() {
     const QString executionAction = paused ? tr("Continue (F5)") : tr("Pause");
     pauseContinueButton_->setToolTip(executionAction);
     pauseContinueButton_->setAccessibleName(executionAction);
-    setThemedIcon(pauseContinueButton_, paused ? ":/icons/debug-continue.svg" : ":/icons/debug-pause.svg");
+    setThemedIcon(pauseContinueButton_,
+                  paused ? ":/icons/debug-continue.svg" : ":/icons/debug-pause.svg");
     pauseContinueButton_->setEnabled(paused || state == debug::DebugSession::State::Running);
     for (auto* button : {stepOverButton_, stepIntoButton_, stepOutButton_})
         button->setEnabled(paused);

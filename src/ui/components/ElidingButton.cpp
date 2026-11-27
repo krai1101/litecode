@@ -31,4 +31,4 @@ void ElidingButton::paintEvent(QPaintEvent*) {
     painter.drawItemText(area, Qt::AlignLeading | Qt::AlignVCenter | Qt::TextSingleLine,
                          option.palette, isEnabled(), shown, QPalette::ButtonText);
 }
-}
+} // namespace litecode::ui::components

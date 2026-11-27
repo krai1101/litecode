@@ -1,7 +1,7 @@
-#include "extensions/HostClipboard.h"
-#include "extensions/WorkbenchClipboard.h"
-#include "extensions/JsonMessageTransfer.h"
 #include "extensions/ExtensionWireProtocol.h"
+#include "extensions/HostClipboard.h"
+#include "extensions/JsonMessageTransfer.h"
+#include "extensions/WorkbenchClipboard.h"
 #include <QJsonDocument>
 #include <QtTest>
 #include <stdexcept>
@@ -14,39 +14,59 @@ class ExtensionClipboardTests final : public QObject {
         QString clipboard;
         int writes = 0, requestChunks = 0, responseChunks = 0;
         WorkbenchClipboard workbench;
-        workbench.setBackend([&] { return clipboard; }, [&](const QString& value) { ++writes; clipboard = value; });
+        workbench.setBackend([&] { return clipboard; },
+                             [&](const QString& value) {
+                                 ++writes;
+                                 clipboard = value;
+                             });
         wire::JsonMessageTransferDecoder requests({"event", "clipboard", "clipboard"});
-        wire::JsonMessageTransferDecoder responses({"command", "clipboardResult", "clipboardResult"});
+        wire::JsonMessageTransferDecoder responses(
+            {"command", "clipboardResult", "clipboardResult"});
         HostClipboard* host = nullptr;
         HostClipboard service([&](const QJsonObject& frame) {
             auto request = frame;
             QString error;
             if (requests.recognizes(frame) || requests.transferring()) {
-                if (frame.value("event") == QJsonValue("clipboardChunk")) ++requestChunks;
+                if (frame.value("event") == QJsonValue("clipboardChunk"))
+                    ++requestChunks;
                 auto completed = requests.accept(frame, &error);
                 QVERIFY2(error.isEmpty(), qPrintable(error));
-                if (!completed) { QCOMPARE(writes, 0); return; }
+                if (!completed) {
+                    QCOMPARE(writes, 0);
+                    return;
+                }
                 request = *completed;
             }
             const auto id = request.value("requestId").toString();
-            QVERIFY(workbench.accept(request, [&](const QJsonValue& result, const QString& backendError) {
-                wire::sendJsonTransfer({{"command", "clipboardResult"}, {"requestId", id}, {"result", result}, {"error", backendError}},
-                    {"command", "clipboardResult", "clipboardResult"}, [&](const QJsonObject& responseFrame) {
-                        QVERIFY(!wire::encode(responseFrame).isEmpty());
-                        auto response = responseFrame;
-                        if (responses.recognizes(responseFrame) || responses.transferring()) {
-                            if (responseFrame.value("command") == QJsonValue("clipboardResultChunk")) ++responseChunks;
-                            auto completed = responses.accept(responseFrame, &error);
-                            QVERIFY2(error.isEmpty(), qPrintable(error));
-                            if (!completed) return;
-                            response = *completed;
-                        }
-                        host->complete(id.toULongLong(), response.value("result"), response.value("error").toString());
-                    });
-            }));
+            QVERIFY(workbench.accept(
+                request, [&](const QJsonValue& result, const QString& backendError) {
+                    wire::sendJsonTransfer(
+                        {{"command", "clipboardResult"},
+                         {"requestId", id},
+                         {"result", result},
+                         {"error", backendError}},
+                        {"command", "clipboardResult", "clipboardResult"},
+                        [&](const QJsonObject& responseFrame) {
+                            QVERIFY(!wire::encode(responseFrame).isEmpty());
+                            auto response = responseFrame;
+                            if (responses.recognizes(responseFrame) || responses.transferring()) {
+                                if (responseFrame.value("command") ==
+                                    QJsonValue("clipboardResultChunk"))
+                                    ++responseChunks;
+                                auto completed = responses.accept(responseFrame, &error);
+                                QVERIFY2(error.isEmpty(), qPrintable(error));
+                                if (!completed)
+                                    return;
+                                response = *completed;
+                            }
+                            host->complete(id.toULongLong(), response.value("result"),
+                                           response.value("error").toString());
+                        });
+                }));
         });
         host = &service;
-        const auto text = QString(9 * 1024 * 1024, QLatin1Char('x')) + QString::fromUtf8("\n\xf0\x9f\x98\x80");
+        const auto text =
+            QString(9 * 1024 * 1024, QLatin1Char('x')) + QString::fromUtf8("\n\xf0\x9f\x98\x80");
         auto write = service.writeText(text);
         QTRY_VERIFY(write.isFinished());
         write.waitForFinished();
@@ -62,24 +82,37 @@ class ExtensionClipboardTests final : public QObject {
     }
     void clipboardTransferCannotDispatchAnotherService() {
         wire::JsonMessageTransferDecoder decoder({"event", "clipboard", "clipboard"});
-        const auto bytes = QJsonDocument(QJsonObject{{"event", "workspaceApplyEdit"}, {"requestId", "1"}}).toJson(QJsonDocument::Compact);
+        const auto bytes =
+            QJsonDocument(QJsonObject{{"event", "workspaceApplyEdit"}, {"requestId", "1"}})
+                .toJson(QJsonDocument::Compact);
         QString error;
-        QVERIFY(!decoder.accept({{"event", "clipboardBegin"}, {"requestId", "1"}, {"length", QString::number(bytes.size())}}, &error));
+        QVERIFY(!decoder.accept({{"event", "clipboardBegin"},
+                                 {"requestId", "1"},
+                                 {"length", QString::number(bytes.size())}},
+                                &error));
         QVERIFY(error.isEmpty());
-        QVERIFY(!decoder.accept({{"event", "clipboardChunk"}, {"requestId", "1"}, {"sequence", "0"}, {"data", QString::fromLatin1(bytes.toBase64())}}, &error));
+        QVERIFY(!decoder.accept({{"event", "clipboardChunk"},
+                                 {"requestId", "1"},
+                                 {"sequence", "0"},
+                                 {"data", QString::fromLatin1(bytes.toBase64())}},
+                                &error));
         QVERIFY(error.isEmpty());
-        QVERIFY(!decoder.accept({{"event", "clipboardEnd"}, {"requestId", "1"}, {"sequence", "1"}}, &error));
+        QVERIFY(!decoder.accept({{"event", "clipboardEnd"}, {"requestId", "1"}, {"sequence", "1"}},
+                                &error));
         QVERIFY(!error.isEmpty());
         QVERIFY(!decoder.transferring());
     }
     void orderedReadWritePreserveEmptyAndUnicodeText() {
         QString clipboard;
         WorkbenchClipboard workbench;
-        workbench.setBackend([&] { return clipboard; }, [&](const QString& value) { clipboard = value; });
+        workbench.setBackend([&] { return clipboard; },
+                             [&](const QString& value) { clipboard = value; });
         HostClipboard* host = nullptr;
         HostClipboard service([&](const QJsonObject& request) {
             const auto id = request.value("requestId").toString().toULongLong();
-            QVERIFY(workbench.accept(request, [&](const QJsonValue& result, const QString& error) { host->complete(id, result, error); }));
+            QVERIFY(workbench.accept(request, [&](const QJsonValue& result, const QString& error) {
+                host->complete(id, result, error);
+            }));
         });
         host = &service;
         const auto text = QString::fromUtf8("unicode \xf0\x9f\x98\x80\n") + QChar(0) + "tail";
@@ -101,13 +134,16 @@ class ExtensionClipboardTests final : public QObject {
         HostClipboard* host = nullptr;
         HostClipboard service([&](const QJsonObject& request) {
             const auto id = request.value("requestId").toString().toULongLong();
-            QVERIFY(workbench.accept(request, [&](const QJsonValue& result, const QString& error) { host->complete(id, result, error); }));
+            QVERIFY(workbench.accept(request, [&](const QJsonValue& result, const QString& error) {
+                host->complete(id, result, error);
+            }));
         });
         host = &service;
         auto unavailable = service.readText();
         QTRY_VERIFY(unavailable.isFinished());
         QVERIFY_EXCEPTION_THROWN(unavailable.result(), std::exception);
-        workbench.setBackend([]() -> QString { throw std::runtime_error("Native read failed."); },
+        workbench.setBackend(
+            []() -> QString { throw std::runtime_error("Native read failed."); },
             [](const QString&) { throw std::runtime_error("Native write failed."); });
         auto failed = service.readText();
         QTRY_VERIFY(failed.isFinished());
@@ -142,11 +178,19 @@ class ExtensionClipboardTests final : public QObject {
     void malformedRequestsNeverTouchClipboard() {
         int calls = 0;
         WorkbenchClipboard workbench;
-        workbench.setBackend([&] { ++calls; return QString{}; }, [&](const QString&) { ++calls; });
+        workbench.setBackend(
+            [&] {
+                ++calls;
+                return QString{};
+            },
+            [&](const QString&) { ++calls; });
         const auto reply = [&](const QJsonValue&, const QString&) { ++calls; };
-        QVERIFY(!workbench.accept({{"event", "clipboard"}, {"requestId", "01"}, {"write", false}}, reply));
-        QVERIFY(!workbench.accept({{"event", "clipboard"}, {"requestId", "1"}, {"write", true}}, reply));
-        QVERIFY(!workbench.accept({{"event", "clipboard"}, {"requestId", "1"}, {"write", "true"}}, reply));
+        QVERIFY(!workbench.accept({{"event", "clipboard"}, {"requestId", "01"}, {"write", false}},
+                                  reply));
+        QVERIFY(!workbench.accept({{"event", "clipboard"}, {"requestId", "1"}, {"write", true}},
+                                  reply));
+        QVERIFY(!workbench.accept({{"event", "clipboard"}, {"requestId", "1"}, {"write", "true"}},
+                                  reply));
         QCOMPARE(calls, 0);
     }
 };

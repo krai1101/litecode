@@ -1,7 +1,7 @@
 #pragma once
 #include "extensions/DocumentApi.h"
-#include "extensions/DocumentWire.h"
 #include "extensions/DocumentTextBuffer.h"
+#include "extensions/DocumentWire.h"
 #include <QRecursiveMutex>
 #include <QStringList>
 #include <functional>
@@ -9,7 +9,8 @@
 namespace litecode::extensions {
 class HostTextDocument final : public TextDocument {
   public:
-    HostTextDocument(TextDocumentSnapshot snapshot, std::function<QFuture<bool>(const QString&)> save);
+    HostTextDocument(TextDocumentSnapshot snapshot,
+                     std::function<QFuture<bool>(const QString&)> save);
     QUrl uri() const override;
     QString fileName() const override;
     bool isUntitled() const override;
@@ -26,15 +27,18 @@ class HostTextDocument final : public TextDocument {
     qint64 offsetAt(const Position& position) const override;
     Position positionAt(qint64 offset) const override;
     QString getText(const std::optional<Range>& range = {}) const override;
-    std::optional<Range> getWordRangeAtPosition(const Position& position,
-        const std::optional<QRegularExpression>& regex = {}) const override;
+    std::optional<Range>
+    getWordRangeAtPosition(const Position& position,
+                           const std::optional<QRegularExpression>& regex = {}) const override;
     Range validateRange(const Range& range) const override;
     Position validatePosition(const Position& position) const override;
     void accept(TextDocumentSnapshot snapshot);
     void metadata(const TextDocumentMetadata& metadata);
-    TextDocumentContentChangeEvent change(qint64 previousVersion, qint64 version, const Range& range, const QString& text, bool dirty);
+    TextDocumentContentChangeEvent change(qint64 previousVersion, qint64 version,
+                                          const Range& range, const QString& text, bool dirty);
     void close();
     QVector<TextDocumentContentChangeEvent> changeBatch(const wire::DocumentBatch& batch);
+
   private:
     void rebuildLines();
     mutable QRecursiveMutex mutex_;

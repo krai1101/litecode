@@ -1,20 +1,20 @@
-#include "extensions/WorkbenchMessages.h"
-#include "ui/extensions/WindowMessageService.h"
-#include "ui/extensions/ProgressNotification.h"
-#include "ui/extensions/ViewProgressService.h"
-#include "ui/extensions/StatusProgressService.h"
 #include "extensions/ProgressWire.h"
-#include "ui/extensions/FileDialogService.h"
-#include "ui/components/ModalDialogQueue.h"
+#include "extensions/WorkbenchMessages.h"
 #include "ui/components/Controls.h"
 #include "ui/components/IconLabelButton.h"
+#include "ui/components/ModalDialogQueue.h"
+#include "ui/extensions/FileDialogService.h"
+#include "ui/extensions/ProgressNotification.h"
+#include "ui/extensions/StatusProgressService.h"
+#include "ui/extensions/ViewProgressService.h"
+#include "ui/extensions/WindowMessageService.h"
 #include <QAction>
 #include <QApplication>
 #include <QDialog>
-#include <QFrame>
-#include <QFontDatabase>
-#include <QFileDialog>
 #include <QDir>
+#include <QFileDialog>
+#include <QFontDatabase>
+#include <QFrame>
 #include <QJsonArray>
 #include <QLabel>
 #include <QProgressBar>
@@ -30,17 +30,22 @@ using namespace litecode::extensions;
 using namespace litecode::ui;
 namespace {
 QJsonObject request(quint64 id, bool modal, QJsonArray items = {}) {
-    return {{"requestId", QString::number(id)}, {"severity", 2}, {"message", "<b>Literal message</b>"},
-        {"modal", modal}, {"detail", "Modal-only details"}, {"items", items}};
+    return {{"requestId", QString::number(id)},    {"severity", 2},
+            {"message", "<b>Literal message</b>"}, {"modal", modal},
+            {"detail", "Modal-only details"},      {"items", items}};
 }
 QDialog* dialog(QWidget& owner, quint64 id) {
     for (auto* candidate : owner.findChildren<QDialog*>())
-        if (candidate->isVisible() && candidate->property("windowMessageId").toString() == QString::number(id)) return candidate;
+        if (candidate->isVisible() &&
+            candidate->property("windowMessageId").toString() == QString::number(id))
+            return candidate;
     return nullptr;
 }
 QPushButton* action(QWidget& view, int index) {
     for (auto* button : view.findChildren<QPushButton*>())
-        if (button->property("windowMessageAction").isValid() && button->property("windowMessageAction").toInt() == index) return button;
+        if (button->property("windowMessageAction").isValid() &&
+            button->property("windowMessageAction").toInt() == index)
+            return button;
     return nullptr;
 }
 } // namespace
@@ -49,7 +54,8 @@ class ExtensionMessageUiTests final : public QObject {
   private slots:
     void themeIconLabelsUseBundledFontAndPreserveEscapes() {
         components::IconLabelButton label;
-        const auto value = QStringLiteral("$(loading~spin) Build $(check) \\$(warning) <b>literal</b>");
+        const auto value =
+            QStringLiteral("$(loading~spin) Build $(check) \\$(warning) <b>literal</b>");
         label.setIconLabel(value);
         label.resize(label.sizeHint());
         label.show();
@@ -64,10 +70,13 @@ class ExtensionMessageUiTests final : public QObject {
         QVERIFY(std::any_of(families.cbegin(), families.cend(), [](const QString& family) {
             return family.compare(QStringLiteral("codicon"), Qt::CaseInsensitive) == 0;
         }));
-        QCOMPARE(components::IconLabelButton::stripIcons("a $(sync~spin) b"), QStringLiteral("a b"));
-        QCOMPARE(components::IconLabelButton::stripIcons("a \\$(sync) b"), QStringLiteral("a \\$(sync) b"));
+        QCOMPARE(components::IconLabelButton::stripIcons("a $(sync~spin) b"),
+                 QStringLiteral("a b"));
+        QCOMPARE(components::IconLabelButton::stripIcons("a \\$(sync) b"),
+                 QStringLiteral("a \\$(sync) b"));
         QCOMPARE(components::IconLabelButton::stripIcons("$(check)ready"), QStringLiteral("ready"));
-        QCOMPARE(components::IconLabelButton::stripIcons("$(invalid_name)"), QStringLiteral("$(invalid_name)"));
+        QCOMPARE(components::IconLabelButton::stripIcons("$(invalid_name)"),
+                 QStringLiteral("$(invalid_name)"));
     }
     void windowProgressAndDismissedNotificationFallback() {
         WorkbenchMessages messages;
@@ -79,8 +88,10 @@ class ExtensionMessageUiTests final : public QObject {
         WindowMessageService messagesUi(messages, &owner, &owner);
         messagesUi.attachProgress(progress);
         StatusProgressService status(progress, bar, &owner);
-        connect(&status, &StatusProgressService::revealRequested, &messagesUi, &WindowMessageService::revealProgress);
-        connect(&messagesUi, &WindowMessageService::progressVisibilityChanged, &status, &StatusProgressService::setNotificationVisible);
+        connect(&status, &StatusProgressService::revealRequested, &messagesUi,
+                &WindowMessageService::revealProgress);
+        connect(&messagesUi, &WindowMessageService::progressVisibilityChanged, &status,
+                &StatusProgressService::setNotificationVisible);
         owner.show();
         auto* button = bar.findChild<QToolButton*>(QStringLiteral("extensionProgressStatus"));
         QVERIFY(button);
@@ -88,7 +99,10 @@ class ExtensionMessageUiTests final : public QObject {
         options.location = ProgressLocation::Window;
         options.title = QStringLiteral("Window task");
         options.cancellable = true; // This location must never expose Cancel.
-        QVERIFY(progress.accept("fixture", "Fixture", {{"operation", "start"}, {"id", "1"}, {"options", wire::encodeProgressOptions(options)}}));
+        QVERIFY(progress.accept("fixture", "Fixture",
+                                {{"operation", "start"},
+                                 {"id", "1"},
+                                 {"options", wire::encodeProgressOptions(options)}}));
         QVERIFY(!button->isVisible());
         QTRY_VERIFY(button->isVisible());
         QCOMPARE(button->text(), QStringLiteral("$(loading~spin) Window task"));
@@ -105,7 +119,10 @@ class ExtensionMessageUiTests final : public QObject {
         QVERIFY(progress.accept("fixture", "Fixture", {{"operation", "end"}, {"id", "1"}}));
         QTRY_VERIFY(!button->isVisible());
         options.title = QStringLiteral("Too fast");
-        QVERIFY(progress.accept("fixture", "Fixture", {{"operation", "start"}, {"id", "2"}, {"options", wire::encodeProgressOptions(options)}}));
+        QVERIFY(progress.accept("fixture", "Fixture",
+                                {{"operation", "start"},
+                                 {"id", "2"},
+                                 {"options", wire::encodeProgressOptions(options)}}));
         QVERIFY(progress.accept("fixture", "Fixture", {{"operation", "end"}, {"id", "2"}}));
         QCoreApplication::processEvents();
         QVERIFY(!button->isVisible());
@@ -127,7 +144,8 @@ class ExtensionMessageUiTests final : public QObject {
         QVERIFY(!bar->isVisible());
         ProgressOptions options;
         options.location = ProgressLocation::SourceControl;
-        const QJsonObject start{{"operation", "start"}, {"id", "1"}, {"options", wire::encodeProgressOptions(options)}};
+        const QJsonObject start{
+            {"operation", "start"}, {"id", "1"}, {"options", wire::encodeProgressOptions(options)}};
         QVERIFY(progress.accept("one", "One", start));
         QVERIFY(progress.accept("two", "Two", start));
         QVERIFY(bar->isVisible());
@@ -143,7 +161,10 @@ class ExtensionMessageUiTests final : public QObject {
         QVERIFY(!bar->isVisible());
         QVERIFY(!badge->isVisible());
         options.location = ProgressOptions::ViewLocation{QStringLiteral("custom.view")};
-        QVERIFY(progress.accept("one", "One", {{"operation", "start"}, {"id", "1"}, {"options", wire::encodeProgressOptions(options)}}));
+        QVERIFY(progress.accept("one", "One",
+                                {{"operation", "start"},
+                                 {"id", "1"},
+                                 {"options", wire::encodeProgressOptions(options)}}));
         QWidget lateView;
         service.registerView("custom.view", lateView);
         lateView.show();
@@ -163,12 +184,16 @@ class ExtensionMessageUiTests final : public QObject {
         options.location = ProgressLocation::Notification;
         options.title = QStringLiteral("<b>Literal task</b>");
         options.cancellable = true;
-        QVERIFY(progress.accept("fixture", "Fixture", {{"operation", "start"}, {"id", "1"},
-            {"options", wire::encodeProgressOptions(options)}}));
+        QVERIFY(progress.accept("fixture", "Fixture",
+                                {{"operation", "start"},
+                                 {"id", "1"},
+                                 {"options", wire::encodeProgressOptions(options)}}));
         auto* card = window.findChild<ProgressNotification*>();
         QVERIFY(card);
         QVERIFY(card->isVisible());
-        QCOMPARE(window.findChildren<QScrollArea*>(QStringLiteral("extensionNotificationCenter")).size(), 1);
+        QCOMPARE(
+            window.findChildren<QScrollArea*>(QStringLiteral("extensionNotificationCenter")).size(),
+            1);
         auto* label = card->findChild<QLabel*>(QStringLiteral("progressMessage"));
         QVERIFY(label);
         QCOMPARE(label->textFormat(), Qt::PlainText);
@@ -176,8 +201,11 @@ class ExtensionMessageUiTests final : public QObject {
         auto* bar = card->findChild<QProgressBar*>();
         QVERIFY(bar);
         QCOMPARE(bar->maximum(), 0);
-        QVERIFY(progress.accept("fixture", "Fixture", {{"operation", "report"}, {"id", "1"},
-            {"report", wire::encodeProgressReport({QStringLiteral("Working"), 25.0})}}));
+        QVERIFY(progress.accept(
+            "fixture", "Fixture",
+            {{"operation", "report"},
+             {"id", "1"},
+             {"report", wire::encodeProgressReport({QStringLiteral("Working"), 25.0})}}));
         QCOMPARE(bar->maximum(), 1000);
         QCOMPARE(bar->value(), 250);
         QCOMPARE(label->text(), QStringLiteral("<b>Literal task</b>: Working"));
@@ -188,8 +216,11 @@ class ExtensionMessageUiTests final : public QObject {
         QCOMPARE(cancellation.size(), 1);
         QVERIFY(progress.task("fixture", 1));
         QVERIFY(!card->isVisible());
-        QVERIFY(progress.accept("fixture", "Fixture", {{"operation", "report"}, {"id", "1"},
-            {"report", wire::encodeProgressReport({QStringLiteral("Cleaning up"), 5.0})}}));
+        QVERIFY(progress.accept(
+            "fixture", "Fixture",
+            {{"operation", "report"},
+             {"id", "1"},
+             {"report", wire::encodeProgressReport({QStringLiteral("Cleaning up"), 5.0})}}));
         QVERIFY(!card->isVisible());
         progress.removeOwner("fixture");
         QVERIFY(!progress.task("fixture", 1));
@@ -227,12 +258,21 @@ class ExtensionMessageUiTests final : public QObject {
         WorkbenchMessages messages;
         WorkbenchDialogs files;
         WindowMessageService messageService(messages, &window, &window);
-        FileDialogService fileService(files, &window, [] { return QUrl::fromLocalFile(QDir::homePath()); }, &window);
+        FileDialogService fileService(
+            files, &window, [] { return QUrl::fromLocalFile(QDir::homePath()); }, &window);
         int messageReplies = 0, fileReplies = 0;
-        const auto reply = [&](std::optional<int>, const QString& error) { QVERIFY(error.isEmpty()); ++messageReplies; };
+        const auto reply = [&](std::optional<int>, const QString& error) {
+            QVERIFY(error.isEmpty());
+            ++messageReplies;
+        };
         QVERIFY(messages.accept("fixture", "Fixture", request(1, true), reply));
-        QVERIFY(files.accept("fixture", {{"requestId", "1"}, {"save", false}, {"options", QJsonObject{}}},
-            [&](std::optional<QVector<QUrl>> selection, const QString& error) { QVERIFY(!selection); QVERIFY(error.isEmpty()); ++fileReplies; }));
+        QVERIFY(files.accept("fixture",
+                             {{"requestId", "1"}, {"save", false}, {"options", QJsonObject{}}},
+                             [&](std::optional<QVector<QUrl>> selection, const QString& error) {
+                                 QVERIFY(!selection);
+                                 QVERIFY(error.isEmpty());
+                                 ++fileReplies;
+                             }));
         QVERIFY(messages.accept("fixture", "Fixture", request(2, true), reply));
         QTRY_VERIFY(dialog(window, 1));
         QVERIFY(window.findChildren<QFileDialog*>().isEmpty());
@@ -256,9 +296,14 @@ class ExtensionMessageUiTests final : public QObject {
         QSignalSpy manage(&service, &WindowMessageService::manageExtensionRequested);
         int replies = 0;
         std::optional<int> selected;
-        QVERIFY(messages.accept("fixture", "Fixture", request(1, false,
-            {QJsonObject{{"title", "First"}, {"close", true}}}),
-            [&](std::optional<int> value, const QString& error) { QVERIFY(error.isEmpty()); ++replies; selected = value; }));
+        QVERIFY(
+            messages.accept("fixture", "Fixture",
+                            request(1, false, {QJsonObject{{"title", "First"}, {"close", true}}}),
+                            [&](std::optional<int> value, const QString& error) {
+                                QVERIFY(error.isEmpty());
+                                ++replies;
+                                selected = value;
+                            }));
         auto* card = owner.findChild<QFrame*>("extensionNotificationFrame");
         QVERIFY(card);
         QVERIFY(owner.findChildren<QDialog*>().isEmpty());
@@ -291,16 +336,23 @@ class ExtensionMessageUiTests final : public QObject {
         WorkbenchMessages messages;
         WindowMessageService service(messages, &owner, &owner);
         QVector<std::optional<int>> selections;
-        const auto reply = [&](std::optional<int> value, const QString& error) { QVERIFY(error.isEmpty()); selections.append(value); };
-        QVERIFY(messages.accept("fixture", "Fixture", request(1, true,
-            {QJsonObject{{"title", "Continue"}, {"close", false}}, QJsonObject{{"title", "Dismiss"}, {"close", true}}}), reply));
+        const auto reply = [&](std::optional<int> value, const QString& error) {
+            QVERIFY(error.isEmpty());
+            selections.append(value);
+        };
+        QVERIFY(messages.accept("fixture", "Fixture",
+                                request(1, true,
+                                        {QJsonObject{{"title", "Continue"}, {"close", false}},
+                                         QJsonObject{{"title", "Dismiss"}, {"close", true}}}),
+                                reply));
         QVERIFY(messages.accept("fixture", "Fixture", request(2, true), reply));
         QTRY_VERIFY(dialog(owner, 1));
         QVERIFY(!dialog(owner, 2));
         auto* first = dialog(owner, 1);
         QCOMPARE(first->windowModality(), Qt::WindowModal);
         bool hasDetail = false;
-        for (auto* text : first->findChildren<QLabel*>()) hasDetail |= text->text() == "Modal-only details";
+        for (auto* text : first->findChildren<QLabel*>())
+            hasDetail |= text->text() == "Modal-only details";
         QVERIFY(hasDetail);
         QTest::keyClick(first, Qt::Key_Escape);
         QCOMPARE(selections.size(), 1);
@@ -321,15 +373,20 @@ class ExtensionMessageUiTests final : public QObject {
         WorkbenchMessages messages;
         WindowMessageService service(messages, &owner, &owner);
         std::optional<int> selected;
-        QVERIFY(messages.accept("fixture", "Fixture", request(1, true,
-            {QJsonObject{{"title", "Close one"}, {"close", true}}, QJsonObject{{"title", "Close two"}, {"close", true}}}),
-            [&](std::optional<int> value, const QString&) { selected = value; }));
+        QVERIFY(
+            messages.accept("fixture", "Fixture",
+                            request(1, true,
+                                    {QJsonObject{{"title", "Close one"}, {"close", true}},
+                                     QJsonObject{{"title", "Close two"}, {"close", true}}}),
+                            [&](std::optional<int> value, const QString&) { selected = value; }));
         QTRY_VERIFY(dialog(owner, 1));
         dialog(owner, 1)->reject();
         QCOMPARE(selected.value(), 1); // Upstream uses the last close affordance.
         int removed = 0;
         const auto reply = [&](std::optional<int> value, const QString& error) {
-            QVERIFY(!value); QVERIFY(!error.isEmpty()); ++removed;
+            QVERIFY(!value);
+            QVERIFY(!error.isEmpty());
+            ++removed;
         };
         QVERIFY(messages.accept("fixture", "Fixture", request(2, true), reply));
         QVERIFY(messages.accept("fixture", "Fixture", request(3, true), reply));
@@ -351,7 +408,7 @@ class ExtensionMessageUiTests final : public QObject {
         int closed = 0;
         for (int id = 1; id <= 12; ++id)
             QVERIFY(messages.accept("fixture", "Fixture", request(id, false),
-                [&](std::optional<int>, const QString&) { ++closed; }));
+                                    [&](std::optional<int>, const QString&) { ++closed; }));
         auto* center = owner.findChild<QScrollArea*>("extensionNotificationCenter");
         QVERIFY(center);
         QVERIFY(owner.rect().contains(center->geometry()));

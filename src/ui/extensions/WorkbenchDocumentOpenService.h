@@ -1,12 +1,12 @@
 #pragma once
+#include "editor/BoundDocumentReferences.h"
 #include "extensions/DocumentOpenApi.h"
 #include "extensions/DocumentWire.h"
-#include "editor/BoundDocumentReferences.h"
 #include "extensions/WorkbenchContentProviders.h"
+#include <QHash>
 #include <QObject>
 #include <QPointer>
 #include <QPromise>
-#include <QHash>
 #include <QQueue>
 #include <QSet>
 
@@ -16,14 +16,18 @@ class EditorArea;
 class WorkbenchDocumentOpenService final : public QObject {
   public:
     explicit WorkbenchDocumentOpenService(EditorArea* editors, QObject* parent = nullptr,
-        editor::DocumentReferenceLimits limits = {});
+                                          editor::DocumentReferenceLimits limits = {});
     ~WorkbenchDocumentOpenService() override;
-    QFuture<extensions::TextDocumentSnapshot> open(const QUrl& uri,
-        const extensions::TextDocumentOpenOptions& options, const QString& owner = {});
-    QFuture<extensions::TextDocumentSnapshot> create(const extensions::UntitledTextDocumentOptions& options,
-        const QString& owner = {});
+    QFuture<extensions::TextDocumentSnapshot>
+    open(const QUrl& uri, const extensions::TextDocumentOpenOptions& options,
+         const QString& owner = {});
+    QFuture<extensions::TextDocumentSnapshot>
+    create(const extensions::UntitledTextDocumentOptions& options, const QString& owner = {});
     void removeOwner(const QString& owner);
-    void setContentProviders(extensions::WorkbenchContentProviders* providers) { contentProviders_ = providers; }
+    void setContentProviders(extensions::WorkbenchContentProviders* providers) {
+        contentProviders_ = providers;
+    }
+
   private:
     struct Request {
         std::shared_ptr<QPromise<extensions::TextDocumentSnapshot>> promise;

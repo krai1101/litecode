@@ -1,9 +1,9 @@
-#include "ui/components/WorkbenchTabs.h"
 #include "editor/DiffModel.h"
 #include "editor/ScintillaEditor.h"
 #include "ui/DiffEditorWidget.h"
 #include "ui/EditorArea.h"
 #include "ui/Theme.h"
+#include "ui/components/WorkbenchTabs.h"
 #include <QFile>
 #include <QScrollBar>
 #include <QSignalSpy>
@@ -246,7 +246,9 @@ class DiffEditorTests : public QObject {
         QVERIFY(file.open(QIODevice::ReadOnly));
         QCOMPARE(file.readAll(), QByteArray("changed\n"));
         file.close();
-        QCOMPARE(area.findChild<litecode::ui::components::WorkbenchTabs*>("editorTabs")->currentWidget(), view);
+        QCOMPARE(
+            area.findChild<litecode::ui::components::WorkbenchTabs*>("editorTabs")->currentWidget(),
+            view);
         area.undo();
         QCOMPARE(modified->text(), QByteArray("new\n"));
         QVERIFY(area.documents().first().modified);
@@ -254,7 +256,8 @@ class DiffEditorTests : public QObject {
         data.staged = true;
         area.openGitComparison(data);
         auto* staged = qobject_cast<ui::DiffEditorWidget*>(
-            area.findChild<litecode::ui::components::WorkbenchTabs*>("editorTabs")->currentWidget());
+            area.findChild<litecode::ui::components::WorkbenchTabs*>("editorTabs")
+                ->currentWidget());
         QVERIFY(staged && !staged->workingEditor());
         QVERIFY(staged->findChild<editor::ScintillaEditor*>("diffModified")->isReadOnly());
     }

@@ -31,7 +31,8 @@ class TagRequest final : public QObject {
                     for (const auto& branch : branches)
                         if (branch.tag)
                             items.append({branch.name, branch.name, branch.commit.left(7)});
-                    const auto name = pick(tr("Delete Tag"), tr("Select a local tag to delete"), items);
+                    const auto name =
+                        pick(tr("Delete Tag"), tr("Select a local tag to delete"), items);
                     if (name.isEmpty())
                         return;
                     if (confirm(tr("Delete local tag '%1'? The remote tag is unchanged.").arg(name),
@@ -39,23 +40,24 @@ class TagRequest final : public QObject {
                         git_->deleteTag(name);
                     deleteLater();
                 });
-        connect(&reader_, &workspace::GitService::remotesReady, this,
-                [this](const QVector<workspace::GitRemote>& remotes) {
-                    QVector<QuickPickItem> items;
-                    for (const auto& remote : remotes)
-                        if (!remote.pushUrl.isEmpty())
-                            items.append({remote.name, remote.name, remote.pushUrl});
-                    remote_ = pick(tr("Tags"), tr("Select a remote"), items);
-                    if (remote_.isEmpty())
-                        return;
-                    if (action_ == GitTagAction::Push) {
-                        if (confirm(tr("Push all local tags to '%1'?").arg(remote_), tr("Push Tags")))
-                            git_->pushTags(remote_);
-                        deleteLater();
-                    } else {
-                        reader_.listRemoteTags(remote_);
-                    }
-                });
+        connect(
+            &reader_, &workspace::GitService::remotesReady, this,
+            [this](const QVector<workspace::GitRemote>& remotes) {
+                QVector<QuickPickItem> items;
+                for (const auto& remote : remotes)
+                    if (!remote.pushUrl.isEmpty())
+                        items.append({remote.name, remote.name, remote.pushUrl});
+                remote_ = pick(tr("Tags"), tr("Select a remote"), items);
+                if (remote_.isEmpty())
+                    return;
+                if (action_ == GitTagAction::Push) {
+                    if (confirm(tr("Push all local tags to '%1'?").arg(remote_), tr("Push Tags")))
+                        git_->pushTags(remote_);
+                    deleteLater();
+                } else {
+                    reader_.listRemoteTags(remote_);
+                }
+            });
         connect(&reader_, &workspace::GitService::remoteTagsReady, this,
                 [this](const QString& remote, const QStringList& names) {
                     if (remote != remote_ || !current()) {
@@ -65,12 +67,14 @@ class TagRequest final : public QObject {
                     QVector<QuickPickItem> items;
                     for (const auto& name : names)
                         items.append({name, name, remote});
-                    const auto name = pick(tr("Delete Remote Tag"),
-                                           tr("Select a tag to delete from '%1'").arg(remote), items);
+                    const auto name =
+                        pick(tr("Delete Remote Tag"),
+                             tr("Select a tag to delete from '%1'").arg(remote), items);
                     if (name.isEmpty())
                         return;
                     if (confirm(tr("Delete tag '%1' from remote '%2'? This changes the remote "
-                                   "repository, not your local tag.").arg(name, remote),
+                                   "repository, not your local tag.")
+                                    .arg(name, remote),
                                 tr("Delete Remote Tag")))
                         git_->deleteRemoteTag(remote, name);
                     deleteLater();
@@ -101,9 +105,10 @@ class TagRequest final : public QObject {
         return picker.selectedItemId();
     }
     bool confirm(const QString& message, const QString& button) const {
-        return current() && ConfirmationDialog::ask(owner_, tr("Confirm %1").arg(button),
-                                                     message, button, {}, tr("Cancel")) ==
-                                ConfirmationChoice::Primary && current();
+        return current() &&
+               ConfirmationDialog::ask(owner_, tr("Confirm %1").arg(button), message, button, {},
+                                       tr("Cancel")) == ConfirmationChoice::Primary &&
+               current();
     }
     QPointer<QWidget> owner_;
     QPointer<workspace::GitService> git_;

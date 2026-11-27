@@ -57,7 +57,8 @@ QString quoteDebugArgument(const QString& value, const QString& shell) {
     if (shell == QStringLiteral("powershell")) {
         QString escaped = value;
         escaped.replace(QChar(0x27), QStringLiteral("''"));
-        if (escaped.endsWith('\\')) escaped.append('\\');
+        if (escaped.endsWith('\\'))
+            escaped.append('\\');
         return QStringLiteral("'") + escaped + QStringLiteral("'");
     }
     if (shell == QStringLiteral("cmd")) {
@@ -65,7 +66,8 @@ QString quoteDebugArgument(const QString& value, const QString& shell) {
         escaped.replace('"', QStringLiteral("\"\""));
         QString protectedValue;
         for (const QChar character : escaped) {
-            if (QStringLiteral("><!^&|").contains(character)) protectedValue.append('^');
+            if (QStringLiteral("><!^&|").contains(character))
+                protectedValue.append('^');
             protectedValue.append(character);
         }
         escaped = protectedValue;
@@ -80,9 +82,10 @@ QString quoteDebugArgument(const QString& value, const QString& shell) {
 
 QString debugShellKind(const terminal::TerminalProfile& profile) {
     const QString executable = QFileInfo(profile.executable).fileName().toLower();
-    if (executable == QStringLiteral("cmd.exe")) return QStringLiteral("cmd");
-    if (executable == QStringLiteral("powershell.exe") ||
-        executable == QStringLiteral("pwsh.exe")) return QStringLiteral("powershell");
+    if (executable == QStringLiteral("cmd.exe"))
+        return QStringLiteral("cmd");
+    if (executable == QStringLiteral("powershell.exe") || executable == QStringLiteral("pwsh.exe"))
+        return QStringLiteral("powershell");
     if (executable == QStringLiteral("bash") || executable == QStringLiteral("bash.exe") ||
         executable == QStringLiteral("zsh") || executable == QStringLiteral("sh"))
         return QStringLiteral("posix");
@@ -289,7 +292,9 @@ TerminalPanel::TerminalPanel(QWidget* parent, BackendFactory backendFactory)
 
 TerminalPanel::~TerminalPanel() {
     const auto launches = debugLaunches_;
-    for (const auto& launch : launches) if (launch) launch->cancel();
+    for (const auto& launch : launches)
+        if (launch)
+            launch->cancel();
     // Stopping a backend may synchronously emit completion. Disconnect before the
     // session views and session list start being destroyed.
     QObject::disconnect(sessionService_.get(), nullptr, this, nullptr);
@@ -340,14 +345,18 @@ void TerminalPanel::setDefaultProfile(const QString& profileId) {
         [&profileId](const terminal::TerminalProfile& profile) { return profile.id == profileId; });
     defaultProfileId_ = found == sessionService_->profiles().cend() ? QString{} : profileId;
     const auto current = defaultShell();
-    if (previous != current) emit defaultShellChanged(current);
+    if (previous != current)
+        emit defaultShellChanged(current);
 }
 
 QString TerminalPanel::defaultShell() const {
     const auto& profiles = sessionService_->profiles();
-    if (profiles.isEmpty()) return {};
+    if (profiles.isEmpty())
+        return {};
     const auto found = std::find_if(profiles.cbegin(), profiles.cend(),
-        [this](const terminal::TerminalProfile& profile) { return profile.id == defaultProfileId_; });
+                                    [this](const terminal::TerminalProfile& profile) {
+                                        return profile.id == defaultProfileId_;
+                                    });
     return (found == profiles.cend() ? profiles.constFirst() : *found).executable;
 }
 
@@ -421,45 +430,54 @@ core::OperationId TerminalPanel::runProcess(const terminal::TerminalProfile& pro
     return id;
 }
 
-core::OperationId TerminalPanel::runDebugCommand(const QString& title,
-                                                 const QStringList& command,
+core::OperationId TerminalPanel::runDebugCommand(const QString& title, const QStringList& command,
                                                  const QProcessEnvironment& environment,
                                                  const QString& workingDirectory,
                                                  bool argsCanBeInterpretedByShell) {
-    if (command.isEmpty() || command.first().isEmpty()) return {};
+    if (command.isEmpty() || command.first().isEmpty())
+        return {};
     const QString selected = defaultProfileId_.isEmpty()
-                                 ? sessionService_->profiles().constFirst().id : defaultProfileId_;
-    const auto found = std::find_if(sessionService_->profiles().cbegin(),
-                                    sessionService_->profiles().cend(),
-                                    [&selected](const terminal::TerminalProfile& profile) {
-                                        return profile.id == selected;
-                                    });
-    if (found == sessionService_->profiles().cend()) return {};
+                                 ? sessionService_->profiles().constFirst().id
+                                 : defaultProfileId_;
+    const auto found = std::find_if(
+        sessionService_->profiles().cbegin(), sessionService_->profiles().cend(),
+        [&selected](const terminal::TerminalProfile& profile) { return profile.id == selected; });
+    if (found == sessionService_->profiles().cend())
+        return {};
     terminal::TerminalProfile shell = *found;
     const QString kind = debugShellKind(shell);
-    if (kind.isEmpty()) return {};
+    if (kind.isEmpty())
+        return {};
     shell.id = QStringLiteral("debug-terminal");
     shell.displayName = title.isEmpty() ? tr("Debug Terminal") : title;
     shell.environment = environment;
     QStringList quoted;
     for (const QString& argument : command) {
-        if (argument.contains(QChar('\0'))) return {};
-        quoted.append(argsCanBeInterpretedByShell || argument == "<" || argument == ">" ? argument : quoteDebugArgument(argument, kind));
+        if (argument.contains(QChar('\0')))
+            return {};
+        quoted.append(argsCanBeInterpretedByShell || argument == "<" || argument == ">"
+                          ? argument
+                          : quoteDebugArgument(argument, kind));
     }
     QString line;
-    if (kind == QStringLiteral("powershell") && quoted.first().startsWith('\'')) line = QStringLiteral("& ");
+    if (kind == QStringLiteral("powershell") && quoted.first().startsWith('\''))
+        line = QStringLiteral("& ");
     line.prepend(' ');
     line += quoted.join(' ');
     // cmd's literal-argument escaping is evaluated by the nested command
     // interpreter, as in VS Code's prepareCommand implementation.
-    if (kind == QStringLiteral("cmd")) line = QStringLiteral(" cmd /C \"") + quoted.join(' ') + QStringLiteral("\"");
-    const auto reusable = std::find_if(sessions_.cbegin(), sessions_.cend(), [&](const auto& entry) {
-        const auto& profile = entry->debugShell;
-        return profile && !entry->debugTerminalLeased && !entry->debugTerminalChanged &&
-               profile->displayName == shell.displayName && profile->executable == shell.executable &&
-               profile->arguments == shell.arguments &&
-               entry->workingDirectory == workingDirectory && sessionService_->shellIsIdle(entry->id);
-    });
+    if (kind == QStringLiteral("cmd"))
+        line = QStringLiteral(" cmd /C \"") + quoted.join(' ') + QStringLiteral("\"");
+    const auto reusable =
+        std::find_if(sessions_.cbegin(), sessions_.cend(), [&](const auto& entry) {
+            const auto& profile = entry->debugShell;
+            return profile && !entry->debugTerminalLeased && !entry->debugTerminalChanged &&
+                   profile->displayName == shell.displayName &&
+                   profile->executable == shell.executable &&
+                   profile->arguments == shell.arguments &&
+                   entry->workingDirectory == workingDirectory &&
+                   sessionService_->shellIsIdle(entry->id);
+        });
     const bool reuseView = reusable != sessions_.cend();
     const bool reuseShell = reuseView && (*reusable)->debugShell->environment == shell.environment;
     const auto id = reuseShell ? (*reusable)->id
@@ -474,8 +492,9 @@ core::OperationId TerminalPanel::runDebugCommand(const QString& title,
     session.debugTerminalLeased = true;
     if (reuseView) {
         if (!reuseShell) {
-            // Adapters can supply fresh process-only credentials or inspector settings for each run.
-            // Keep the terminal view and its scrollback while starting a shell with the new environment.
+            // Adapters can supply fresh process-only credentials or inspector settings for each
+            // run. Keep the terminal view and its scrollback while starting a shell with the new
+            // environment.
             const auto previous = std::exchange(session.id, id);
             session.debugShell = shell;
             session.backendSize = {};
@@ -486,19 +505,24 @@ core::OperationId TerminalPanel::runDebugCommand(const QString& title,
         }
         activateSession(static_cast<int>(std::distance(sessions_.cbegin(), reusable)));
     }
-    auto* launch = new DebugTerminalLaunch(sessionService_.get(), id, line, reuseShell, [this, id](qint64 pid, const QString& error) {
-        debugLaunches_.remove(id.value());
-        if (auto* session = findSession(id))
-            session->view->finishShellRestart();
-        if (!error.isEmpty())
-            releaseDebugTerminal(id);
-        emit debugCommandReady(id, pid, error);
-    }, this);
+    auto* launch = new DebugTerminalLaunch(
+        sessionService_.get(), id, line, reuseShell,
+        [this, id](qint64 pid, const QString& error) {
+            debugLaunches_.remove(id.value());
+            if (auto* session = findSession(id))
+                session->view->finishShellRestart();
+            if (!error.isEmpty())
+                releaseDebugTerminal(id);
+            emit debugCommandReady(id, pid, error);
+        },
+        this);
     debugLaunches_.insert(id.value(), launch);
     return id;
 }
 void TerminalPanel::cancelDebugCommand(core::OperationId id) {
-    const auto launch = debugLaunches_.value(id.value()); if (launch) launch->cancel();
+    const auto launch = debugLaunches_.value(id.value());
+    if (launch)
+        launch->cancel();
 }
 
 void TerminalPanel::releaseDebugTerminal(core::OperationId id) {

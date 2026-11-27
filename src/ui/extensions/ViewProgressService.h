@@ -1,8 +1,8 @@
 #pragma once
 #include "extensions/WorkbenchProgress.h"
+#include <QHash>
 #include <QObject>
 #include <QPointer>
-#include <QHash>
 #include <QSet>
 class QWidget;
 class QProgressBar;
@@ -14,8 +14,10 @@ class ViewProgressService final : public QObject {
     explicit ViewProgressService(extensions::WorkbenchProgress& progress, QObject* parent);
     ~ViewProgressService() override;
     void registerView(const QString& id, QWidget& body, QWidget* activity = nullptr);
+
   protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
+
   private:
     struct View {
         QPointer<QWidget> body, activity;

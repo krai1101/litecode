@@ -27,10 +27,13 @@ void ExtensionMemento::setFilePath(QString path) {
 }
 
 QJsonObject ExtensionMemento::read() const {
-    if (path_.isEmpty()) return transient_.isEmpty() ? emptyState() : transient_;
+    if (path_.isEmpty())
+        return transient_.isEmpty() ? emptyState() : transient_;
     QFile file(path_);
-    if (!file.exists()) return emptyState();
-    if (!file.open(QIODevice::ReadOnly)) storageError(file.errorString());
+    if (!file.exists())
+        return emptyState();
+    if (!file.open(QIODevice::ReadOnly))
+        storageError(file.errorString());
     QJsonParseError error;
     const auto document = QJsonDocument::fromJson(file.readAll(), &error);
     if (error.error != QJsonParseError::NoError || !document.isObject() ||
@@ -43,7 +46,8 @@ QJsonObject ExtensionMemento::read() const {
 
 void ExtensionMemento::write(const QJsonObject& document) const {
     QSaveFile file(path_);
-    if (!file.open(QIODevice::WriteOnly)) storageError(file.errorString());
+    if (!file.open(QIODevice::WriteOnly))
+        storageError(file.errorString());
     const auto encoded = QJsonDocument(document).toJson(QJsonDocument::Compact);
     if (file.write(encoded) != encoded.size() || !file.commit())
         storageError(file.errorString());
@@ -75,15 +79,20 @@ QFuture<void> ExtensionMemento::update(const QString& key, const QJsonValue& val
             if (!QDir().mkpath(QFileInfo(path_).absolutePath()))
                 storageError("Could not create extension state directory.");
             fileLock = std::make_unique<QLockFile>(path_ + ".lock");
-            if (!fileLock->tryLock(5000)) storageError("Extension state is locked.");
+            if (!fileLock->tryLock(5000))
+                storageError("Extension state is locked.");
         }
         auto document = read();
         auto values = document.value("values").toObject();
-        if (value.isUndefined()) values.remove(key);
-        else values.insert(key, value);
+        if (value.isUndefined())
+            values.remove(key);
+        else
+            values.insert(key, value);
         document.insert("values", values);
-        if (path_.isEmpty()) transient_ = document;
-        else write(document);
+        if (path_.isEmpty())
+            transient_ = document;
+        else
+            write(document);
     } catch (...) {
         promise.setException(std::current_exception());
     }
@@ -100,11 +109,14 @@ void ExtensionMemento::setKeysForSync(const QStringList& keys) {
         if (!QDir().mkpath(QFileInfo(path_).absolutePath()))
             storageError("Could not create extension state directory.");
         fileLock = std::make_unique<QLockFile>(path_ + ".lock");
-        if (!fileLock->tryLock(5000)) storageError("Extension state is locked.");
+        if (!fileLock->tryLock(5000))
+            storageError("Extension state is locked.");
     }
     auto document = read();
     document.insert("syncKeys", QJsonArray::fromStringList(uniqueKeys));
-    if (path_.isEmpty()) transient_ = document;
-    else write(document);
+    if (path_.isEmpty())
+        transient_ = document;
+    else
+        write(document);
 }
 } // namespace litecode::extensions

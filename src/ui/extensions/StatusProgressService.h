@@ -1,9 +1,9 @@
 #pragma once
 #include "extensions/WorkbenchProgress.h"
+#include <QElapsedTimer>
+#include <QHash>
 #include <QObject>
 #include <QPointer>
-#include <QHash>
-#include <QElapsedTimer>
 class QStatusBar;
 class QToolButton;
 class QTimer;
@@ -11,11 +11,13 @@ namespace litecode::ui {
 class StatusProgressService final : public QObject {
     Q_OBJECT
   public:
-    StatusProgressService(extensions::WorkbenchProgress& progress, QStatusBar& bar, QObject* parent);
+    StatusProgressService(extensions::WorkbenchProgress& progress, QStatusBar& bar,
+                          QObject* parent);
     ~StatusProgressService() override;
     void setNotificationVisible(const QString& owner, quint64 id, bool visible);
   signals:
     void revealRequested(const QString& owner, quint64 id);
+
   private:
     struct Task {
         extensions::ProgressTaskInfo info;

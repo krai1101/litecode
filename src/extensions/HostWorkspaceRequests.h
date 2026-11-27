@@ -1,13 +1,13 @@
 #pragma once
 #include "extensions/DocumentOpenApi.h"
-#include "extensions/WorkspaceEditWire.h"
 #include "extensions/TextEditorEditData.h"
-#include <QObject>
-#include <QJsonObject>
+#include "extensions/WorkspaceEditWire.h"
 #include <QFuture>
-#include <QPromise>
 #include <QHash>
+#include <QJsonObject>
 #include <QMutex>
+#include <QObject>
+#include <QPromise>
 #include <QUrl>
 #include <functional>
 #include <memory>
@@ -27,6 +27,7 @@ class HostWorkspaceRequests final : public QObject {
     QFuture<QString> create(const UntitledTextDocumentOptions& options);
     void complete(quint64 id, const QJsonObject& result, const QString& error);
     void shutdown();
+
   private:
     QFuture<QJsonObject> request(QJsonObject message);
     std::function<void(const QJsonObject&)> send_;

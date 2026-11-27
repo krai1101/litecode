@@ -47,11 +47,13 @@ class RecordingTerminalBackend final : public litecode::terminal::ITerminalBacke
         state_ = litecode::terminal::TerminalState::Running;
         emit stateChanged(operationId_, state_);
         emit started(operationId_);
-        if (profile.id == QStringLiteral("debug-terminal")) emit outputReady(QByteArrayLiteral("debug> "));
+        if (profile.id == QStringLiteral("debug-terminal"))
+            emit outputReady(QByteArrayLiteral("debug> "));
     }
 
     bool enqueueInput(const QByteArray& bytes) override {
-        if (inputs_) inputs_->append(bytes);
+        if (inputs_)
+            inputs_->append(bytes);
         return state_ == litecode::terminal::TerminalState::Running;
     }
     void resizeTerminal(const QSize& size) override { size_ = size; }
@@ -63,8 +65,12 @@ class RecordingTerminalBackend final : public litecode::terminal::ITerminalBacke
         emit completed({operationId_, litecode::core::CompletionKind::Cancelled, 0, false, {}});
     }
     litecode::terminal::TerminalState state() const override { return state_; }
-    qint64 processId() const override { return state_ == litecode::terminal::TerminalState::Running ? 12345 : 0; }
-    bool shellIsIdle() const override { return state_ == litecode::terminal::TerminalState::Running; }
+    qint64 processId() const override {
+        return state_ == litecode::terminal::TerminalState::Running ? 12345 : 0;
+    }
+    bool shellIsIdle() const override {
+        return state_ == litecode::terminal::TerminalState::Running;
+    }
 
   private:
     std::shared_ptr<QStringList> starts_;
@@ -102,7 +108,8 @@ class TerminalPanelTest final : public QObject {
             panel.setDefaultProfile(profile.id);
             QCOMPARE(panel.defaultShell(), profile.executable);
             QCOMPARE(changed.size(), previous == profile.executable ? 0 : 1);
-            if (!changed.isEmpty()) QCOMPARE(changed.first().first().toString(), profile.executable);
+            if (!changed.isEmpty())
+                QCOMPARE(changed.first().first().toString(), profile.executable);
             previous = profile.executable;
         }
         changed.clear();
@@ -166,10 +173,10 @@ void TerminalPanelTest::debugCommandRunsInsidePersistentShell() {
     auto environment = litecode::terminal::refreshedProcessEnvironment();
     QSignalSpy ready(&panel, &litecode::ui::TerminalPanel::debugCommandReady);
     environment.insert(QStringLiteral("DEBUG_TEST"), QStringLiteral("value"));
-    const auto id = panel.runDebugCommand(QStringLiteral("Debug Console"),
-                                          {QStringLiteral("debuggee.exe"),
-                                           QStringLiteral("file with spaces.py")},
-                                          environment, directory.path());
+    const auto id = panel.runDebugCommand(
+        QStringLiteral("Debug Console"),
+        {QStringLiteral("debuggee.exe"), QStringLiteral("file with spaces.py")}, environment,
+        directory.path());
     QVERIFY(id.isValid());
     QVERIFY(ready.isEmpty());
     QTRY_COMPARE(profiles->size(), 1);
@@ -197,8 +204,9 @@ void TerminalPanelTest::debugTerminalReusesViewAcrossLaunchEnvironments() {
     QVERIFY(directory.isValid());
     QSignalSpy ready(&panel, &litecode::ui::TerminalPanel::debugCommandReady);
     QProcessEnvironment environment;
-    const auto run = [&] { return panel.runDebugCommand("Debug", {"debuggee"}, environment,
-                                                        directory.path()); };
+    const auto run = [&] {
+        return panel.runDebugCommand("Debug", {"debuggee"}, environment, directory.path());
+    };
     const auto first = run();
     QVERIFY(first.isValid());
     QTRY_COMPARE(ready.size(), 1);
@@ -231,8 +239,9 @@ void TerminalPanelTest::canceledDebugCommandNeverSubmitsInput() {
     });
     QTemporaryDir directory;
     QSignalSpy ready(&panel, &litecode::ui::TerminalPanel::debugCommandReady);
-    const auto id = panel.runDebugCommand("Debug", {"never-run"},
-        litecode::terminal::refreshedProcessEnvironment(), directory.path());
+    const auto id =
+        panel.runDebugCommand("Debug", {"never-run"},
+                              litecode::terminal::refreshedProcessEnvironment(), directory.path());
     QVERIFY(id.isValid());
     panel.cancelDebugCommand(id);
     QCOMPARE(ready.size(), 1);
@@ -254,8 +263,8 @@ void TerminalPanelTest::debugCommandAcceptsInteractiveInput() {
     QSignalSpy completed(&panel, &litecode::ui::TerminalPanel::processCompleted);
     const auto script = QFINDTESTDATA("fixtures/InteractiveTerminal.cmd");
     QVERIFY(!script.isEmpty());
-    const auto id = panel.runDebugCommand("Interactive debug target",
-        {script}, environment, directory.path());
+    const auto id =
+        panel.runDebugCommand("Interactive debug target", {script}, environment, directory.path());
     QVERIFY(id.isValid());
     panel.show();
     auto* view = panel.findChild<litecode::ui::TerminalView*>();
@@ -266,7 +275,8 @@ void TerminalPanelTest::debugCommandAcceptsInteractiveInput() {
     QTRY_VERIFY_WITH_TIMEOUT(view->plainText().contains("Input:"), 10000);
     QTest::keyClicks(view, "hello");
     QTest::keyClick(view, Qt::Key_Return);
-    QTRY_VERIFY2_WITH_TIMEOUT(view->plainText().contains("RESULT:hello:debug-value"), qPrintable(view->plainText()), 10000);
+    QTRY_VERIFY2_WITH_TIMEOUT(view->plainText().contains("RESULT:hello:debug-value"),
+                              qPrintable(view->plainText()), 10000);
     // The target finishing must not destroy the persistent terminal shell.
     QTest::keyClicks(view, "echo SHELL_STILL_ALIVE");
     QTest::keyClick(view, Qt::Key_Return);

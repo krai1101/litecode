@@ -1,6 +1,6 @@
-#include "ui/extensions/TextEditorEditPreparation.h"
-#include "ui/extensions/EditorSelectionTracking.h"
 #include "extensions/TextEditorEditWire.h"
+#include "ui/extensions/EditorSelectionTracking.h"
+#include "ui/extensions/TextEditorEditPreparation.h"
 #include <QJsonArray>
 #include <QtTest>
 #include <limits>
@@ -18,7 +18,7 @@ extensions::TextEditorEditData transaction(const editor::TextDocumentModel& sour
     result.documentVersionId = source.session().version() + 1;
     return result;
 }
-}
+} // namespace
 class EditorEditPreparationTests final : public QObject {
     Q_OBJECT
   private slots:
@@ -98,7 +98,8 @@ class EditorEditPreparationTests final : public QObject {
         QVERIFY(!prepared->operations[1].forceMoveMarkers);
     }
     void adjustsSurrogatesAndConvertsUtf16ToUtf8() {
-        const auto source = model(QString::fromUtf8("a\xf0\x9f\x98\x80" "b\n\xc3\xa9"));
+        const auto source = model(QString::fromUtf8("a\xf0\x9f\x98\x80"
+                                                    "b\n\xc3\xa9"));
         auto edit = transaction(source);
         edit.edits.append({extensions::Range(0, 2, 0, 3), QString("X"), false});
         edit.edits.append({extensions::Range(1, 1, 1, 1), QString("Y"), true});
@@ -112,7 +113,9 @@ class EditorEditPreparationTests final : public QObject {
         collapsed.edits.append({extensions::Range(0, 2, 0, 2), QString("X"), true});
         const auto insertion = ui::prepareTextEditorEdit(source, collapsed);
         QVERIFY(insertion);
-        QCOMPARE(insertion->replacement.contents(), QString::fromUtf8("aX\xf0\x9f\x98\x80" "b\n\xc3\xa9").toUtf8());
+        QCOMPARE(insertion->replacement.contents(), QString::fromUtf8("aX\xf0\x9f\x98\x80"
+                                                                      "b\n\xc3\xa9")
+                                                        .toUtf8());
     }
     void retainsContentIdenticalOperationsAndRejectsBrokenUnicode() {
         const auto source = model("abc");
@@ -128,14 +131,17 @@ class EditorEditPreparationTests final : public QObject {
         QVERIFY(!ui::prepareTextEditorEdit(source, edit));
     }
     void rejectsOverlapIntroducedBySurrogateExpansionWithoutApplyingEol() {
-        const auto source = model(QString::fromUtf8("a\xf0\x9f\x98\x80" "b\nlast"));
+        const auto source = model(QString::fromUtf8("a\xf0\x9f\x98\x80"
+                                                    "b\nlast"));
         auto edit = transaction(source);
         edit.setEndOfLine = extensions::EndOfLine::CRLF;
         edit.edits.append({extensions::Range(0, 1, 0, 2), QString("left"), false});
         edit.edits.append({extensions::Range(0, 2, 0, 3), QString("right"), true});
         QVERIFY(!extensions::textEditorEditRangesOverlap(edit.edits));
         QVERIFY(!ui::prepareTextEditorEdit(source, edit));
-        QCOMPARE(source.contents(), QString::fromUtf8("a\xf0\x9f\x98\x80" "b\nlast").toUtf8());
+        QCOMPARE(source.contents(), QString::fromUtf8("a\xf0\x9f\x98\x80"
+                                                      "b\nlast")
+                                        .toUtf8());
         QCOMPARE(source.session().lineEnding(), core::LineEnding::Lf);
     }
     void wirePreservesNullTextFlagsAndExactVersion() {
@@ -167,7 +173,8 @@ class EditorEditPreparationTests final : public QObject {
         QVERIFY(!extensions::wire::decodeTextEditorEdit(encoded));
     }
     void selectionTrackingUsesUtf16CommonLengthAndRetainsDirection() {
-        const auto source = model(QString::fromUtf8("\xc3\xa9" "bc"));
+        const auto source = model(QString::fromUtf8("\xc3\xa9"
+                                                    "bc"));
         auto edit = transaction(source);
         edit.edits.append({extensions::Range(0, 0, 0, 2), QString("XY"), false});
         auto prepared = ui::prepareTextEditorEdit(source, edit);

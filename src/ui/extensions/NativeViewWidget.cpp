@@ -1,14 +1,13 @@
 #include "ui/extensions/NativeViewWidget.h"
-#include <algorithm>
 #include "ui/Theme.h"
 #include "ui/TransientScrollBars.h"
 #include "ui/components/ChoiceSlider.h"
 #include "ui/components/CircularProgress.h"
 #include "ui/components/Controls.h"
-#include "ui/components/ElidingLabel.h"
 #include "ui/components/ElidingButton.h"
-#include "ui/components/ShimmerLabel.h"
+#include "ui/components/ElidingLabel.h"
 #include "ui/components/IconLabelButton.h"
+#include "ui/components/ShimmerLabel.h"
 #include "ui/extensions/NativeContentRow.h"
 #include "ui/extensions/NativeDialog.h"
 #include "ui/extensions/NativeHoverGroup.h"
@@ -21,8 +20,8 @@
 #include "ui/extensions/NativeViewScrollState.h"
 #include "ui/extensions/NativeViewTextState.h"
 #include "ui/styles/StyleTemplate.h"
-#include <QApplication>
 #include <QAction>
+#include <QApplication>
 #include <QBoxLayout>
 #include <QFontDatabase>
 #include <QJsonArray>
@@ -42,6 +41,7 @@
 #include <QTextDocument>
 #include <QTimer>
 #include <QUuid>
+#include <algorithm>
 namespace litecode::ui {
 using namespace litecode::extensions;
 namespace {
@@ -258,9 +258,9 @@ void NativeViewWidget::publish(const QString& id, const QString& type, const QSt
     }
 }
 QWidget* NativeViewWidget::build(const NativeControl& c, QWidget* parent) {
-    constexpr const char* appearances[] = {"default", "card",       "composer",     "muted",
-                                           "heading", "transcript", "added",        "removed",
-                                           "plain",   "hoverGroup", "hoverActions", "surface", "shimmer"};
+    constexpr const char* appearances[] = {
+        "default", "card",  "composer",   "muted",        "heading", "transcript", "added",
+        "removed", "plain", "hoverGroup", "hoverActions", "surface", "shimmer"};
     bool exact = false;
     QWidget* existing = reconciler_.take(c, parent, controls_, exact);
     if (exact) {
@@ -287,8 +287,7 @@ QWidget* NativeViewWidget::build(const NativeControl& c, QWidget* parent) {
         widget->setProperty("nativeAppearance", appearances[int(c.appearance)]);
         widget->setProperty("nativeRow", c.kind == NativeControlKind::Row);
         bool flexible = false, trailingActions = false;
-        if (c.kind == NativeControlKind::Row &&
-            parent->property("nativeAppearance") == "surface")
+        if (c.kind == NativeControlKind::Row && parent->property("nativeAppearance") == "surface")
             for (const auto& child : c.children) {
                 trailingActions |= flexible && child.kind == NativeControlKind::Button;
                 flexible |= child.stretch > 0;
@@ -376,7 +375,7 @@ QWidget* NativeViewWidget::build(const NativeControl& c, QWidget* parent) {
         QLabel* label = c.appearance == NativeControlAppearance::Shimmer
                             ? new components::ShimmerLabel(c.text, parent)
                         : c.appearance == NativeControlAppearance::Plain ||
-                                  c.appearance == NativeControlAppearance::Heading
+                                c.appearance == NativeControlAppearance::Heading
                             ? new components::ElidingLabel(c.text, parent)
                         : parent->property("nativeAppearance") == "card"
                             ? static_cast<QLabel*>(new CardLabel(c.text, parent))
@@ -388,7 +387,7 @@ QWidget* NativeViewWidget::build(const NativeControl& c, QWidget* parent) {
                            c.appearance != NativeControlAppearance::Removed &&
                            c.appearance != NativeControlAppearance::Shimmer);
         label->setTextInteractionFlags(c.appearance == NativeControlAppearance::Plain ||
-                                           c.appearance == NativeControlAppearance::Shimmer
+                                               c.appearance == NativeControlAppearance::Shimmer
                                            ? Qt::NoTextInteraction
                                            : Qt::TextSelectableByMouse);
         widget = label;
@@ -427,7 +426,7 @@ QWidget* NativeViewWidget::build(const NativeControl& c, QWidget* parent) {
             if (labeledMenu)
                 icon->setContentsMargins(8, 0, 8, 0);
             else if (c.appearance == NativeControlAppearance::Plain ||
-                c.appearance == NativeControlAppearance::Muted)
+                     c.appearance == NativeControlAppearance::Muted)
                 icon->setContentsMargins(0, 0, 0, 0);
             icon->setIconLabel(c.text);
             icon->setIconSize(QSize(c.iconSize, c.iconSize));
@@ -448,51 +447,52 @@ QWidget* NativeViewWidget::build(const NativeControl& c, QWidget* parent) {
         button->setCursor(Qt::PointingHandCursor);
         button->setAttribute(Qt::WA_Hover);
         button->setProperty("nativeIconOnly",
-            (!c.iconPath.isEmpty() || c.text.contains("$(")) && label.isEmpty());
+                            (!c.iconPath.isEmpty() || c.text.contains("$(")) && label.isEmpty());
         button->setProperty("nativeLabeledMenu", labeledMenu);
         button->setProperty("uiDensity", "compact");
         button->setProperty("nativeFill", c.stretch > 0);
-        if (c.buttonStyle == NativeButtonStyle::Ghost && c.stretch == 0 &&
-            !label.isEmpty())
+        if (c.buttonStyle == NativeButtonStyle::Ghost && c.stretch == 0 && !label.isEmpty())
             for (auto* ancestor = parent; ancestor; ancestor = ancestor->parentWidget())
                 if (ancestor->property("nativeAppearance") == "surface") {
                     button->setProperty("uiDisabledHoverFeedback", true);
                     break;
                 }
-        button->setSizePolicy(c.stretch > 0 ? QSizePolicy::Ignored :
-                              parent->property("nativeTrailingActions").toBool() ? QSizePolicy::Fixed :
-                                                                                   QSizePolicy::Preferred,
+        button->setSizePolicy(c.stretch > 0 ? QSizePolicy::Ignored
+                              : parent->property("nativeTrailingActions").toBool()
+                                  ? QSizePolicy::Fixed
+                                  : QSizePolicy::Preferred,
                               QSizePolicy::Fixed);
-        connect(button, &QAbstractButton::clicked, this,
-                [this, id = c.id, items = c.items, button] {
-                    const auto menuControl = menus_.value(id);
-                    if (!menuControl.children.isEmpty()) {
-                        auto* menu = createNativeMenu(menuControl, button,
-                            [this](const QString& item) { publish(item, "clicked"); });
-                        showNativeMenu(*menu, *button, true);
-                        return;
+        connect(
+            button, &QAbstractButton::clicked, this, [this, id = c.id, items = c.items, button] {
+                const auto menuControl = menus_.value(id);
+                if (!menuControl.children.isEmpty()) {
+                    auto* menu = createNativeMenu(menuControl, button, [this](const QString& item) {
+                        publish(item, "clicked");
+                    });
+                    showNativeMenu(*menu, *button, true);
+                    return;
+                }
+                if (!items.isEmpty()) {
+                    auto* menu = new components::Menu(button);
+                    menu->setAttribute(Qt::WA_DeleteOnClose);
+                    for (int index = 0; index < items.size(); ++index) {
+                        auto* action = menu->addDescriptiveAction(items[index]);
+                        connect(action, &QAction::triggered, this,
+                                [this, id, text = items[index], index] {
+                                    publish(id, "selected", text, index);
+                                });
                     }
-                    if (!items.isEmpty()) {
-                        auto* menu = new components::Menu(button);
-                        menu->setAttribute(Qt::WA_DeleteOnClose);
-                        for (int index = 0; index < items.size(); ++index) {
-                            auto* action = menu->addDescriptiveAction(items[index]);
-                            connect(action, &QAction::triggered, this,
-                                    [this, id, text = items[index], index] {
-                                        publish(id, "selected", text, index);
-                                    });
-                        }
-                        showNativeMenu(*menu, *button);
-                        return;
+                    showNativeMenu(*menu, *button);
+                    return;
+                }
+                for (auto* ancestor = button->parentWidget(); ancestor;
+                     ancestor = ancestor->parentWidget())
+                    if (auto* scroll = qobject_cast<NativeTranscriptView*>(ancestor)) {
+                        scroll->setProperty("nativeActivatedAnchor", id);
+                        break;
                     }
-                    for (auto* ancestor = button->parentWidget(); ancestor;
-                         ancestor = ancestor->parentWidget())
-                        if (auto* scroll = qobject_cast<NativeTranscriptView*>(ancestor)) {
-                            scroll->setProperty("nativeActivatedAnchor", id);
-                            break;
-                        }
-                    publish(id, "clicked");
-                });
+                publish(id, "clicked");
+            });
         widget = button;
         break;
     }
@@ -591,13 +591,14 @@ QWidget* NativeViewWidget::build(const NativeControl& c, QWidget* parent) {
                                                  : QComboBox::AdjustToContents);
         combo->setSizePolicy(c.stretch > 0 ? QSizePolicy::Ignored : QSizePolicy::Preferred,
                              QSizePolicy::Fixed);
-        const bool compactChoice = withinComposer && !c.itemIconPaths.isEmpty() &&
-            std::any_of(c.items.cbegin(), c.items.cend(), [](const QString& item) {
-                return item.contains('\n');
-            });
+        const bool compactChoice =
+            withinComposer && !c.itemIconPaths.isEmpty() &&
+            std::any_of(c.items.cbegin(), c.items.cend(),
+                        [](const QString& item) { return item.contains('\n'); });
         combo->setIconOnly(compactChoice);
         combo->setMinimumWidth(compactChoice ? 28 : 60);
-        if (compactChoice) combo->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+        if (compactChoice)
+            combo->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
         if (!existing)
             connect(combo, &QComboBox::activated, this, [this, id = c.id, combo](int index) {
                 publish(id, "selectionChanged", combo->itemText(index), index);
@@ -616,7 +617,8 @@ QWidget* NativeViewWidget::build(const NativeControl& c, QWidget* parent) {
     }
     case NativeControlKind::List: {
         auto* list = new components::List(parent);
-        if (c.contentsMargins) list->setViewportMargins(*c.contentsMargins);
+        if (c.contentsMargins)
+            list->setViewportMargins(*c.contentsMargins);
         list->addItems(c.items);
         list->setItemDelegate(new NativeListDelegate(list));
         list->setFrameShape(QFrame::NoFrame);
@@ -693,8 +695,8 @@ void NativeViewWidget::bindHoverActions(const NativeControl& node, QWidget* widg
             break;
         }
 }
-bool NativeViewWidget::updateMenuItem(
-    const QString& id, const std::function<void(NativeControl&, QAction*)>& update) {
+bool NativeViewWidget::updateMenuItem(const QString& id,
+                                      const std::function<void(NativeControl&, QAction*)>& update) {
     const auto find = [&](auto&& self, NativeControl& control) -> NativeControl* {
         if (control.id == id)
             return &control;
@@ -716,7 +718,8 @@ void NativeViewWidget::setText(const QString& id, const QString& text) {
     if (!widget) {
         if (updateMenuItem(id, [&](NativeControl& item, QAction* action) {
                 item.text = text;
-                if (action) action->setText(text);
+                if (action)
+                    action->setText(text);
             }))
             reconciler_.textChanged(id, text);
         return;
@@ -958,12 +961,12 @@ void NativeViewWidget::applyTheme() {
     style.replace("@transcriptCardSurface",
                   styleColor(dark ? tokens.elevatedSurface : tokens.elevatedSurface.lighter(102)));
     auto activity = tokens.mutedForeground;
-    activity.setAlphaF(.5);
+    activity.setAlphaF(.5f);
     style.replace("@activity", styleColor(activity));
     auto danger = tokens.error;
-    danger.setAlphaF(.12);
+    danger.setAlphaF(.12f);
     style.replace("@dangerSurface", styleColor(danger));
-    danger.setAlphaF(.20);
+    danger.setAlphaF(.20f);
     style.replace("@dangerHoverSurface", styleColor(danger));
     auto family = qApp->font().family();
     family.replace('"', "\\\"");

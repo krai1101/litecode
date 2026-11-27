@@ -1,10 +1,10 @@
 #pragma once
 #include "extensions/PrimitivesApi.h"
 #include "extensions/ProviderApi.h"
-#include <QStringList>
 #include <QMargins>
-#include <optional>
+#include <QStringList>
 #include <QVector>
+#include <optional>
 
 namespace litecode::extensions {
 // Native C++/Qt mapping of VS Code's contributed view/provider boundary.

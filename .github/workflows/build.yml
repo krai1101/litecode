@@ -31,7 +31,11 @@ jobs:
         run: ./scripts/check-architecture.ps1
       - name: Check formatting
         shell: pwsh
-        run: ./scripts/format.ps1 -Check
+        run: |
+          python -m pip install clang-format==20.1.8
+          if ($LASTEXITCODE -ne 0) { throw 'Could not install clang-format.' }
+          $formatter = python -c "from pathlib import Path; import clang_format; print(Path(clang_format.__file__).parent / 'data' / 'bin' / 'clang-format.exe')"
+          ./scripts/format.ps1 -Check -FormatterPath $formatter
       - name: Build and test
         shell: pwsh
         env:

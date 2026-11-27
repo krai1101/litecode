@@ -1,6 +1,6 @@
 #include "ui/extensions/ProgressNotification.h"
-#include "ui/components/Controls.h"
 #include "ui/ThemedIcon.h"
+#include "ui/components/Controls.h"
 #include <QAction>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -11,7 +11,9 @@
 #include <cmath>
 
 namespace litecode::ui {
-ProgressNotification::ProgressNotification(const extensions::ProgressTaskInfo& task, QWidget* parent) : QFrame(parent) {
+ProgressNotification::ProgressNotification(const extensions::ProgressTaskInfo& task,
+                                           QWidget* parent)
+    : QFrame(parent) {
     setObjectName(QStringLiteral("extensionNotificationFrame"));
     setProperty("progressOwner", task.owner);
     setProperty("progressId", QString::number(task.id));
@@ -30,7 +32,8 @@ ProgressNotification::ProgressNotification(const extensions::ProgressTaskInfo& t
     manage->setAccessibleName(tr("Notification actions"));
     manage->setToolTip(tr("Notification actions"));
     auto* menu = new components::Menu(manage);
-    connect(menu->addAction(tr("Manage Extension")), &QAction::triggered, this, &ProgressNotification::manageExtensionRequested);
+    connect(menu->addAction(tr("Manage Extension")), &QAction::triggered, this,
+            &ProgressNotification::manageExtensionRequested);
     manage->setMenu(menu);
     manage->setPopupMode(QToolButton::InstantPopup);
     header->addWidget(manage);
@@ -60,13 +63,17 @@ ProgressNotification::ProgressNotification(const extensions::ProgressTaskInfo& t
 void ProgressNotification::updateTask(const extensions::ProgressTaskInfo& task) {
     const auto title = task.options.title.value_or(QString());
     const auto message = task.message.value_or(QString());
-    const auto text = title.isEmpty() ? message : message.isEmpty() ? title : title + ": " + message;
+    const auto text = title.isEmpty()     ? message
+                      : message.isEmpty() ? title
+                                          : title + ": " + message;
     text_->setText(text);
     setAccessibleName(text);
     if (task.total) {
         progress_->setRange(0, 1000);
         progress_->setValue(static_cast<int>(std::round(std::clamp(*task.total, 0.0, 100.0) * 10)));
-    } else progress_->setRange(0, 0);
-    if (cancel_) cancel_->setEnabled(!task.cancellationRequested);
+    } else
+        progress_->setRange(0, 0);
+    if (cancel_)
+        cancel_->setEnabled(!task.cancellationRequested);
 }
 } // namespace litecode::ui

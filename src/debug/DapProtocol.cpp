@@ -124,7 +124,8 @@ int DapChannel::requestValue(const QString& command, const QJsonValue& arguments
     if (!seq)
         return 0;
     QJsonObject message{{"seq", seq}, {"type", "request"}, {"command", command}};
-    if (!arguments.isUndefined()) message.insert("arguments", arguments);
+    if (!arguments.isUndefined())
+        message.insert("arguments", arguments);
     const auto frame = DapDecoder::encode(message);
     if (frame.isEmpty())
         return 0;
@@ -132,7 +133,8 @@ int DapChannel::requestValue(const QString& command, const QJsonValue& arguments
     deadlines_.start();
     const auto generation = generation_;
     emit messageSent(message);
-    if (generation != generation_) return 0;
+    if (generation != generation_)
+        return 0;
     emit writeRequested(frame, generation_);
     return seq;
 }
@@ -157,7 +159,8 @@ bool DapChannel::respond(const QJsonObject& request, bool success, const QJsonOb
         return false;
     const auto generation = generation_;
     emit messageSent(response);
-    if (generation != generation_) return false;
+    if (generation != generation_)
+        return false;
     emit writeRequested(frame, generation_);
     return true;
 }
@@ -173,7 +176,8 @@ void DapChannel::receive(const QByteArray& bytes, quint64 generation) {
         if (generation != generation_ || failed_)
             return;
         emit messageReceived(message);
-        if (generation != generation_ || failed_) return;
+        if (generation != generation_ || failed_)
+            return;
         if (!positiveInteger(message.value("seq"))) {
             fail("Invalid DAP message sequence.");
             return;
@@ -199,7 +203,8 @@ void DapChannel::receive(const QByteArray& bytes, quint64 generation) {
                 deadlines_.stop();
             emit responseValueReceived(id, command, message.value("success").toBool(),
                                        message.value("body"), message.value("message").toString());
-            if (generation != generation_) return;
+            if (generation != generation_)
+                return;
             emit responseReceived(id, command, message.value("success").toBool(),
                                   message.value("body").toObject(),
                                   message.value("message").toString());
@@ -210,7 +215,8 @@ void DapChannel::receive(const QByteArray& bytes, quint64 generation) {
                 return;
             }
             emit eventValueReceived(name, message.value("body"));
-            if (generation != generation_) return;
+            if (generation != generation_)
+                return;
             emit eventReceived(name, message.value("body").toObject());
         } else if (type == "request") {
             if (message.value("command").toString().isEmpty()) {
@@ -237,7 +243,8 @@ void DapChannel::expire() {
         const auto command = it->command;
         pending_.erase(it);
         emit responseReceived(id, command, false, {}, "Debug adapter request timed out.");
-        emit responseValueReceived(id, command, false, QJsonValue::Undefined, "Debug adapter request timed out.");
+        emit responseValueReceived(id, command, false, QJsonValue::Undefined,
+                                   "Debug adapter request timed out.");
     }
     if (pending_.isEmpty())
         deadlines_.stop();

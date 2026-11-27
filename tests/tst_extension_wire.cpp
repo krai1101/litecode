@@ -1,8 +1,8 @@
-#include "extensions/ExtensionWireProtocol.h"
 #include "extensions/DialogWire.h"
+#include "extensions/ExtensionWireProtocol.h"
 #include "extensions/ProgressWire.h"
-#include "extensions/WorkspaceEditWire.h"
 #include "extensions/WorkspaceEditTransfer.h"
+#include "extensions/WorkspaceEditWire.h"
 #include <QJsonArray>
 
 #include <QJsonDocument>
@@ -27,8 +27,12 @@ class ExtensionWireTests final : public QObject {
         using namespace litecode::extensions;
         WorkspaceEdit edit;
         const QUrl uri("file:///workspace/large.txt");
-        edit.insert(uri, Position(0, 0), QString(MaxMessageBytes + 1, QLatin1Char('x')) + QString::fromUtf8("\xf0\x9f\x98\x80"));
-        auto request = encodeWorkspaceEdit({detail::WorkspaceEditAccess::entries(edit), {{uri.toString(QUrl::FullyEncoded), 3}}, {}});
+        edit.insert(uri, Position(0, 0),
+                    QString(MaxMessageBytes + 1, QLatin1Char('x')) +
+                        QString::fromUtf8("\xf0\x9f\x98\x80"));
+        auto request = encodeWorkspaceEdit({detail::WorkspaceEditAccess::entries(edit),
+                                            {{uri.toString(QUrl::FullyEncoded), 3}},
+                                            {}});
         request.insert("event", "workspaceApplyEdit");
         request.insert("requestId", "17");
         QVERIFY(encode(request).isEmpty());
@@ -54,17 +58,25 @@ class ExtensionWireTests final : public QObject {
         QVERIFY(!editDecoder.transferring());
         const auto restored = decodeWorkspaceEdit(*completed);
         QVERIFY(restored);
-        QCOMPARE(std::get<detail::WorkspaceTextEntry>(restored->entries.first()).edit.newText, edit.get(uri).first().newText);
+        QCOMPARE(std::get<detail::WorkspaceTextEntry>(restored->entries.first()).edit.newText,
+                 edit.get(uri).first().newText);
     }
     void smallWorkspaceEditsKeepSingleFramePath() {
-        const QJsonObject request{{"event", "workspaceApplyEdit"}, {"requestId", "1"}, {"entries", QJsonArray{}}, {"versions", QJsonObject{}}};
+        const QJsonObject request{{"event", "workspaceApplyEdit"},
+                                  {"requestId", "1"},
+                                  {"entries", QJsonArray{}},
+                                  {"versions", QJsonObject{}}};
         QVector<QJsonObject> sent;
         sendWorkspaceEdit(request, [&](const auto& frame) { sent.append(frame); });
         QCOMPARE(sent, QVector<QJsonObject>{request});
     }
     void workspaceEditTransfersRejectMalformedFramesAndReset() {
-        const QJsonObject begin{{"event", "workspaceEditBegin"}, {"requestId", "1"}, {"length", "2"}};
-        const QJsonObject chunk{{"event", "workspaceEditChunk"}, {"requestId", "1"}, {"sequence", "0"}, {"data", "e30="}};
+        const QJsonObject begin{
+            {"event", "workspaceEditBegin"}, {"requestId", "1"}, {"length", "2"}};
+        const QJsonObject chunk{{"event", "workspaceEditChunk"},
+                                {"requestId", "1"},
+                                {"sequence", "0"},
+                                {"data", "e30="}};
         WorkspaceEditTransferDecoder decoder;
         QString error;
         const auto start = [&] {
@@ -95,7 +107,8 @@ class ExtensionWireTests final : public QObject {
         QVERIFY(!decoder.accept(invalid, &error));
         QVERIFY(!error.isEmpty());
         start();
-        QVERIFY(!decoder.accept({{"event", "workspaceEditEnd"}, {"requestId", "1"}, {"sequence", "0"}}, &error));
+        QVERIFY(!decoder.accept(
+            {{"event", "workspaceEditEnd"}, {"requestId", "1"}, {"sequence", "0"}}, &error));
         QVERIFY(!error.isEmpty());
         start();
         QVERIFY(!decoder.accept(begin, &error));
@@ -116,7 +129,8 @@ class ExtensionWireTests final : public QObject {
         start();
         QVERIFY(!decoder.accept(chunk, &error));
         QVERIFY(error.isEmpty());
-        QVERIFY(!decoder.accept({{"event", "workspaceEditEnd"}, {"requestId", "1"}, {"sequence", "1"}}, &error));
+        QVERIFY(!decoder.accept(
+            {{"event", "workspaceEditEnd"}, {"requestId", "1"}, {"sequence", "1"}}, &error));
         QVERIFY(!error.isEmpty());
         QVERIFY(!decoder.transferring());
         start();
@@ -128,10 +142,13 @@ class ExtensionWireTests final : public QObject {
         using namespace litecode::extensions;
         WorkspaceEdit edit;
         const QUrl uri("file:///workspace/test.txt");
-        edit.insert(uri, Position(0, 0), "first", WorkspaceEditEntryMetadata{true, "Review", QString("description"), {}});
+        edit.insert(uri, Position(0, 0), "first",
+                    WorkspaceEditEntryMetadata{true, "Review", QString("description"), {}});
         edit.createFile(QUrl("file:///workspace/new.txt"), {{}, {}, QByteArray("bytes")});
         edit.renameFile(uri, QUrl("file:///workspace/renamed.txt"), {true, false});
-        const WorkspaceEditRequest request{detail::WorkspaceEditAccess::entries(edit), {{uri.toString(QUrl::FullyEncoded), 7}}, WorkspaceEditMetadata{true}};
+        const WorkspaceEditRequest request{detail::WorkspaceEditAccess::entries(edit),
+                                           {{uri.toString(QUrl::FullyEncoded), 7}},
+                                           WorkspaceEditMetadata{true}};
         const auto encoded = encodeWorkspaceEdit(request);
         const auto decoded = decodeWorkspaceEdit(encoded);
         QVERIFY(decoded);
@@ -140,7 +157,8 @@ class ExtensionWireTests final : public QObject {
         QCOMPARE(text.edit.newText, QString("first"));
         QVERIFY(text.metadata->needsConfirmation);
         QCOMPARE(text.metadata->description, std::optional(QString("description")));
-        QCOMPARE(std::get<detail::WorkspaceCreateEntry>(decoded->entries[1]).options.contents, std::optional(QByteArray("bytes")));
+        QCOMPARE(std::get<detail::WorkspaceCreateEntry>(decoded->entries[1]).options.contents,
+                 std::optional(QByteArray("bytes")));
         QCOMPARE(decoded->versions.value(uri.toString(QUrl::FullyEncoded)), qint64(7));
         auto malformed = encoded;
         malformed.insert("versions", QJsonObject{{uri.toString(QUrl::FullyEncoded), "07"}});
@@ -148,7 +166,8 @@ class ExtensionWireTests final : public QObject {
     }
     void progressOptionsAndDeltaReports() {
         using namespace litecode::extensions;
-        for (const auto location : {ProgressLocation::SourceControl, ProgressLocation::Window, ProgressLocation::Notification}) {
+        for (const auto location : {ProgressLocation::SourceControl, ProgressLocation::Window,
+                                    ProgressLocation::Notification}) {
             const ProgressOptions options{location, QString("Working"), false};
             const auto encoded = encodeProgressOptions(options);
             const auto decoded = decodeProgressOptions(encoded);
@@ -161,7 +180,8 @@ class ExtensionWireTests final : public QObject {
         const ProgressOptions view{ProgressOptions::ViewLocation{"example.view"}, {}, {}};
         const auto decoded = decodeProgressOptions(encodeProgressOptions(view));
         QVERIFY(decoded);
-        QCOMPARE(std::get<ProgressOptions::ViewLocation>(decoded->location).viewId, QString("example.view"));
+        QCOMPARE(std::get<ProgressOptions::ViewLocation>(decoded->location).viewId,
+                 QString("example.view"));
         QVERIFY(!decoded->title);
         QVERIFY(!decoded->cancellable);
         QVERIFY(!decodeProgressOptions({}));
@@ -182,7 +202,8 @@ class ExtensionWireTests final : public QObject {
         open.canSelectFolders = false;
         open.canSelectMany = true;
         open.defaultUri = QUrl::fromLocalFile("/some folder/file.txt");
-        open.filters = QVector<std::pair<QString, QStringList>>{{"Z first", {"txt"}}, {"A second", {"png", "jpg"}}};
+        open.filters = QVector<std::pair<QString, QStringList>>{{"Z first", {"txt"}},
+                                                                {"A second", {"png", "jpg"}}};
         const auto encoded = encodeOpenDialogOptions(open);
         const auto decoded = decodeOpenDialogOptions(encoded);
         QVERIFY(decoded);
@@ -195,7 +216,9 @@ class ExtensionWireTests final : public QObject {
         QVERIFY(!decodeOpenDialogOptions({{"canSelectFiles", 0}}));
         QVERIFY(!decodeOpenDialogOptions({{"defaultUri", true}}));
         QVERIFY(!decodeSaveDialogOptions({{"saveLabel", 1}}));
-        QVERIFY(!decodeSaveDialogOptions({{"filters", QJsonArray{QJsonObject{{"name", "Bad"}, {"extensions", QJsonArray{42}}}}}}));
+        QVERIFY(!decodeSaveDialogOptions(
+            {{"filters",
+              QJsonArray{QJsonObject{{"name", "Bad"}, {"extensions", QJsonArray{42}}}}}}));
         litecode::extensions::SaveDialogOptions save;
         save.saveLabel = "Save it";
         save.title = "Save title";
@@ -239,13 +262,17 @@ class ExtensionWireTests final : public QObject {
         Decoder decoder;
         QVERIFY(!decoder.consume(frame("not json")).error.isEmpty());
         decoder.reset();
-        QVERIFY(!decoder.consume(frame(QJsonDocument(QJsonObject{
-            {"protocol", ProtocolVersion + 1}, {"message", QJsonObject{}}})
-                                           .toJson(QJsonDocument::Compact))).error.isEmpty());
+        QVERIFY(!decoder
+                     .consume(frame(QJsonDocument(QJsonObject{{"protocol", ProtocolVersion + 1},
+                                                              {"message", QJsonObject{}}})
+                                        .toJson(QJsonDocument::Compact)))
+                     .error.isEmpty());
         decoder.reset();
-        QVERIFY(!decoder.consume(frame(QJsonDocument(QJsonObject{
-            {"protocol", ProtocolVersion}, {"message", "wrong type"}})
-                                           .toJson(QJsonDocument::Compact))).error.isEmpty());
+        QVERIFY(!decoder
+                     .consume(frame(QJsonDocument(QJsonObject{{"protocol", ProtocolVersion},
+                                                              {"message", "wrong type"}})
+                                        .toJson(QJsonDocument::Compact)))
+                     .error.isEmpty());
     }
 
     void boundsOutboundMessages() {

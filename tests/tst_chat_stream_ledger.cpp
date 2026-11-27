@@ -5,8 +5,8 @@
 #include <QJsonArray>
 #include <QtTest>
 
-using litecode::extensions::ChatStreamLedger;
 using litecode::extensions::ChatHistory;
+using litecode::extensions::ChatStreamLedger;
 
 class ChatStreamLedgerTests final : public QObject {
     Q_OBJECT
@@ -20,13 +20,13 @@ class ChatStreamLedgerTests final : public QObject {
         const QVector<QJsonObject> parts{
             {{"kind", "markdown"}, {"value", "test"}},
             {{"kind", "anchor"}, {"value", "file:///example.py"}, {"title", "Example"}},
-            {{"kind", "button"}, {"value", QJsonObject{{"command", "test.open"},
-                                                          {"title", "Open"}}}},
-            {{"kind", "filetree"}, {"value", QJsonArray{QJsonObject{{"name", "file.py"}}}},
-                                    {"baseUri", "file:///workspace"}},
+            {{"kind", "button"},
+             {"value", QJsonObject{{"command", "test.open"}, {"title", "Open"}}}},
+            {{"kind", "filetree"},
+             {"value", QJsonArray{QJsonObject{{"name", "file.py"}}}},
+             {"baseUri", "file:///workspace"}},
             {{"kind", "progress"}, {"value", "Working"}},
-            {{"kind", "reference"}, {"value", "file:///example.py"}}
-        };
+            {{"kind", "reference"}, {"value", "file:///example.py"}}};
         quint64 sequence = 0;
         for (const auto& payload : parts) {
             const auto part = ledger.append(41, payload);
@@ -48,23 +48,33 @@ class ChatStreamLedgerTests final : public QObject {
         QVERIFY(!ledger.append(9, {{"kind", "anchor"}, {"value", 12}}));
         QVERIFY(!ledger.append(9, {{"kind", "button"}, {"value", "not a command"}}));
         QVERIFY(!ledger.append(9, {{"kind", "filetree"}, {"value", QJsonArray{}}}));
-        QVERIFY(!ledger.append(9, {{"kind", "filetree"}, {"value", QJsonArray{}},
-            {"baseUri", QJsonObject{{"uri", "file:///workspace"},
-                                     {"range", QJsonObject{}}}}}));
-        QVERIFY(!ledger.append(9, {{"kind", "markdown"},
-            {"value", QJsonObject{{"value", "text"}, {"isTrusted", true}}}}));
-        QVERIFY(!ledger.append(9, {{"kind", "markdown"},
-            {"value", QJsonObject{{"value", "text"},
-                {"isTrusted", QJsonObject{{"enabledCommands", QJsonArray{7}}}}}}}));
+        QVERIFY(!ledger.append(
+            9, {{"kind", "filetree"},
+                {"value", QJsonArray{}},
+                {"baseUri", QJsonObject{{"uri", "file:///workspace"}, {"range", QJsonObject{}}}}}));
+        QVERIFY(
+            !ledger.append(9, {{"kind", "markdown"},
+                               {"value", QJsonObject{{"value", "text"}, {"isTrusted", true}}}}));
+        QVERIFY(!ledger.append(
+            9, {{"kind", "markdown"},
+                {"value",
+                 QJsonObject{{"value", "text"},
+                             {"isTrusted", QJsonObject{{"enabledCommands", QJsonArray{7}}}}}}}));
         QVERIFY(!ledger.append(9, {{"kind", "reference"},
-            {"value", "file:///test.cpp"}, {"iconPath", QJsonObject{{"id", 7}}}}));
+                                   {"value", "file:///test.cpp"},
+                                   {"iconPath", QJsonObject{{"id", 7}}}}));
         QVERIFY(!ledger.append(9, {{"kind", "button"},
-            {"value", QJsonObject{{"command", "test.open"},
-                                   {"title", "Open"}, {"arguments", "wrong"}}}}));
-        QVERIFY(!ledger.append(9, {{"kind", "anchor"},
-            {"value", QJsonObject{{"uri", "file:///test.cpp"},
-                {"range", QJsonObject{{"start", QJsonObject{{"line", 3}, {"character", 0}}},
-                                      {"end", QJsonObject{{"line", 2}, {"character", 0}}}}}}}}));
+                                   {"value", QJsonObject{{"command", "test.open"},
+                                                         {"title", "Open"},
+                                                         {"arguments", "wrong"}}}}));
+        QVERIFY(!ledger.append(
+            9,
+            {{"kind", "anchor"},
+             {"value",
+              QJsonObject{
+                  {"uri", "file:///test.cpp"},
+                  {"range", QJsonObject{{"start", QJsonObject{{"line", 3}, {"character", 0}}},
+                                        {"end", QJsonObject{{"line", 2}, {"character", 0}}}}}}}}));
         const auto first = ledger.append(9, {{"kind", "markdown"}, {"value", "ok"}});
         QVERIFY(first.has_value());
         QCOMPARE(first->sequence, quint64(0));
@@ -80,11 +90,11 @@ class ChatStreamLedgerTests final : public QObject {
     }
     void participantHistoryKeepsOnlyContentParts() {
         ChatHistory history;
-        const QJsonObject request{{"prompt", "Explain #file"},
-                                  {"command", "explain"},
-                                  {"references", QJsonArray{QJsonObject{{"id", "file"},
-                                                                         {"value", "test.cpp"}}}},
-                                  {"toolReferences", QJsonArray{}}};
+        const QJsonObject request{
+            {"prompt", "Explain #file"},
+            {"command", "explain"},
+            {"references", QJsonArray{QJsonObject{{"id", "file"}, {"value", "test.cpp"}}}},
+            {"toolReferences", QJsonArray{}}};
         const QJsonArray parts{
             QJsonObject{{"kind", "progress"}, {"value", "Reading"}},
             QJsonObject{{"kind", "markdown"}, {"value", "Answer"}},
@@ -92,18 +102,16 @@ class ChatStreamLedgerTests final : public QObject {
             QJsonObject{{"kind", "anchor"}, {"value", "file:///test.cpp"}},
             QJsonObject{{"kind", "button"},
                         {"value", QJsonObject{{"command", "open"}, {"title", "Open"}}}},
-            QJsonObject{{"kind", "filetree"}, {"value", QJsonArray{}},
-                        {"baseUri", "file:///workspace"}}};
+            QJsonObject{
+                {"kind", "filetree"}, {"value", QJsonArray{}}, {"baseUri", "file:///workspace"}}};
         const QJsonObject result{{"metadata", QJsonObject{{"model", "test"}}}};
         QVERIFY(history.record("tests.chat.one", request, parts, result));
         QVERIFY(history.history("tests.chat.other").isEmpty());
         const auto turns = history.history("tests.chat.one");
         QCOMPARE(turns.size(), 2);
         QCOMPARE(turns.at(0).toObject().value("kind").toString(), QString("request"));
-        QCOMPARE(turns.at(0).toObject().value("prompt").toString(),
-                 QString("Explain #file"));
-        QCOMPARE(turns.at(0).toObject().value("participant").toString(),
-                 QString("tests.chat.one"));
+        QCOMPARE(turns.at(0).toObject().value("prompt").toString(), QString("Explain #file"));
+        QCOMPARE(turns.at(0).toObject().value("participant").toString(), QString("tests.chat.one"));
         QCOMPARE(turns.at(0).toObject().value("references").toArray().size(), 1);
         QCOMPARE(turns.at(1).toObject().value("kind").toString(), QString("response"));
         QCOMPARE(turns.at(1).toObject().value("response").toArray().size(), 4);
@@ -117,13 +125,12 @@ class ChatStreamLedgerTests final : public QObject {
     }
     void invalidHistoryDoesNotPartiallyAppend() {
         ChatHistory history;
-        const QJsonObject request{{"prompt", "hello"},
-                                  {"references", QJsonArray{}},
-                                  {"toolReferences", QJsonArray{}}};
+        const QJsonObject request{
+            {"prompt", "hello"}, {"references", QJsonArray{}}, {"toolReferences", QJsonArray{}}};
         QVERIFY(!history.record("", request, {}, {}));
         QVERIFY(!history.record("tests.chat", QJsonObject{{"prompt", "hello"}}, {}, {}));
-        QVERIFY(!history.record("tests.chat", request,
-                                QJsonArray{QJsonObject{{"kind", "unknown"}}}, {}));
+        QVERIFY(!history.record("tests.chat", request, QJsonArray{QJsonObject{{"kind", "unknown"}}},
+                                {}));
         QVERIFY(!history.record("tests.chat", request,
                                 QJsonArray{QJsonObject{{"kind", "markdown"}}}, {}));
         QVERIFY(history.history("tests.chat").isEmpty());
@@ -131,30 +138,31 @@ class ChatStreamLedgerTests final : public QObject {
         QCOMPARE(history.history("tests.chat").size(), 2);
     }
     void requestReferencesAreTypedValidatedAndReverseOrdered() {
-        const QJsonObject sourceRange{
-            {"start", QJsonObject{{"line", 2}, {"character", 1}}},
-            {"end", QJsonObject{{"line", 2}, {"character", 4}}}};
-        const QJsonObject locationValue{{"uri", "file:///b.py"},
-                                        {"range", sourceRange}};
+        const QJsonObject sourceRange{{"start", QJsonObject{{"line", 2}, {"character", 1}}},
+                                      {"end", QJsonObject{{"line", 2}, {"character", 4}}}};
+        const QJsonObject locationValue{{"uri", "file:///b.py"}, {"range", sourceRange}};
         const QJsonArray references{
-            QJsonObject{{"id", "a"}, {"range", QJsonArray{0, 2}},
+            QJsonObject{{"id", "a"},
+                        {"range", QJsonArray{0, 2}},
                         {"modelDescription", "Source"},
-                        {"$litecodeValueType", "uri"}, {"value", "file:///a.py"}},
+                        {"$litecodeValueType", "uri"},
+                        {"value", "file:///a.py"}},
             QJsonObject{{"id", "attachment"}, {"value", QJsonObject{{"data", 7}}}},
-            QJsonObject{{"id", "b"}, {"range", QJsonArray{3, 5}},
-                        {"$litecodeValueType", "location"}, {"value", locationValue}}};
+            QJsonObject{{"id", "b"},
+                        {"range", QJsonArray{3, 5}},
+                        {"$litecodeValueType", "location"},
+                        {"value", locationValue}}};
         const QJsonArray toolReferences{
             QJsonObject{{"name", "first"}, {"range", QJsonArray{0, 2}}},
             QJsonObject{{"name", "second"}, {"range", QJsonArray{3, 5}}}};
-        const QJsonObject input{{"prompt", "#a #b"},
-                                {"references", references},
-                                {"toolReferences", toolReferences}};
+        const QJsonObject input{
+            {"prompt", "#a #b"}, {"references", references}, {"toolReferences", toolReferences}};
         const auto normalized = litecode::extensions::wire::normalizeChatRequest(input);
         QVERIFY(normalized.has_value());
-        const auto references = normalized->value("references").toArray();
-        QCOMPARE(references.at(0).toObject().value("id").toString(), QString("b"));
-        QCOMPARE(references.at(1).toObject().value("id").toString(), QString("a"));
-        QCOMPARE(references.at(2).toObject().value("id").toString(),
+        const auto normalizedReferences = normalized->value("references").toArray();
+        QCOMPARE(normalizedReferences.at(0).toObject().value("id").toString(), QString("b"));
+        QCOMPARE(normalizedReferences.at(1).toObject().value("id").toString(), QString("a"));
+        QCOMPARE(normalizedReferences.at(2).toObject().value("id").toString(),
                  QString("attachment"));
         const auto request = litecode::extensions::wire::decodeChatRequest(*normalized);
         QVERIFY(request.has_value());
@@ -163,8 +171,8 @@ class ChatStreamLedgerTests final : public QObject {
         QCOMPARE(request->references.at(1).modelDescription.value(), QString("Source"));
         QVERIFY(std::holds_alternative<litecode::extensions::Location>(
             request->references.at(0).value));
-        const auto location = std::get<litecode::extensions::Location>(
-            request->references.at(0).value);
+        const auto location =
+            std::get<litecode::extensions::Location>(request->references.at(0).value);
         QCOMPARE(location.uri.toString(), QString("file:///b.py"));
         QCOMPARE(location.range.end().character(), 4);
         QVERIFY(std::holds_alternative<QUrl>(request->references.at(1).value));
@@ -174,19 +182,22 @@ class ChatStreamLedgerTests final : public QObject {
         QJsonObject invalid = input;
         invalid.insert("references", QJsonArray{QJsonObject{{"id", "missing"}}});
         QVERIFY(!litecode::extensions::wire::normalizeChatRequest(invalid));
-        invalid.insert("references", QJsonArray{QJsonObject{{"id", "outside"},
-            {"range", QJsonArray{0, 6}}, {"value", "x"}}});
+        invalid.insert("references",
+                       QJsonArray{QJsonObject{
+                           {"id", "outside"}, {"range", QJsonArray{0, 6}}, {"value", "x"}}});
         QVERIFY(!litecode::extensions::wire::normalizeChatRequest(invalid));
-        invalid.insert("references", QJsonArray{QJsonObject{{"id", "bad-uri"},
-            {"$litecodeValueType", "uri"}, {"value", ""}}});
+        invalid.insert("references",
+                       QJsonArray{QJsonObject{
+                           {"id", "bad-uri"}, {"$litecodeValueType", "uri"}, {"value", ""}}});
         QVERIFY(!litecode::extensions::wire::normalizeChatRequest(invalid));
         invalid = input;
         invalid.insert("toolReferences", QJsonArray{QJsonObject{{"range", QJsonArray{0, 2}}}});
         QVERIFY(!litecode::extensions::wire::normalizeChatRequest(invalid));
         // QString/JavaScript prompt offsets count UTF-16 code units, not code points.
-        invalid = QJsonObject{{"prompt", QString::fromUtf8("😀#a")},
-            {"references", QJsonArray{QJsonObject{{"id", "a"},
-                {"range", QJsonArray{2, 4}}, {"value", "a"}}}}};
+        invalid = QJsonObject{
+            {"prompt", QString::fromUtf8("😀#a")},
+            {"references",
+             QJsonArray{QJsonObject{{"id", "a"}, {"range", QJsonArray{2, 4}}, {"value", "a"}}}}};
         QVERIFY(litecode::extensions::wire::normalizeChatRequest(invalid));
     }
     void historyDecoderRejectsInvalidTurnSequences() {
@@ -197,34 +208,32 @@ class ChatStreamLedgerTests final : public QObject {
                                   {"toolReferences", QJsonArray{}}};
         const QJsonArray parts{
             QJsonObject{{"kind", "progress"}, {"value", "Working"}},
-            QJsonObject{{"kind", "markdown"},
-                        {"value", QJsonObject{{"value", "Answer"}}}},
+            QJsonObject{{"kind", "markdown"}, {"value", QJsonObject{{"value", "Answer"}}}},
             QJsonObject{{"kind", "reference"}, {"value", "file:///a.py"}},
             QJsonObject{{"kind", "button"},
                         {"value", QJsonObject{{"command", "open"}, {"title", "Open"}}}}};
         const QJsonObject result{{"metadata", QJsonObject{{"model", "test"}}}};
         QVERIFY(history.record("tests.chat", request, parts, result));
         const auto turns = history.history("tests.chat");
-        const auto decoded = litecode::extensions::wire::decodeChatContext(turns,
-                                                                           "tests.chat");
+        const auto decoded = litecode::extensions::wire::decodeChatContext(turns, "tests.chat");
         QVERIFY(decoded.has_value());
         QCOMPARE(decoded->history.size(), 2);
-        QVERIFY(std::holds_alternative<litecode::extensions::ChatRequestTurn>(
-            decoded->history.at(0)));
-        const auto& response = std::get<litecode::extensions::ChatResponseTurn>(
-            decoded->history.at(1));
+        QVERIFY(
+            std::holds_alternative<litecode::extensions::ChatRequestTurn>(decoded->history.at(0)));
+        const auto& response =
+            std::get<litecode::extensions::ChatResponseTurn>(decoded->history.at(1));
         QCOMPARE(response.response.size(), 2);
         QVERIFY(std::holds_alternative<litecode::extensions::ChatResponseMarkdownPart>(
             response.response.at(0)));
         QCOMPARE(response.result.metadata.value("model").toString(), QString("test"));
         QCOMPARE(response.command.value(), QString("explain"));
         QVERIFY(!litecode::extensions::wire::decodeChatContext(turns, "other.chat"));
-        QVERIFY(!litecode::extensions::wire::decodeChatContext(
-            QJsonArray{turns.first()}, "tests.chat"));
+        QVERIFY(!litecode::extensions::wire::decodeChatContext(QJsonArray{turns.first()},
+                                                               "tests.chat"));
         QJsonArray invalid = turns;
         auto responseTurn = invalid.at(1).toObject();
-        responseTurn.insert("response", QJsonArray{
-            QJsonObject{{"kind", "progress"}, {"value", "not content"}}});
+        responseTurn.insert(
+            "response", QJsonArray{QJsonObject{{"kind", "progress"}, {"value", "not content"}}});
         invalid.replace(1, responseTurn);
         QVERIFY(!litecode::extensions::wire::decodeChatContext(invalid, "tests.chat"));
         responseTurn = turns.at(1).toObject();

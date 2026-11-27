@@ -1,15 +1,15 @@
-#include "ui/EditorArea.h"
 #include "editor/ScintillaEditor.h"
-#include "extensions/TextEditorEditData.h"
 #include "extensions/EditorStateWire.h"
 #include "extensions/ExtensionManager.h"
+#include "extensions/TextEditorEditData.h"
+#include "ui/EditorArea.h"
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QLayout>
-#include <QTemporaryDir>
 #include <QSignalSpy>
 #include <QTabBar>
+#include <QTemporaryDir>
 #include <QToolButton>
 #include <QtTest>
 
@@ -27,13 +27,14 @@ extensions::TextEditorEditData editFor(const ui::EditorArea& area, core::Documen
     data.documentVersionId = area.extensionDocumentSnapshot(id)->version;
     return data;
 }
-}
+} // namespace
 class EditorApplicationTests final : public QObject {
     Q_OBJECT
   private slots:
     void nativeExtensionReadsEditorAndAppliesEditAcrossSeparateHost() {
         QTemporaryDir directory;
-        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN, directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
+        QVERIFY(QFile::copy(LITECODE_TEST_PLUGIN,
+                            directory.filePath(QFileInfo(LITECODE_TEST_PLUGIN).fileName())));
         const auto path = createFile(directory, "abc");
         ui::EditorArea area;
         QVERIFY(area.openFile(path));
@@ -45,38 +46,54 @@ class EditorApplicationTests final : public QObject {
         extensions::ExtensionManager manager(directory.path());
         manager.setHostExecutablePath(LITECODE_EXTENSION_HOST);
         manager.documents().update(*area.extensionDocumentSnapshot(id));
-        manager.setEditorStateSource([&area] { return area.extensionEditorState(); },
-            [&area](const QString& identity, const extensions::TextEditorEditData& edit) { return area.applyTextEditorEdit(identity, edit); });
-        connect(&area, &ui::EditorArea::extensionEditorStateChanged, &manager, &extensions::ExtensionManager::setEditorState);
+        manager.setEditorStateSource(
+            [&area] { return area.extensionEditorState(); },
+            [&area](const QString& identity, const extensions::TextEditorEditData& edit) {
+                return area.applyTextEditorEdit(identity, edit);
+            });
+        connect(&area, &ui::EditorArea::extensionEditorStateChanged, &manager,
+                &extensions::ExtensionManager::setEditorState);
         connect(&area, &ui::EditorArea::documentEdited, &manager,
-            [&area, &manager](const core::DocumentEdit& edit) {
-                const auto snapshot = area.extensionDocumentSnapshot(edit.documentId);
-                QVERIFY(snapshot);
-                const extensions::Range range(edit.range.start.line, edit.range.start.utf16Column,
-                    edit.range.end.line, edit.range.end.utf16Column);
-                if (!manager.documents().change(QString::number(edit.documentId.value()), edit.version + 1,
-                    range, QString::fromUtf8(edit.insertedText), snapshot->dirty)) manager.documents().update(*snapshot);
-            });
+                [&area, &manager](const core::DocumentEdit& edit) {
+                    const auto snapshot = area.extensionDocumentSnapshot(edit.documentId);
+                    QVERIFY(snapshot);
+                    const extensions::Range range(edit.range.start.line,
+                                                  edit.range.start.utf16Column, edit.range.end.line,
+                                                  edit.range.end.utf16Column);
+                    if (!manager.documents().change(
+                            QString::number(edit.documentId.value()), edit.version + 1, range,
+                            QString::fromUtf8(edit.insertedText), snapshot->dirty))
+                        manager.documents().update(*snapshot);
+                });
         connect(&area, &ui::EditorArea::documentEditsApplied, &manager,
-            [&area, &manager](core::DocumentId documentId, const QVector<core::DocumentEdit>& edits) {
-                const auto snapshot = area.extensionDocumentSnapshot(documentId);
-                QVERIFY(snapshot);
-                QVector<extensions::TextEdit> changes;
-                for (const auto& edit : edits) changes.append(extensions::TextEdit(
-                    extensions::Range(edit.range.start.line, edit.range.start.utf16Column,
-                        edit.range.end.line, edit.range.end.utf16Column), QString::fromUtf8(edit.insertedText)));
-                if (!edits.isEmpty() && !manager.documents().changeBatch(QString::number(documentId.value()),
-                    edits.first().version + 1, changes, snapshot->dirty)) manager.documents().update(*snapshot);
-            });
+                [&area, &manager](core::DocumentId documentId,
+                                  const QVector<core::DocumentEdit>& edits) {
+                    const auto snapshot = area.extensionDocumentSnapshot(documentId);
+                    QVERIFY(snapshot);
+                    QVector<extensions::TextEdit> changes;
+                    for (const auto& edit : edits)
+                        changes.append(extensions::TextEdit(
+                            extensions::Range(edit.range.start.line, edit.range.start.utf16Column,
+                                              edit.range.end.line, edit.range.end.utf16Column),
+                            QString::fromUtf8(edit.insertedText)));
+                    if (!edits.isEmpty() &&
+                        !manager.documents().changeBatch(QString::number(documentId.value()),
+                                                         edits.first().version + 1, changes,
+                                                         snapshot->dirty))
+                        manager.documents().update(*snapshot);
+                });
         connect(&area, &ui::EditorArea::documentSnapshotApplied, &manager,
-            [&manager](const extensions::TextDocumentSnapshot& snapshot) { manager.documents().update(snapshot); });
+                [&manager](const extensions::TextDocumentSnapshot& snapshot) {
+                    manager.documents().update(snapshot);
+                });
         connect(&area, &ui::EditorArea::documentSnapshotChanged, &manager,
-            [&area, &manager](core::DocumentId documentId, core::DocumentEditReason) {
-                manager.documents().update(*area.extensionDocumentSnapshot(documentId));
-            });
+                [&area, &manager](core::DocumentId documentId, core::DocumentEditReason) {
+                    manager.documents().update(*area.extensionDocumentSnapshot(documentId));
+                });
         manager.discover();
         QCOMPARE(manager.extensions().size(), 1);
-        QVERIFY2(manager.extensions().first().error.isEmpty(), qPrintable(manager.extensions().first().error));
+        QVERIFY2(manager.extensions().first().error.isEmpty(),
+                 qPrintable(manager.extensions().first().error));
         QVERIFY(manager.setEnabled("tests.native", true));
         QSignalSpy replies(&manager, &extensions::ExtensionManager::commandResult);
         const auto read = manager.requestCommand("tests.native.editorContext");
@@ -131,16 +148,16 @@ class EditorApplicationTests final : public QObject {
         qint64 publishedVersion = initial.documentVersion;
         int editorEvents = 0;
         connect(&area, &ui::EditorArea::documentEditsApplied, &area,
-            [&](core::DocumentId, const QVector<core::DocumentEdit>& edits) {
-                publishedVersion = edits.first().version + 1;
-                order.append("document");
-            });
+                [&](core::DocumentId, const QVector<core::DocumentEdit>& edits) {
+                    publishedVersion = edits.first().version + 1;
+                    order.append("document");
+                });
         connect(&area, &ui::EditorArea::extensionEditorStateChanged, &area,
-            [&](const extensions::WindowEditorState& state) {
-                QCOMPARE(state.editors.first().documentVersion, publishedVersion);
-                ++editorEvents;
-                order.append("editor");
-            });
+                [&](const extensions::WindowEditorState& state) {
+                    QCOMPARE(state.editors.first().documentVersion, publishedVersion);
+                    ++editorEvents;
+                    order.append("editor");
+                });
         auto transaction = editFor(area, id);
         transaction.edits.append({extensions::Range(0, 0, 0, 0), QString("Q"), true});
         QVERIFY(area.applyTextEditorEdit(initial.id, transaction));
@@ -150,11 +167,14 @@ class EditorApplicationTests final : public QObject {
         widget->selectByteRange(0, 0);
         widget->selectByteRange(1, 1);
         QTRY_COMPARE(editorEvents, 2);
-        QVERIFY(area.extensionEditorState().editors.first().selections.first().active().isEqual(extensions::Position(0, 1)));
+        QVERIFY(area.extensionEditorState().editors.first().selections.first().active().isEqual(
+            extensions::Position(0, 1)));
     }
     void editorContextUsesViewIdentityPrimaryFirstAndUtf16Columns() {
         QTemporaryDir directory;
-        const auto path = createFile(directory, QString::fromUtf8("\xc3\xa9" "bc\nlast").toUtf8());
+        const auto path = createFile(directory, QString::fromUtf8("\xc3\xa9"
+                                                                  "bc\nlast")
+                                                    .toUtf8());
         ui::EditorArea area;
         QVERIFY(area.openFile(path));
         QTRY_VERIFY(area.findChild<editor::ScintillaEditor*>());
@@ -166,12 +186,15 @@ class EditorApplicationTests final : public QObject {
         const auto& editor = state.editors.first();
         QCOMPARE(*state.activeEditorId, editor.id);
         QVERIFY(editor.id != editor.documentId);
-        QCOMPARE(editor.documentVersion, area.extensionDocumentSnapshot(core::DocumentId(editor.documentId.toULongLong()))->version);
+        QCOMPARE(editor.documentVersion,
+                 area.extensionDocumentSnapshot(core::DocumentId(editor.documentId.toULongLong()))
+                     ->version);
         QCOMPARE(editor.selections.size(), 2);
         QVERIFY(editor.selections[0].active().isEqual(extensions::Position(1, 4)));
         QVERIFY(editor.selections[1].anchor().isEqual(extensions::Position(0, 3)));
         QVERIFY(editor.selections[1].active().isEqual(extensions::Position(0, 1)));
-        const auto decoded = extensions::wire::decodeEditorState(extensions::wire::encodeEditorState(state));
+        const auto decoded =
+            extensions::wire::decodeEditorState(extensions::wire::encodeEditorState(state));
         QVERIFY(decoded);
         QVERIFY(extensions::wire::sameEditorState(state, *decoded));
         auto edit = editFor(area, core::DocumentId(editor.documentId.toULongLong()));
@@ -194,7 +217,9 @@ class EditorApplicationTests final : public QObject {
         QVERIFY(!area.extensionEditorState().activeEditorId);
         QVERIFY(area.extensionEditorState().editors.isEmpty());
         QVERIFY(!area.applyTextEditorEdit(editor.id, edit));
-        QCOMPARE(area.extensionDocumentSnapshot(core::DocumentId(editor.documentId.toULongLong()))->text, QString("abc"));
+        QCOMPARE(
+            area.extensionDocumentSnapshot(core::DocumentId(editor.documentId.toULongLong()))->text,
+            QString("abc"));
     }
     void auxiliaryTabUsesTheFileTabCloseButtonLayout() {
         QTemporaryDir directory;
@@ -216,7 +241,8 @@ class EditorApplicationTests final : public QObject {
         auto* detailsClose = detailsActions->findChild<QToolButton*>("editorTabClose");
         QTRY_VERIFY(detailsClose && detailsClose->isVisible());
         QCOMPARE(detailsActions->size(), fileActions->size());
-        QCOMPARE(detailsActions->layout()->contentsMargins(), fileActions->layout()->contentsMargins());
+        QCOMPARE(detailsActions->layout()->contentsMargins(),
+                 fileActions->layout()->contentsMargins());
         QCOMPARE(detailsClose->size(), fileClose->size());
         QCOMPARE(detailsClose->iconSize(), fileClose->iconSize());
         QVERIFY(detailsActions->layout()->contentsMargins().right() > 0);
@@ -226,18 +252,27 @@ class EditorApplicationTests final : public QObject {
         QCOMPARE(area.currentFile(), path);
     }
     void editorStateCodecRejectsInvalidCoordinatesVersionsAndActiveIdentity() {
-        extensions::WindowEditorState state{{{"view", "1", 2, {extensions::Selection(extensions::Position(0, 2), extensions::Position(0, 1))}}}, "view"};
+        extensions::WindowEditorState state{
+            {{"view",
+              "1",
+              2,
+              {extensions::Selection(extensions::Position(0, 2), extensions::Position(0, 1))}}},
+            "view"};
         auto value = extensions::wire::encodeEditorState(state);
         value.insert("activeEditorId", "unbound");
         QVERIFY(!extensions::wire::decodeEditorState(value));
         value = extensions::wire::encodeEditorState(state);
         auto editors = value.value("editors").toArray();
         auto editor = editors[0].toObject();
-        editor.insert("documentVersion", "02"); editors[0] = editor; value.insert("editors", editors);
+        editor.insert("documentVersion", "02");
+        editors[0] = editor;
+        value.insert("editors", editors);
         QVERIFY(!extensions::wire::decodeEditorState(value));
         editor.insert("documentVersion", "2");
-        editor.insert("selections", QJsonArray{QJsonObject{{"anchor", QJsonArray{0, 1.5}}, {"active", QJsonArray{0, 0}}}});
-        editors[0] = editor; value.insert("editors", editors);
+        editor.insert("selections", QJsonArray{QJsonObject{{"anchor", QJsonArray{0, 1.5}},
+                                                           {"active", QJsonArray{0, 0}}}});
+        editors[0] = editor;
+        value.insert("editors", editors);
         QVERIFY(!extensions::wire::decodeEditorState(value));
     }
     void eolPrecedesTextAndDefaultUndoStopWithOrderedNotifications() {
@@ -254,17 +289,17 @@ class EditorApplicationTests final : public QObject {
         data.edits.append({extensions::Range(1, 0, 1, 4), QString("new"), false});
         QStringList events;
         connect(&area, &ui::EditorArea::documentSnapshotApplied, &area,
-            [&](const extensions::TextDocumentSnapshot& snapshot) {
-                QCOMPARE(snapshot.text, QString("first\r\nlast"));
-                QCOMPARE(snapshot.version, data.documentVersionId + 1);
-                QCOMPARE(snapshot.eol, extensions::EndOfLine::CRLF);
-                events.append("eol");
-            });
+                [&](const extensions::TextDocumentSnapshot& snapshot) {
+                    QCOMPARE(snapshot.text, QString("first\r\nlast"));
+                    QCOMPARE(snapshot.version, data.documentVersionId + 1);
+                    QCOMPARE(snapshot.eol, extensions::EndOfLine::CRLF);
+                    events.append("eol");
+                });
         connect(&area, &ui::EditorArea::documentEditsApplied, &area,
-            [&](core::DocumentId, const QVector<core::DocumentEdit>& changes) {
-                QCOMPARE(changes.size(), 1);
-                events.append("text");
-            });
+                [&](core::DocumentId, const QVector<core::DocumentEdit>& changes) {
+                    QCOMPARE(changes.size(), 1);
+                    events.append("text");
+                });
         QString error;
         QVERIFY2(area.applyTextEditorEdit(id, data, &error), qPrintable(error));
         QCOMPARE(widget->text(), QByteArray("first\r\nnew"));
@@ -278,7 +313,8 @@ class EditorApplicationTests final : public QObject {
         QCOMPARE(widget->text(), QByteArray("first\nlast"));
         QCOMPARE(model->contents(), widget->text());
         QCOMPARE(model->session().lineEnding(), core::LineEnding::Lf);
-        widget->redo(); widget->redo();
+        widget->redo();
+        widget->redo();
         QCOMPARE(model->contents(), QByteArray("first\r\nnew"));
         QCOMPARE(widget->text(), model->contents());
     }
@@ -332,7 +368,9 @@ class EditorApplicationTests final : public QObject {
     }
     void multiSelectionsKeepDirectionAndPrimaryThroughUnicodeEdits() {
         QTemporaryDir directory;
-        const auto path = createFile(directory, QString::fromUtf8("\xc3\xa9" "bc\nlast").toUtf8());
+        const auto path = createFile(directory, QString::fromUtf8("\xc3\xa9"
+                                                                  "bc\nlast")
+                                                    .toUtf8());
         ui::EditorArea area;
         QVERIFY(area.openFile(path));
         QTRY_VERIFY(area.findChild<editor::ScintillaEditor*>());
@@ -390,7 +428,9 @@ class EditorApplicationTests final : public QObject {
     }
     void eolConversionPreservesUnicodeSelectionColumnsBeforeTrackingText() {
         QTemporaryDir directory;
-        const auto path = createFile(directory, QString::fromUtf8("\xc3\xa9\n\xf0\x9f\x98\x80" "x").toUtf8());
+        const auto path = createFile(directory, QString::fromUtf8("\xc3\xa9\n\xf0\x9f\x98\x80"
+                                                                  "x")
+                                                    .toUtf8());
         ui::EditorArea area;
         QVERIFY(area.openFile(path));
         QTRY_VERIFY(area.findChild<editor::ScintillaEditor*>());

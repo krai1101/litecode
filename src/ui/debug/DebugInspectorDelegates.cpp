@@ -153,8 +153,9 @@ void DebugInspectorTree::drawRow(QPainter* painter, const QStyleOptionViewItem& 
     const QRect row(0, option.rect.y(), viewport()->width(), option.rect.height());
     if (option.state & (QStyle::State_Selected | QStyle::State_MouseOver)) {
         components::paintTreeRowHighlight(*painter, row,
-            option.state & QStyle::State_Selected ? theme.listSelectionBackground
-                                                  : theme.listHoverBackground);
+                                          option.state & QStyle::State_Selected
+                                              ? theme.listSelectionBackground
+                                              : theme.listHoverBackground);
     }
 
     // QTreeView draws a separate selection panel in the branch gutter. Paint
@@ -187,8 +188,9 @@ void DebugInspectorTree::resizeEvent(QResizeEvent* event) {
         return;
     const int width = viewport()->width();
     const int badge = qMin(36, width);
-    const int detail = qMin(180, qMax(0, objectName() == "debugCallStack"
-        ? (width - badge) / 4 : (width - badge) * 2 / 5));
+    const int detail =
+        qMin(180, qMax(0, objectName() == "debugCallStack" ? (width - badge) / 4
+                                                           : (width - badge) * 2 / 5));
     header()->setSectionResizeMode(QHeaderView::Fixed);
     header()->resizeSection(0, qMax(0, width - badge - detail));
     header()->resizeSection(1, detail);

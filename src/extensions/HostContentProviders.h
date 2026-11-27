@@ -10,9 +10,11 @@ class HostContentProviders final : public QObject {
   public:
     HostContentProviders(HostDocuments& documents, std::function<void(const QJsonObject&)> send);
     ~HostContentProviders() override;
-    Disposable registerProvider(const QString& scheme, std::shared_ptr<TextDocumentContentProvider> provider);
+    Disposable registerProvider(const QString& scheme,
+                                std::shared_ptr<TextDocumentContentProvider> provider);
     void provide(quint64 handle, quint64 request, const QUrl& uri);
     void shutdown();
+
   private:
     struct Registration {
         QString scheme;
@@ -25,8 +27,10 @@ class HostContentProviders final : public QObject {
     void unregister(quint64 handle);
     void changed(const std::shared_ptr<Registration>& registration, const QUrl& uri);
     void nextChange(const std::shared_ptr<Registration>& registration);
-    QFuture<std::optional<QString>> invoke(const std::shared_ptr<Registration>& registration, const QUrl& uri);
-    void sendResult(quint64 handle, quint64 request, const QUrl& uri, std::optional<QString> text, QString error, bool change);
+    QFuture<std::optional<QString>> invoke(const std::shared_ptr<Registration>& registration,
+                                           const QUrl& uri);
+    void sendResult(quint64 handle, quint64 request, const QUrl& uri, std::optional<QString> text,
+                    QString error, bool change);
     bool stopped() const;
     QPointer<HostDocuments> documents_;
     std::function<void(const QJsonObject&)> send_;

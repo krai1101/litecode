@@ -1,11 +1,11 @@
 #pragma once
 #include "extensions/DialogApi.h"
-#include <QObject>
 #include <QFuture>
-#include <QPromise>
-#include <QMutex>
 #include <QHash>
 #include <QJsonObject>
+#include <QMutex>
+#include <QObject>
+#include <QPromise>
 #include <functional>
 #include <memory>
 
@@ -18,6 +18,7 @@ class HostDialogs final : public QObject {
     QFuture<std::optional<QUrl>> showSaveDialog(const SaveDialogOptions& options = {});
     void complete(quint64 id, const QJsonValue& resources, const QString& error);
     void shutdown();
+
   private:
     QFuture<std::optional<QVector<QUrl>>> request(bool save, const QJsonObject& options);
     std::function<void(const QJsonObject&)> send_;

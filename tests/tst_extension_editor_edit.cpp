@@ -6,23 +6,33 @@
 using namespace litecode::extensions;
 namespace {
 std::shared_ptr<HostTextDocument> document() {
-    return std::make_shared<HostTextDocument>(TextDocumentSnapshot{
-        "edit-document", QUrl("untitled:editor-edit"), "plaintext", "utf8",
-        "first\nsecond\n", 7, false, EndOfLine::LF, {}}, nullptr);
+    return std::make_shared<HostTextDocument>(TextDocumentSnapshot{"edit-document",
+                                                                   QUrl("untitled:editor-edit"),
+                                                                   "plaintext",
+                                                                   "utf8",
+                                                                   "first\nsecond\n",
+                                                                   7,
+                                                                   false,
+                                                                   EndOfLine::LF,
+                                                                   {}},
+                                              nullptr);
 }
-}
+} // namespace
 class EditorEditTests final : public QObject {
     Q_OBJECT
   private slots:
     void capturesVersionAndUndoStopsWithoutMutatingDocument() {
         const auto source = document();
         const auto original = source->getText();
-        const auto edits = HostTextEditorEdit::collect(source, [&](auto edit) {
-            edit->replace(Range(0, 0, 0, 2), "replacement\r\n");
-            edit->insert(Position(1, 0), "insert");
-            edit->delete_(Selection(1, 6, 1, 3));
-            edit->setEndOfLine(EndOfLine::CRLF);
-        }, false, true);
+        const auto edits = HostTextEditorEdit::collect(
+            source,
+            [&](auto edit) {
+                edit->replace(Range(0, 0, 0, 2), "replacement\r\n");
+                edit->insert(Position(1, 0), "insert");
+                edit->delete_(Selection(1, 6, 1, 3));
+                edit->setEndOfLine(EndOfLine::CRLF);
+            },
+            false, true);
         QCOMPARE(edits.documentVersionId, qint64(7));
         QVERIFY(!edits.undoStopBefore);
         QVERIFY(edits.undoStopAfter);
@@ -62,14 +72,20 @@ class EditorEditTests final : public QObject {
         QCOMPARE(touching.edits.size(), 3);
         // Validation uses a separate range list and must not sort this payload.
         QCOMPARE(touching.edits[0].text, std::optional(QString("later")));
-        QVERIFY_EXCEPTION_THROWN(HostTextEditorEdit::collect(document(), [](auto edit) {
-            edit->replace(Range(0, 0, 0, 4), "a");
-            edit->insert(Position(0, 2), "b");
-        }), std::invalid_argument);
-        QVERIFY_EXCEPTION_THROWN(HostTextEditorEdit::collect(document(), [](auto edit) {
-            edit->replace(Range(0, 0, 0, 100), "a");
-            edit->delete_(Range(0, 4, 1, 0));
-        }), std::invalid_argument);
+        QVERIFY_EXCEPTION_THROWN(HostTextEditorEdit::collect(document(),
+                                                             [](auto edit) {
+                                                                 edit->replace(Range(0, 0, 0, 4),
+                                                                               "a");
+                                                                 edit->insert(Position(0, 2), "b");
+                                                             }),
+                                 std::invalid_argument);
+        QVERIFY_EXCEPTION_THROWN(HostTextEditorEdit::collect(document(),
+                                                             [](auto edit) {
+                                                                 edit->replace(Range(0, 0, 0, 100),
+                                                                               "a");
+                                                                 edit->delete_(Range(0, 4, 1, 0));
+                                                             }),
+                                 std::invalid_argument);
     }
     void rejectsEveryMutationAfterCallbackAndOnCallbackFailure() {
         std::shared_ptr<TextEditorEdit> retained;
@@ -79,17 +95,23 @@ class EditorEditTests final : public QObject {
         QVERIFY_EXCEPTION_THROWN(retained->insert(Position(0, 0), "x"), std::logic_error);
         QVERIFY_EXCEPTION_THROWN(retained->delete_(Range(0, 0, 0, 1)), std::logic_error);
         QVERIFY_EXCEPTION_THROWN(retained->setEndOfLine(EndOfLine::LF), std::logic_error);
-        QVERIFY_EXCEPTION_THROWN(HostTextEditorEdit::collect(document(), [&](auto edit) {
-            retained = std::move(edit);
-            retained->insert(Position(0, 0), "not committed");
-            throw std::runtime_error("Callback failure");
-        }), std::runtime_error);
+        QVERIFY_EXCEPTION_THROWN(
+            HostTextEditorEdit::collect(document(),
+                                        [&](auto edit) {
+                                            retained = std::move(edit);
+                                            retained->insert(Position(0, 0), "not committed");
+                                            throw std::runtime_error("Callback failure");
+                                        }),
+            std::runtime_error);
         QVERIFY_EXCEPTION_THROWN(retained->insert(Position(0, 0), "x"), std::logic_error);
-        QVERIFY_EXCEPTION_THROWN(HostTextEditorEdit::collect(document(), [&](auto edit) {
-            retained = std::move(edit);
-            retained->replace(Range(0, 0, 0, 4), "a");
-            retained->replace(Range(0, 1, 0, 2), "b");
-        }), std::invalid_argument);
+        QVERIFY_EXCEPTION_THROWN(
+            HostTextEditorEdit::collect(document(),
+                                        [&](auto edit) {
+                                            retained = std::move(edit);
+                                            retained->replace(Range(0, 0, 0, 4), "a");
+                                            retained->replace(Range(0, 1, 0, 2), "b");
+                                        }),
+            std::invalid_argument);
         QVERIFY_EXCEPTION_THROWN(retained->insert(Position(0, 0), "x"), std::logic_error);
     }
     void retainedBuilderDoesNotKeepDocumentAlive() {
@@ -105,8 +127,11 @@ class EditorEditTests final : public QObject {
         std::atomic_bool refused{};
         const auto edits = HostTextEditorEdit::collect(document(), [&](auto edit) {
             std::thread worker([&, edit] {
-                try { edit->insert(Position(0, 0), "worker"); }
-                catch (const std::logic_error&) { refused = true; }
+                try {
+                    edit->insert(Position(0, 0), "worker");
+                } catch (const std::logic_error&) {
+                    refused = true;
+                }
             });
             worker.join();
             edit->insert(Position(0, 0), "callback");
@@ -121,7 +146,8 @@ class EditorEditTests final : public QObject {
             edit->delete_(Range(0, 1, 0, 2));
             edit->setEndOfLine(EndOfLine::CRLF);
             edit->setEndOfLine(EndOfLine::LF);
-            QVERIFY_EXCEPTION_THROWN(edit->setEndOfLine(static_cast<EndOfLine>(3)), std::invalid_argument);
+            QVERIFY_EXCEPTION_THROWN(edit->setEndOfLine(static_cast<EndOfLine>(3)),
+                                     std::invalid_argument);
         });
         QVERIFY(edits.edits[0].text.has_value());
         QVERIFY(edits.edits[0].text->isEmpty());
@@ -130,14 +156,16 @@ class EditorEditTests final : public QObject {
         QVERIFY(!edits.empty());
         QVERIFY(HostTextEditorEdit::collect(document(), [](auto) {}).empty());
         QVERIFY(!HostTextEditorEdit::collect(document(), [](auto edit) {
-            edit->setEndOfLine(EndOfLine::CRLF);
-        }).empty());
+                     edit->setEndOfLine(EndOfLine::CRLF);
+                 }).empty());
     }
     void invalidInputsNeverCallCallback() {
         bool called = false;
-        QVERIFY_EXCEPTION_THROWN(HostTextEditorEdit::collect(nullptr, [&](auto) { called = true; }), std::invalid_argument);
+        QVERIFY_EXCEPTION_THROWN(HostTextEditorEdit::collect(nullptr, [&](auto) { called = true; }),
+                                 std::invalid_argument);
         QVERIFY(!called);
-        QVERIFY_EXCEPTION_THROWN(HostTextEditorEdit::collect(document(), {}), std::invalid_argument);
+        QVERIFY_EXCEPTION_THROWN(HostTextEditorEdit::collect(document(), {}),
+                                 std::invalid_argument);
     }
 };
 QTEST_GUILESS_MAIN(EditorEditTests)

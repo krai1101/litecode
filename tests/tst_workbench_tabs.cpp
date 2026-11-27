@@ -1,23 +1,23 @@
-#include "ui/Theme.h"
 #include "ui/EditorArea.h"
+#include "ui/Theme.h"
+#include "ui/components/Controls.h"
+#include "ui/components/PanelHeader.h"
+#include "ui/components/WorkbenchTabs.h"
 #include "ui/explorer/ExplorerFileSystemModel.h"
 #include <QDir>
 #include <QFile>
-#include <QHelpEvent>
-#include <QTemporaryDir>
-#include "ui/components/WorkbenchTabs.h"
-#include "ui/components/Controls.h"
-#include "ui/components/PanelHeader.h"
 #include <QHBoxLayout>
-#include <QPlainTextEdit>
+#include <QHelpEvent>
 #include <QLabel>
 #include <QMainWindow>
 #include <QMenu>
+#include <QPlainTextEdit>
 #include <QScrollBar>
 #include <QTabBar>
+#include <QTemporaryDir>
 #include <QTimer>
-#include <QToolButton>
 #include <QToolBar>
+#include <QToolButton>
 #include <QWheelEvent>
 #include <QtTest>
 using namespace litecode::ui::components;
@@ -77,7 +77,8 @@ class WorkbenchTabsTests final : public QObject {
             for (int x = 10; x < image.width() - 10; ++x)
                 ink |= image.pixelColor(x, y).lightness() < 120;
         QVERIFY(ink);
-        if (const auto capture = qEnvironmentVariable("LITECODE_TOOLTIP_CAPTURE"); !capture.isEmpty())
+        if (const auto capture = qEnvironmentVariable("LITECODE_TOOLTIP_CAPTURE");
+            !capture.isEmpty())
             QVERIFY(image.save(capture));
         QTest::keyClick(editor, Qt::Key_Escape);
         QVERIFY(!tip->isVisible());
@@ -139,7 +140,8 @@ class WorkbenchTabsTests final : public QObject {
     void editorTabsRetainTheirExistingFlatStyle() {
         QTemporaryDir folder;
         litecode::ui::EditorArea editor;
-        for (const auto& name : {"__init__.py", "test_example.py", "run-tests.ps1", "testing.md", "development.toml"}) {
+        for (const auto& name : {"__init__.py", "test_example.py", "run-tests.ps1", "testing.md",
+                                 "development.toml"}) {
             const auto path = folder.filePath(name);
             QFile file(path);
             QVERIFY(file.open(QIODevice::WriteOnly));
@@ -160,7 +162,8 @@ class WorkbenchTabsTests final : public QObject {
         const auto accent = litecode::ui::Theme::tokens(false).accent;
         bool accentFound = false;
         for (int y = qRound(selected.top() * scale); y < qRound((selected.top() + 3) * scale); ++y)
-            accentFound |= image.pixelColor(qRound(selected.center().x() * scale), y).rgb() == accent.rgb();
+            accentFound |=
+                image.pixelColor(qRound(selected.center().x() * scale), y).rgb() == accent.rgb();
         QVERIFY2(accentFound, "The selected file tab must retain its flat accent top border");
     }
     void panelTabsRecoverSpaceWhenTheToolbarChanges() {

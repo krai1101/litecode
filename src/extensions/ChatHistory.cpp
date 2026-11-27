@@ -7,8 +7,7 @@ namespace litecode::extensions {
 namespace {
 bool isContentPart(const QJsonObject& part) {
     const auto kind = part.value("kind").toString();
-    return kind == "markdown" || kind == "filetree" || kind == "anchor" ||
-           kind == "button";
+    return kind == "markdown" || kind == "filetree" || kind == "anchor" || kind == "button";
 }
 } // namespace
 
@@ -19,16 +18,21 @@ QJsonArray ChatHistory::history(const QString& participantId) const {
 bool ChatHistory::record(const QString& participantId, const QJsonObject& request,
                          const QJsonArray& responseParts, const QJsonObject& result) {
     if (participantId.isEmpty() || !request.value("references").isArray() ||
-        !request.value("toolReferences").isArray()) return false;
+        !request.value("toolReferences").isArray())
+        return false;
     const auto normalized = wire::normalizeChatRequest(request);
-    if (!normalized) return false;
+    if (!normalized)
+        return false;
 
     QJsonArray content;
     for (const auto& value : responseParts) {
-        if (!value.isObject()) return false;
+        if (!value.isObject())
+            return false;
         const auto part = value.toObject();
-        if (!ChatStreamLedger::isValidPart(part)) return false;
-        if (isContentPart(part)) content.append(part);
+        if (!ChatStreamLedger::isValidPart(part))
+            return false;
+        if (isContentPart(part))
+            content.append(part);
     }
 
     QJsonObject requestTurn{{"kind", "request"},
@@ -52,8 +56,6 @@ bool ChatHistory::record(const QString& participantId, const QJsonObject& reques
     return true;
 }
 
-void ChatHistory::clear() {
-    turnsByParticipant_.clear();
-}
+void ChatHistory::clear() { turnsByParticipant_.clear(); }
 
 } // namespace litecode::extensions

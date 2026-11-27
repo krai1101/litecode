@@ -11,13 +11,22 @@ class HostDocumentOpening final : public QObject {
   public:
     HostDocumentOpening(HostDocuments& documents, HostWorkspaceRequests& requests);
     ~HostDocumentOpening() override;
-    QFuture<std::shared_ptr<TextDocument>> open(const QUrl& uri, const TextDocumentOpenOptions& options);
+    QFuture<std::shared_ptr<TextDocument>> open(const QUrl& uri,
+                                                const TextDocumentOpenOptions& options);
     QFuture<std::shared_ptr<TextDocument>> create(const UntitledTextDocumentOptions& options);
     void shutdown();
+
   private:
     using Promise = QPromise<std::shared_ptr<TextDocument>>;
-    struct Caller { quint64 id; QUrl uri; TextDocumentOpenOptions options; bool joined{}; };
-    struct Loader { QVector<Caller> callers; };
+    struct Caller {
+        quint64 id;
+        QUrl uri;
+        TextDocumentOpenOptions options;
+        bool joined{};
+    };
+    struct Loader {
+        QVector<Caller> callers;
+    };
     std::pair<quint64, QFuture<std::shared_ptr<TextDocument>>> registerRequest();
     void start(Caller caller);
     void resolve(quint64 id, std::shared_ptr<TextDocument> document, std::exception_ptr error = {});

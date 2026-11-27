@@ -14,6 +14,7 @@ class TaskRunner final : public QObject {
   signals:
     void outputReceived(const QString& text);
     void finished(bool success, const QString& error);
+
   private:
     void runNext();
     void finish(bool success, const QString& error);
@@ -23,5 +24,6 @@ class TaskRunner final : public QObject {
     QString currentLabel_;
     int nextIndex_{};
     bool active_{};
+    bool cancelling_{};
 };
 } // namespace litecode::debug

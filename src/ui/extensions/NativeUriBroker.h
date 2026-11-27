@@ -1,6 +1,6 @@
 #pragma once
-#include <QObject>
 #include <QList>
+#include <QObject>
 #include <QString>
 #include <QUrl>
 #include <functional>
@@ -17,8 +17,9 @@ class NativeUriBroker final : public QObject {
     void activated();
     // Returns the accepted prefix; callers retain every undelivered callback.
     static qsizetype forward(const QString& profile, const QList<QUrl>& uris);
+
   private:
     struct State;
     std::unique_ptr<State> state_;
 };
-}
+} // namespace litecode::ui

@@ -1,5 +1,5 @@
-#include "extensions/ExtensionApi.h"
 #include "FixturePersistence.h"
+#include "extensions/ExtensionApi.h"
 
 class OtherFormatterExtension final : public QObject, public litecode::extensions::Extension {
     Q_OBJECT
@@ -13,8 +13,7 @@ class OtherFormatterExtension final : public QObject, public litecode::extension
             "python", [](const QString& text) { return text.toUpper(); }));
         context.subscriptions.push_back(context.commands().registerCommand(
             "tests.otherFormatter.echo", [](const QJsonArray& arguments) -> QJsonValue {
-                return arguments.isEmpty() ? QJsonValue(QJsonValue::Undefined)
-                                           : arguments.first();
+                return arguments.isEmpty() ? QJsonValue(QJsonValue::Undefined) : arguments.first();
             }));
     }
     void deactivate() override {}

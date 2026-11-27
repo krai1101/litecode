@@ -1,8 +1,8 @@
 #pragma once
 #include "extensions/DialogApi.h"
-#include <QObject>
 #include <QHash>
 #include <QJsonObject>
+#include <QObject>
 #include <functional>
 #include <variant>
 
@@ -18,13 +18,18 @@ class WorkbenchDialogs final : public QObject {
     using Reply = std::function<void(std::optional<QVector<QUrl>>, const QString&)>;
     using QObject::QObject;
     bool accept(const QString& owner, const QJsonObject& message, Reply reply);
-    bool complete(const QString& owner, quint64 id, std::optional<QVector<QUrl>> selection, const QString& error = {});
+    bool complete(const QString& owner, quint64 id, std::optional<QVector<QUrl>> selection,
+                  const QString& error = {});
     void removeOwner(const QString& owner);
   signals:
     void requested(const litecode::extensions::FileDialogRequest& request);
     void dismissed(const QString& owner, quint64 id);
+
   private:
-    struct Pending { FileDialogRequest request; Reply reply; };
+    struct Pending {
+        FileDialogRequest request;
+        Reply reply;
+    };
     QHash<QString, QHash<quint64, Pending>> pending_;
 };
 } // namespace litecode::extensions

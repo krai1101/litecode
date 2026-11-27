@@ -1,7 +1,7 @@
 #pragma once
 #include "extensions/ProgressApi.h"
-#include <QObject>
 #include <QJsonObject>
+#include <QObject>
 
 namespace litecode::extensions {
 struct ProgressRuntime;
@@ -12,6 +12,7 @@ class HostProgress final : public QObject {
     detail::ProgressSession begin(const ProgressOptions& options);
     void cancel(quint64 id);
     void shutdown();
+
   private:
     std::shared_ptr<ProgressRuntime> runtime_;
 };

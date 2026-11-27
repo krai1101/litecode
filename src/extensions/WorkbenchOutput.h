@@ -1,8 +1,8 @@
 #pragma once
 #include "extensions/OutputApi.h"
-#include <QObject>
 #include <QHash>
 #include <QJsonObject>
+#include <QObject>
 #include <QVector>
 
 namespace litecode::extensions {
@@ -32,6 +32,7 @@ class WorkbenchOutput final : public QObject {
     void logLevelRequested(const QString& owner, const QString& id, int level);
     void globalLogLevelChanged(int level);
     void clearRequested(const QString& owner, const QString& id);
+
   private:
     QHash<QString, OutputChannelInfo> channels_;
     QHash<QString, LogLevel> levelOverrides_;

@@ -24,8 +24,8 @@ class DebugConfigurations final {
                                              const QString& platform = {});
     static QJsonValue resolve(const QJsonValue& value, const VariableContext& context,
                               QString* error);
-    static bool validateAgainstSchema(const QJsonObject& configuration,
-                                      const QJsonObject& schema, QString* error);
+    static bool validateAgainstSchema(const QJsonObject& configuration, const QJsonObject& schema,
+                                      QString* error);
     static QJsonObject parseJsonc(const QByteArray& bytes, QString* error);
 };
 } // namespace litecode::debug

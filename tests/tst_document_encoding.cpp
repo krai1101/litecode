@@ -33,12 +33,17 @@ class DocumentEncodingTest final : public QObject {
   private slots:
     void textEditBatchIsAtomicAndDerivesUnicodeRanges() {
         litecode::editor::TextDocumentModel model(DocumentId(900), {});
-        QVERIFY(model.initializeUntitled(QString::fromUtf8("\xf0\x9f\x98\x80" " abc\r\nlast"), TextEncoding::Utf8,
-            litecode::core::LineEnding::CrLf));
+        QVERIFY(model.initializeUntitled(QString::fromUtf8("\xf0\x9f\x98\x80"
+                                                           " abc\r\nlast"),
+                                         TextEncoding::Utf8, litecode::core::LineEnding::CrLf));
         const auto version = model.session().version();
         litecode::core::DocumentEdit first, last;
-        first.position = 5; first.removedLength = 3; first.insertedText = "ABC";
-        last.position = 10; last.removedLength = 4; last.insertedText = "LAST";
+        first.position = 5;
+        first.removedLength = 3;
+        first.insertedText = "ABC";
+        last.position = 10;
+        last.removedLength = 4;
+        last.insertedText = "LAST";
         QVector<litecode::core::DocumentEdit> edits{first, last};
         QVERIFY(model.applyEdits(version, &edits));
         QCOMPARE(model.session().version(), version + 1);
@@ -110,7 +115,7 @@ void DocumentEncodingTest::largeTextModelDoesNotSaveAnAbsentBuffer() {
 void DocumentEncodingTest::detachedTextModelValidatesEditsBeforeMutation() {
     litecode::editor::TextDocumentModel model(DocumentId(61), {}, QStringLiteral("python"));
     QVERIFY(model.initializeUntitled(QString::fromUtf8("a\xf0\x9f\x98\x80z\n"), TextEncoding::Utf8,
-        litecode::core::LineEnding::Lf));
+                                     litecode::core::LineEnding::Lf));
     QCOMPARE(model.resource().scheme(), QStringLiteral("untitled"));
     QCOMPARE(model.languageId(), QStringLiteral("python"));
     const auto before = model.contents();
@@ -147,8 +152,8 @@ void DocumentEncodingTest::untitledPreservesEmptyPathAndSavesOnlyToExplicitTarge
     DocumentSession session(DocumentId(51), {});
     QVERIFY(session.filePath().isEmpty());
     QCOMPARE(session.displayName(), QStringLiteral("Untitled-51"));
-    const auto contents = session.initializeUntitled(QStringLiteral("one\ntwo\n"), TextEncoding::Utf16Le,
-        litecode::core::LineEnding::CrLf);
+    const auto contents = session.initializeUntitled(
+        QStringLiteral("one\ntwo\n"), TextEncoding::Utf16Le, litecode::core::LineEnding::CrLf);
     QVERIFY(contents);
     QCOMPARE(*contents, QByteArrayLiteral("one\r\ntwo\r\n"));
     QVERIFY(session.isModified());

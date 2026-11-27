@@ -53,8 +53,8 @@ class CodexThreadOpeningTests final : public QObject {
         // Completion of the cancelled browser login must not finish a later login.
         session.signInWithDeviceCode();
         QTRY_COMPARE(session.deviceCode(), QString("FIXTURE-CODE"));
-        session.consume("account/login/completed", {{"loginId", "fixture-browser-login"},
-                                                    {"success", true}});
+        session.consume("account/login/completed",
+                        {{"loginId", "fixture-browser-login"}, {"success", true}});
         QVERIFY(session.signingIn());
         session.cancelSignIn();
         QVERIFY(session.deviceCode().isEmpty());
@@ -77,21 +77,26 @@ class CodexThreadOpeningTests final : public QObject {
         QTRY_COMPARE(opened.size(), 1);
         const QString message = "You've hit your usage limit.";
         const QString id = "limited-turn";
-        session.consume("turn/started", {{"threadId", session.threadId()},
-            {"turn", QJsonObject{{"id", id}, {"status", "inProgress"}}}});
-        session.consume("error", {{"threadId", session.threadId()}, {"turnId", id},
+        session.consume("turn/started",
+                        {{"threadId", session.threadId()},
+                         {"turn", QJsonObject{{"id", id}, {"status", "inProgress"}}}});
+        session.consume("error", {{"threadId", session.threadId()},
+                                  {"turnId", id},
                                   {"willRetry", true},
                                   {"error", QJsonObject{{"message", "Retrying connection"}}}});
         QVERIFY(session.turns().last().error.isEmpty());
-        session.consume("error", {{"threadId", session.threadId()}, {"turnId", id},
+        session.consume("error", {{"threadId", session.threadId()},
+                                  {"turnId", id},
                                   {"willRetry", false},
                                   {"error", QJsonObject{{"message", message}}}});
         QCOMPARE(session.turns().last().error, message);
-        session.consume("turn/completed", {{"threadId", session.threadId()},
-            {"turn", QJsonObject{{"id", id}, {"status", "failed"}}}});
+        session.consume("turn/completed",
+                        {{"threadId", session.threadId()},
+                         {"turn", QJsonObject{{"id", id}, {"status", "failed"}}}});
         QCOMPARE(session.turns().last().error, message);
-        session.consume("turn/completed", {{"threadId", session.threadId()},
-            {"turn", QJsonObject{{"id", id}, {"status", "completed"}}}});
+        session.consume("turn/completed",
+                        {{"threadId", session.threadId()},
+                         {"turn", QJsonObject{{"id", id}, {"status", "completed"}}}});
         QVERIFY(session.turns().last().error.isEmpty());
     }
     void readOnlyHistoryFollowsTheOwningSessionsCompletion() {

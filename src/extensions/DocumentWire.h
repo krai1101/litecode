@@ -30,11 +30,13 @@ struct DocumentChange final {
 };
 QJsonObject encodeDocumentChange(const DocumentChange& change);
 std::optional<DocumentChange> decodeDocumentChange(const QJsonObject& message);
-void sendDocumentChange(const DocumentChange& change, const std::function<void(const QJsonObject&)>& send);
+void sendDocumentChange(const DocumentChange& change,
+                        const std::function<void(const QJsonObject&)>& send);
 class DocumentChangeDecoder final {
   public:
     std::optional<DocumentChange> accept(const QJsonObject& message, QString* error);
     [[nodiscard]] bool transferring() const { return pending_.has_value(); }
+
   private:
     std::optional<DocumentChange> pending_;
     qint64 expected_{};
@@ -47,22 +49,25 @@ struct DocumentBatch final {
     bool dirty{};
     std::optional<TextDocumentChangeReason> reason;
 };
-void sendDocumentBatch(const DocumentBatch& batch, const std::function<void(const QJsonObject&)>& send);
+void sendDocumentBatch(const DocumentBatch& batch,
+                       const std::function<void(const QJsonObject&)>& send);
 class DocumentBatchDecoder final {
   public:
     std::optional<DocumentBatch> accept(const QJsonObject& message, QString* error);
     [[nodiscard]] bool transferring() const { return pending_.has_value(); }
+
   private:
     std::optional<DocumentBatch> pending_;
     DocumentChangeDecoder changes_;
     qint64 expected_{}, length_{};
 };
 void sendDocumentSnapshot(const TextDocumentSnapshot& snapshot,
-    const std::function<void(const QJsonObject&)>& send);
+                          const std::function<void(const QJsonObject&)>& send);
 class DocumentSnapshotDecoder final {
   public:
     std::optional<TextDocumentSnapshot> accept(const QJsonObject& message, QString* error);
     [[nodiscard]] bool transferring() const { return pending_.has_value(); }
+
   private:
     std::optional<TextDocumentSnapshot> pending_;
     qint64 expected_{};

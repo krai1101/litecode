@@ -37,8 +37,7 @@ struct ConfigurationLayer final {
     void addSetting(const QString& key, const QJsonValue& value);
     void addOverride(QStringList identifiers, const QJsonObject& settings);
     [[nodiscard]] QJsonValue value(const QString& section) const;
-    [[nodiscard]] QJsonValue languageValue(const QString& section,
-                                            const QString& languageId) const;
+    [[nodiscard]] QJsonValue languageValue(const QString& section, const QString& languageId) const;
     [[nodiscard]] QStringList languageIds(const QString& section) const;
     [[nodiscard]] ConfigurationLayer merged(const ConfigurationLayer& other) const;
 };
@@ -67,22 +66,22 @@ class ConfigurationModel final {
     QVector<ConfigurationFolder> folders;
 
     [[nodiscard]] QJsonValue get(const QString& section,
-                                const ConfigurationResource& resource = {}) const;
+                                 const ConfigurationResource& resource = {}) const;
     [[nodiscard]] bool has(const QString& section,
-                          const ConfigurationResource& resource = {}) const;
-    [[nodiscard]] std::optional<ConfigurationInspection> inspect(
-        const QString& section, const ConfigurationResource& resource = {}) const;
+                           const ConfigurationResource& resource = {}) const;
+    [[nodiscard]] std::optional<ConfigurationInspection>
+    inspect(const QString& section, const ConfigurationResource& resource = {}) const;
     [[nodiscard]] std::optional<int> folderFor(const QUrl& resource) const;
     // Without a resource, this checks changes in any folder or language,
     // including a lower-priority layer masked by another layer. With a
     // resource it checks the effective scoped value, like VS Code's event.
-    [[nodiscard]] bool affectsConfiguration(
-        const ConfigurationModel& previous, const QString& section,
-        const std::optional<ConfigurationResource>& resource = {}) const;
+    [[nodiscard]] bool
+    affectsConfiguration(const ConfigurationModel& previous, const QString& section,
+                         const std::optional<ConfigurationResource>& resource = {}) const;
 
   private:
-    [[nodiscard]] std::array<const ConfigurationLayer*, 4> layers(
-        const ConfigurationResource& resource) const;
+    [[nodiscard]] std::array<const ConfigurationLayer*, 4>
+    layers(const ConfigurationResource& resource) const;
 };
 
 } // namespace litecode::extensions

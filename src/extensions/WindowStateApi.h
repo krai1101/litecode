@@ -5,4 +5,4 @@ struct WindowState final {
     bool active{};
     bool operator==(const WindowState&) const = default;
 };
-}
+} // namespace litecode::extensions

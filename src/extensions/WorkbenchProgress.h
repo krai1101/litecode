@@ -1,8 +1,8 @@
 #pragma once
 #include "extensions/ProgressApi.h"
-#include <QObject>
 #include <QHash>
 #include <QJsonObject>
+#include <QObject>
 
 namespace litecode::extensions {
 struct ProgressTaskInfo final {
@@ -26,6 +26,7 @@ class WorkbenchProgress final : public QObject {
     void changed(const litecode::extensions::ProgressTaskInfo& task);
     void ended(const QString& owner, quint64 id);
     void cancelRequested(const QString& owner, quint64 id);
+
   private:
     QHash<QString, QHash<quint64, ProgressTaskInfo>> tasks_;
     QHash<QString, quint64> lastStarted_;

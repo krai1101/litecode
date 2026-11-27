@@ -40,7 +40,8 @@ class DiffPathLabel final : public QLabel {
     }
 };
 } // namespace
-DiffEditorWidget::DiffEditorWidget(const workspace::GitComparison& comparison, QWidget* parent, bool openFileAvailable)
+DiffEditorWidget::DiffEditorWidget(const workspace::GitComparison& comparison, QWidget* parent,
+                                   bool openFileAvailable)
     : QWidget(parent), comparison_(comparison) {
     setObjectName("gitDiffEditor");
     auto* layout = new QVBoxLayout(this);
@@ -76,8 +77,9 @@ DiffEditorWidget::DiffEditorWidget(const workspace::GitComparison& comparison, Q
                      [this] { revertCurrentChange(); });
     revert_->setEnabled(false);
     revert_->setVisible(!comparison.staged && comparison.modifiedExists && !comparison.binary);
-    button("openDiffFile", ":/icons/arrow-right.svg", tr("Open file"),
-           [this] { emit openFileRequested(workingPath()); })->setVisible(openFileAvailable);
+    button("openDiffFile", ":/icons/arrow-right.svg", tr("Open file"), [this] {
+        emit openFileRequested(workingPath());
+    })->setVisible(openFileAvailable);
     layout->addWidget(toolbar);
     if (comparison.binary) {
         auto* notice =

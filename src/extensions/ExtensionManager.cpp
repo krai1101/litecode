@@ -2117,8 +2117,10 @@ QVector<ExtensionCommand> ExtensionManager::commandContributions() const {
 QSet<QString> ExtensionManager::breakpointLanguages() const {
     QSet<QString> result;
     for (const auto& entry : entries_) {
-        if (!entry->info.enabled || !entry->info.error.isEmpty()) continue;
-        for (const auto& value : entry->manifest.value("contributes").toObject().value("breakpoints").toArray())
+        if (!entry->info.enabled || !entry->info.error.isEmpty())
+            continue;
+        for (const auto& value :
+             entry->manifest.value("contributes").toObject().value("breakpoints").toArray())
             result.insert(value.toObject().value("language").toString());
     }
     return result;
@@ -2305,7 +2307,8 @@ quint64 ExtensionManager::requestCommand(const QString& id, const QJsonArray& ar
             const auto requestId = ++nextCommandRequestId_;
             QTimer::singleShot(0, this, [this, requestId, viewId = view.id, arguments] {
                 const auto error = !arguments.isEmpty() ? QString("View focus takes no arguments.")
-                    : nativeViews_.reveal(viewId) ? QString{} : QString("View is unavailable.");
+                                   : nativeViews_.reveal(viewId) ? QString{}
+                                                                 : QString("View is unavailable.");
                 emit commandResult(requestId, QJsonValue{}, error);
             });
             return requestId;

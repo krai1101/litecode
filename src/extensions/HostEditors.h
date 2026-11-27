@@ -12,11 +12,18 @@ class HostEditors final : public QObject {
     ~HostEditors() override;
     std::shared_ptr<TextEditor> activeTextEditor() const;
     QVector<std::shared_ptr<TextEditor>> visibleTextEditors() const;
-    Event<std::shared_ptr<TextEditor>> onDidChangeActiveTextEditor() const { return activeChanged_.event(); }
-    Event<QVector<std::shared_ptr<TextEditor>>> onDidChangeVisibleTextEditors() const { return visibleChanged_.event(); }
-    Event<TextEditorSelectionChangeEvent> onDidChangeTextEditorSelection() const { return selectionChanged_.event(); }
+    Event<std::shared_ptr<TextEditor>> onDidChangeActiveTextEditor() const {
+        return activeChanged_.event();
+    }
+    Event<QVector<std::shared_ptr<TextEditor>>> onDidChangeVisibleTextEditors() const {
+        return visibleChanged_.event();
+    }
+    Event<TextEditorSelectionChangeEvent> onDidChangeTextEditorSelection() const {
+        return selectionChanged_.event();
+    }
     bool accept(const WindowEditorState& state, bool initial = false);
     void shutdown();
+
   private:
     class Editor;
     QPointer<HostDocuments> documents_;

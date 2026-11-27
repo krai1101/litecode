@@ -68,6 +68,31 @@ GitService::GitService(QObject* parent) : QObject(parent) {
         if (error == QProcess::FailedToStart)
             finish(-1, process_.errorString());
     });
+
+    const QString executable = findGitExecutable();
+    if (executable.isEmpty()) {
+        stagedStashSupported_ = false;
+        return;
+    }
+    auto* version = new QProcess(this);
+    connect(
+        version, &QProcess::finished, this, [this, version](int code, QProcess::ExitStatus status) {
+            static const QRegularExpression pattern(QStringLiteral("git version (\\d+)\\.(\\d+)"));
+            const auto match = pattern.match(QString::fromUtf8(version->readAllStandardOutput()));
+            const int major = match.captured(1).toInt();
+            const int minor = match.captured(2).toInt();
+            stagedStashSupported_ = status == QProcess::NormalExit && code == 0 &&
+                                    (major > 2 || (major == 2 && minor >= 35));
+            version->deleteLater();
+        });
+    connect(version, &QProcess::errorOccurred, this, [this, version](QProcess::ProcessError error) {
+        if (error == QProcess::FailedToStart) {
+            stagedStashSupported_ = false;
+            version->deleteLater();
+        }
+    });
+    QTimer::singleShot(2000, version, &QProcess::kill);
+    version->start(executable, {"--version"});
 }
 GitService::~GitService() {
     if (auto* app = QCoreApplication::instance(); app && !authenticationOperation_.isEmpty())
@@ -79,31 +104,9 @@ GitService::~GitService() {
         process_.waitForFinished(1000);
     }
 }
-bool GitService::supportsStagedStash() {
-    if (stagedStashSupported_.has_value())
-        return *stagedStashSupported_;
-    const QString executable = findGitExecutable();
-    if (executable.isEmpty()) {
-        stagedStashSupported_ = false;
-        return false;
-    }
-    QProcess version;
-    version.start(executable, {"--version"});
-    if (!version.waitForFinished(2000) || version.exitStatus() != QProcess::NormalExit ||
-        version.exitCode() != 0) {
-        stagedStashSupported_ = false;
-        return false;
-    }
-    static const QRegularExpression pattern(QStringLiteral("git version (\\d+)\\.(\\d+)"));
-    const auto match = pattern.match(QString::fromUtf8(version.readAllStandardOutput()));
-    if (!match.hasMatch()) {
-        stagedStashSupported_ = false;
-        return false;
-    }
-    const int major = match.captured(1).toInt();
-    const int minor = match.captured(2).toInt();
-    stagedStashSupported_ = major > 2 || (major == 2 && minor >= 35);
-    return *stagedStashSupported_;
+bool GitService::supportsStagedStash() const {
+    // Git validates --staged itself if a request arrives before discovery finishes.
+    return stagedStashSupported_.value_or(true);
 }
 void GitService::finish(int code, const QString& diagnostic) {
     if (!done_)
@@ -115,8 +118,8 @@ void GitService::finish(int code, const QString& diagnostic) {
     auto done = std::move(done_);
     const auto output = std::move(output_);
     emit outputLine(tr("%1 Git: %2 exited with code %3")
-                        .arg(QDateTime::currentDateTime().toString("hh:mm:ss"),
-                             currentOperation_, QString::number(code)));
+                        .arg(QDateTime::currentDateTime().toString("hh:mm:ss"), currentOperation_,
+                             QString::number(code)));
     currentOperation_.clear();
     busy_ = false;
     emit busyChanged(false);
@@ -129,17 +132,17 @@ void GitService::run(const QString& directory, const QStringList& arguments, Don
     gitInstalled_ = !executable.isEmpty();
     if (executable.isEmpty()) {
         emit outputLine(tr("Git executable not found."));
-        done(-1, {}, tr("Git installation not found. Install Git to use Source Control, then refresh or restart LiteCode."));
+        done(-1, {},
+             tr("Git installation not found. Install Git to use Source Control, then refresh or "
+                "restart LiteCode."));
         return;
     }
     busy_ = true;
     // Do not log arguments, environment, stdout or stderr: remote URLs and
     // process output can contain credentials supplied by Git helpers.
-    currentOperation_ = arguments.value(0) == "-c" ? arguments.value(2)
-                                                    : arguments.value(0);
+    currentOperation_ = arguments.value(0) == "-c" ? arguments.value(2) : arguments.value(0);
     emit outputLine(tr("%1 Git: %2 started")
-                        .arg(QDateTime::currentDateTime().toString("hh:mm:ss"),
-                             currentOperation_));
+                        .arg(QDateTime::currentDateTime().toString("hh:mm:ss"), currentOperation_));
     emit busyChanged(true);
     output_.clear();
     diagnostic_.clear();
@@ -198,7 +201,6 @@ void GitService::run(const QString& directory, const QStringList& arguments, Don
 }
 void GitService::setWorkspace(const QString& path) {
     ++epoch_;
-    stagedStashSupported_.reset();
     workspace_ = path;
     repository_.clear();
     status_ = {};
@@ -209,8 +211,7 @@ void GitService::setWorkspace(const QString& path) {
         refresh();
 }
 void GitService::initializeRepository() {
-    if (busy_ || !repository_.isEmpty() || workspace_.isEmpty() ||
-        !QFileInfo(workspace_).isDir())
+    if (busy_ || !repository_.isEmpty() || workspace_.isEmpty() || !QFileInfo(workspace_).isDir())
         return;
     run(workspace_, {"init"}, [this](int code, const QByteArray&, const QString& diagnostic) {
         if (code != 0)

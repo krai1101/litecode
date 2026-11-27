@@ -46,7 +46,8 @@ NativeViewService::NativeViewService(extensions::WorkbenchNativeViews& views, QM
             });
     connect(&views_, &extensions::WorkbenchNativeViews::scrollToEndRequested, this,
             [this](const QString& id, const QString& control) {
-                if (widgets_.value(id)) widgets_[id]->scrollToEnd(control);
+                if (widgets_.value(id))
+                    widgets_[id]->scrollToEnd(control);
             });
     connect(&views_, &extensions::WorkbenchNativeViews::unavailable, this,
             [this](const QString& id, const QString& error) {

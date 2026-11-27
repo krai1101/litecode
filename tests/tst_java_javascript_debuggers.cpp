@@ -6,9 +6,9 @@
 #include "ui/Theme.h"
 #include "ui/debug/DebugConfigurationPicker.h"
 #include "ui/debug/DebugTerminalController.h"
-#include <QFile>
 #include <QComboBox>
 #include <QElapsedTimer>
+#include <QFile>
 #include <QJsonDocument>
 #include <QLabel>
 #include <QLineEdit>
@@ -58,7 +58,8 @@ class PackagedDebuggerTests final : public QObject {
         QCOMPARE(openFile.size(), 1);
         QCOMPARE(configure.size(), 1);
         QCOMPARE(start.size(), 1);
-        if (const auto capture = qEnvironmentVariable("LITECODE_DEBUG_WELCOME_CAPTURE"); !capture.isEmpty())
+        if (const auto capture = qEnvironmentVariable("LITECODE_DEBUG_WELCOME_CAPTURE");
+            !capture.isEmpty())
             QVERIFY(panel.grab().save(capture));
         panel.setActiveFile(file);
         QVERIFY(!prompt->isVisible());
@@ -75,17 +76,21 @@ class PackagedDebuggerTests final : public QObject {
         QVERIFY(QDir(workspace.path()).mkdir(".vscode"));
         QFile launch(workspace.filePath(".vscode/launch.json"));
         QVERIFY(launch.open(QIODevice::WriteOnly));
-        launch.write(R"({"configurations":[{"name":"Node.js","type":"node","request":"launch"},{"name":"Python","type":"debugpy","request":"launch"}]})");
+        launch.write(
+            R"({"configurations":[{"name":"Node.js","type":"node","request":"launch"},{"name":"Python","type":"debugpy","request":"launch"}]})");
         launch.close();
         ui::RunDebugPanel panel;
         panel.setWorkspace(workspace.path());
         panel.setDebuggerChoices({{"node", "Node.js"}, {"debugpy", "Python Debugger"}});
         extensions::ExtensionManager manager(workspace.filePath("extensions"));
-        ui::DebugConfigurationPicker configurations(&manager, [&] { return workspace.path(); }, &panel);
-        connect(&panel, &ui::RunDebugPanel::configurationRequested,
-                &configurations, &ui::DebugConfigurationPicker::createLaunch);
-        QSignalSpy openConfiguration(&configurations, &ui::DebugConfigurationPicker::openConfiguration);
-        QSignalSpy providerRequested(&panel, &ui::RunDebugPanel::selectDynamicConfigurationRequested);
+        ui::DebugConfigurationPicker configurations(
+            &manager, [&] { return workspace.path(); }, &panel);
+        connect(&panel, &ui::RunDebugPanel::configurationRequested, &configurations,
+                &ui::DebugConfigurationPicker::createLaunch);
+        QSignalSpy openConfiguration(&configurations,
+                                     &ui::DebugConfigurationPicker::openConfiguration);
+        QSignalSpy providerRequested(&panel,
+                                     &ui::RunDebugPanel::selectDynamicConfigurationRequested);
         panel.resize(360, 480);
         panel.show();
         auto* picker = panel.findChild<QComboBox*>("debugConfigurationPicker");
@@ -267,7 +272,7 @@ class PackagedDebuggerTests final : public QObject {
             QTest::mouseClick(variables->viewport(), Qt::LeftButton, Qt::NoModifier, rowClick);
             QTRY_VERIFY(scope->isExpanded());
             const QPoint chevron(scopeRect.left() - variables->indentation() / 2,
-                                scopeRect.center().y());
+                                 scopeRect.center().y());
             QTest::mouseClick(variables->viewport(), Qt::LeftButton, Qt::NoModifier, chevron);
             QTRY_VERIFY(!scope->isExpanded());
             QTest::qWait(40);
@@ -355,9 +360,10 @@ class PackagedDebuggerTests final : public QObject {
 #ifdef Q_OS_WIN
         if (!java && integrated) {
             const auto firstViews = terminal.findChildren<ui::TerminalView*>();
-            const auto debugView = std::find_if(firstViews.cbegin(), firstViews.cend(), [](const auto* candidate) {
-                return candidate->plainText().contains("DEBUGGER_SMOKE 42");
-            });
+            const auto debugView =
+                std::find_if(firstViews.cbegin(), firstViews.cend(), [](const auto* candidate) {
+                    return candidate->plainText().contains("DEBUGGER_SMOKE 42");
+                });
             QVERIFY(debugView != firstViews.cend());
             auto* view = *debugView;
             QTRY_VERIFY_WITH_TIMEOUT(view->plainText().trimmed().endsWith('>'), 5000);

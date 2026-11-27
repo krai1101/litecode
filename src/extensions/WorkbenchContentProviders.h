@@ -1,7 +1,7 @@
 #pragma once
 #include "extensions/TextContentWire.h"
-#include <QObject>
 #include <QFuture>
+#include <QObject>
 #include <QPromise>
 #include <memory>
 
@@ -22,10 +22,24 @@ class WorkbenchContentProviders final : public QObject {
   signals:
     void contentRequested(const QString& owner, quint64 handle, quint64 request, const QUrl& uri);
     void virtualDocumentChanged(const QUrl& uri, const QString& content);
+
   private:
-    struct Provider { QString owner; quint64 handle; QString scheme; };
-    struct Pending { Provider provider; QUrl uri; std::shared_ptr<QPromise<std::optional<QString>>> promise; };
-    struct Resolution { QUrl uri; QVector<Provider> providers; qsizetype index{}; std::shared_ptr<QPromise<std::optional<QString>>> promise; };
+    struct Provider {
+        QString owner;
+        quint64 handle;
+        QString scheme;
+    };
+    struct Pending {
+        Provider provider;
+        QUrl uri;
+        std::shared_ptr<QPromise<std::optional<QString>>> promise;
+    };
+    struct Resolution {
+        QUrl uri;
+        QVector<Provider> providers;
+        qsizetype index{};
+        std::shared_ptr<QPromise<std::optional<QString>>> promise;
+    };
     void next(const std::shared_ptr<Resolution>& resolution);
     void complete(quint64 request, std::optional<QString> text, const QString& error);
     static QString key(const QString& owner, quint64 handle);

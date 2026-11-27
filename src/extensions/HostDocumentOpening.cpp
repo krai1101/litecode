@@ -15,7 +15,8 @@ std::pair<quint64, QFuture<std::shared_ptr<TextDocument>>> HostDocumentOpening::
     const auto future = promise->future();
     QMutexLocker lock(&mutex_);
     if (stopped_ || nextId_ == std::numeric_limits<quint64>::max()) {
-        promise->setException(std::make_exception_ptr(std::runtime_error("Document opening service stopped.")));
+        promise->setException(
+            std::make_exception_ptr(std::runtime_error("Document opening service stopped.")));
         promise->finish();
         return {0, future};
     }
@@ -23,30 +24,52 @@ std::pair<quint64, QFuture<std::shared_ptr<TextDocument>>> HostDocumentOpening::
     pending_.insert(id, std::move(promise));
     return {id, future};
 }
-QFuture<std::shared_ptr<TextDocument>> HostDocumentOpening::open(const QUrl& uri, const TextDocumentOpenOptions& options) {
+QFuture<std::shared_ptr<TextDocument>>
+HostDocumentOpening::open(const QUrl& uri, const TextDocumentOpenOptions& options) {
     const auto [id, future] = registerRequest();
-    if (id) QMetaObject::invokeMethod(this, [this, id, uri, options] { start({id, uri, options}); }, Qt::QueuedConnection);
+    if (id)
+        QMetaObject::invokeMethod(
+            this, [this, id, uri, options] { start({id, uri, options}); }, Qt::QueuedConnection);
     return future;
 }
-QFuture<std::shared_ptr<TextDocument>> HostDocumentOpening::create(const UntitledTextDocumentOptions& options) {
+QFuture<std::shared_ptr<TextDocument>>
+HostDocumentOpening::create(const UntitledTextDocumentOptions& options) {
     const auto [id, future] = registerRequest();
-    if (id) QMetaObject::invokeMethod(this, [this, id, options] {
-        { QMutexLocker lock(&mutex_); if (stopped_ || !pending_.contains(id)) return; }
-        try {
-            if (!requests_) throw std::runtime_error("Workspace request service stopped.");
-            watchCreation(id, requests_->create(options));
-        } catch (...) { resolve(id, {}, std::current_exception()); }
-    }, Qt::QueuedConnection);
+    if (id)
+        QMetaObject::invokeMethod(
+            this,
+            [this, id, options] {
+                {
+                    QMutexLocker lock(&mutex_);
+                    if (stopped_ || !pending_.contains(id))
+                        return;
+                }
+                try {
+                    if (!requests_)
+                        throw std::runtime_error("Workspace request service stopped.");
+                    watchCreation(id, requests_->create(options));
+                } catch (...) {
+                    resolve(id, {}, std::current_exception());
+                }
+            },
+            Qt::QueuedConnection);
     return future;
 }
 void HostDocumentOpening::start(Caller caller) {
-    { QMutexLocker lock(&mutex_); if (stopped_ || !pending_.contains(caller.id)) return; }
+    {
+        QMutexLocker lock(&mutex_);
+        if (stopped_ || !pending_.contains(caller.id))
+            return;
+    }
     try {
-        if (!documents_ || !requests_) throw std::runtime_error("Document service stopped.");
-        if (!caller.uri.isValid() || caller.uri.scheme().isEmpty()) throw std::invalid_argument("Invalid document URI.");
+        if (!documents_ || !requests_)
+            throw std::runtime_error("Document service stopped.");
+        if (!caller.uri.isValid() || caller.uri.scheme().isEmpty())
+            throw std::invalid_argument("Invalid document URI.");
         for (const auto& document : documents_->textDocuments()) {
             if (!document->isClosed() && document->uri() == caller.uri &&
-                (!caller.options.encoding || caller.options.encoding->isEmpty() || *caller.options.encoding == document->encoding())) {
+                (!caller.options.encoding || caller.options.encoding->isEmpty() ||
+                 *caller.options.encoding == document->encoding())) {
                 resolve(caller.id, document);
                 return;
             }
@@ -65,55 +88,86 @@ void HostDocumentOpening::start(Caller caller) {
             std::shared_ptr<TextDocument> document;
             std::exception_ptr error;
             try {
-                if (watcher->future().isCanceled()) throw std::runtime_error("Document opening canceled.");
+                if (watcher->future().isCanceled())
+                    throw std::runtime_error("Document opening canceled.");
                 const auto id = watcher->result();
                 document = documents_ ? documents_->find(id) : nullptr;
-                if (!document || document->isClosed()) throw std::runtime_error("Opened document is no longer synchronized.");
-            } catch (...) { error = std::current_exception(); }
+                if (!document || document->isClosed())
+                    throw std::runtime_error("Opened document is no longer synchronized.");
+            } catch (...) {
+                error = std::current_exception();
+            }
             watcher->deleteLater();
             for (auto caller : loader.callers) {
-                if (!error && caller.joined && caller.options.encoding && !caller.options.encoding->isEmpty() &&
+                if (!error && caller.joined && caller.options.encoding &&
+                    !caller.options.encoding->isEmpty() &&
                     document->encoding() != *caller.options.encoding) {
                     caller.joined = false;
                     start(std::move(caller));
-                } else resolve(caller.id, document, error);
+                } else
+                    resolve(caller.id, document, error);
             }
         });
-        try { watcher->setFuture(requests_->open(caller.uri, caller.options)); }
-        catch (...) {
+        try {
+            watcher->setFuture(requests_->open(caller.uri, caller.options));
+        } catch (...) {
             watcher->deleteLater();
             const auto loader = loaders_.take(key);
             const auto error = std::current_exception();
-            for (const auto& waiting : loader.callers) resolve(waiting.id, {}, error);
+            for (const auto& waiting : loader.callers)
+                resolve(waiting.id, {}, error);
         }
-    } catch (...) { resolve(caller.id, {}, std::current_exception()); }
+    } catch (...) {
+        resolve(caller.id, {}, std::current_exception());
+    }
 }
 void HostDocumentOpening::watchCreation(quint64 id, QFuture<QString> future) {
     auto* watcher = new QFutureWatcher<QString>(this);
     connect(watcher, &QFutureWatcher<QString>::finished, this, [this, id, watcher] {
         try {
-            if (watcher->future().isCanceled()) throw std::runtime_error("Document creation canceled.");
+            if (watcher->future().isCanceled())
+                throw std::runtime_error("Document creation canceled.");
             const auto identity = watcher->result();
             const auto document = documents_ ? documents_->find(identity) : nullptr;
-            if (!document || document->isClosed()) throw std::runtime_error("Created document is no longer synchronized.");
+            if (!document || document->isClosed())
+                throw std::runtime_error("Created document is no longer synchronized.");
             resolve(id, document);
-        } catch (...) { resolve(id, {}, std::current_exception()); }
+        } catch (...) {
+            resolve(id, {}, std::current_exception());
+        }
         watcher->deleteLater();
     });
     watcher->setFuture(future);
 }
-void HostDocumentOpening::resolve(quint64 id, std::shared_ptr<TextDocument> document, std::exception_ptr error) {
+void HostDocumentOpening::resolve(quint64 id, std::shared_ptr<TextDocument> document,
+                                  std::exception_ptr error) {
     std::shared_ptr<Promise> promise;
-    { QMutexLocker lock(&mutex_); promise = pending_.take(id); }
-    if (!promise) return;
-    if (error) promise->setException(error);
-    else promise->addResult(std::move(document));
+    {
+        QMutexLocker lock(&mutex_);
+        promise = pending_.take(id);
+    }
+    if (!promise)
+        return;
+    if (error)
+        promise->setException(error);
+    else
+        promise->addResult(std::move(document));
     promise->finish();
 }
 void HostDocumentOpening::shutdown() {
     QHash<quint64, std::shared_ptr<Promise>> pending;
-    { QMutexLocker lock(&mutex_); if (stopped_) return; stopped_ = true; pending = std::exchange(pending_, {}); }
-    const auto error = std::make_exception_ptr(std::runtime_error("Extension host stopped while opening a document."));
-    for (const auto& promise : pending) { promise->setException(error); promise->finish(); }
+    {
+        QMutexLocker lock(&mutex_);
+        if (stopped_)
+            return;
+        stopped_ = true;
+        pending = std::exchange(pending_, {});
+    }
+    const auto error = std::make_exception_ptr(
+        std::runtime_error("Extension host stopped while opening a document."));
+    for (const auto& promise : pending) {
+        promise->setException(error);
+        promise->finish();
+    }
 }
 } // namespace litecode::extensions

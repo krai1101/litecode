@@ -17,8 +17,7 @@ class JsoncDocument final {
     [[nodiscard]] const QByteArray& source() const;
     [[nodiscard]] QJsonValue value() const;
     [[nodiscard]] QStringList propertyNames(const QStringList& path = {}) const;
-    [[nodiscard]] QByteArray updateProperty(const QStringList& path,
-                                            const QJsonValue& value) const;
+    [[nodiscard]] QByteArray updateProperty(const QStringList& path, const QJsonValue& value) const;
 
   private:
     struct Data;

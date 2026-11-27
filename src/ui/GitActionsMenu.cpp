@@ -24,10 +24,9 @@ void groupGitActionsMenu(components::Menu& menu, QAction* views, QAction* reposi
             else
                 submenu->addSeparator();
         }
-        submenu->setEnabled(std::any_of(group.actions.cbegin(), group.actions.cend(),
-                                        [](const QAction* action) {
-                                            return action && action->isEnabled();
-                                        }));
+        submenu->setEnabled(
+            std::any_of(group.actions.cbegin(), group.actions.cend(),
+                        [](const QAction* action) { return action && action->isEnabled(); }));
         menu.addMenu(submenu);
     }
 }

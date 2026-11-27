@@ -1,6 +1,10 @@
 #pragma once
-#include <QUrl>
 #include <QString>
+#include <QUrl>
 namespace litecode::extensions {
-struct WorkspaceFolder final { QUrl uri; QString name; int index{}; };
+struct WorkspaceFolder final {
+    QUrl uri;
+    QString name;
+    int index{};
+};
 } // namespace litecode::extensions

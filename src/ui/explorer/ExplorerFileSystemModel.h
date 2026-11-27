@@ -1,12 +1,12 @@
 #pragma once
 
+#include "workspace/GitService.h"
 #include <QAbstractProxyModel>
 #include <QColor>
 #include <QFileInfo>
 #include <QFileSystemModel>
 #include <QHash>
 #include <QPersistentModelIndex>
-#include "workspace/GitService.h"
 
 #include <memory>
 #include <vector>

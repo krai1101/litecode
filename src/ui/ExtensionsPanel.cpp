@@ -1,19 +1,18 @@
 #include "ui/ExtensionsPanel.h"
-#include "ui/extensions/ExtensionDetailsPage.h"
-#include "extensions/ExtensionManager.h"
 #include "extensions/ConfigurationService.h"
+#include "extensions/ExtensionManager.h"
 #include "extensions/NativeExtensionInstaller.h"
-#include "ui/commands/CommandRegistry.h"
 #include "ui/ConfirmationDialog.h"
 #include "ui/Theme.h"
 #include "ui/ThemedIcon.h"
 #include "ui/TransientScrollBars.h"
+#include "ui/commands/CommandRegistry.h"
 #include "ui/components/Controls.h"
+#include "ui/extensions/ExtensionDetailsPage.h"
 #include <QApplication>
 #include <QDir>
 #include <QFileDialog>
 #include <QFutureWatcher>
-#include <QtConcurrent>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPainter>
@@ -22,6 +21,7 @@
 #include <QStyledItemDelegate>
 #include <QUrl>
 #include <QVBoxLayout>
+#include <QtConcurrent>
 
 namespace litecode::ui {
 namespace {
@@ -43,7 +43,8 @@ class ExtensionDelegate final : public QStyledItemDelegate {
                                            ? theme.listHoverBackground
                                            : theme.sidebarSurface);
         auto icon = QIcon(index.data(Qt::UserRole + 3).toString());
-        if (icon.isNull()) icon = themedIcon(":/icons/extensions.svg", dark);
+        if (icon.isNull())
+            icon = themedIcon(":/icons/extensions.svg", dark);
         icon.paint(painter, QRect(option.rect.left() + 12, option.rect.top() + 14, 32, 32));
         auto font = option.font;
         font.setPixelSize(13);
@@ -74,21 +75,22 @@ class ExtensionDelegate final : public QStyledItemDelegate {
 ExtensionsPanel::ExtensionsPanel(CommandRegistry* commands, QWidget* parent) : QWidget(parent) {
     setObjectName("extensionsPanel");
     setAttribute(Qt::WA_StyledBackground, true);
-    directory_ =
-        QDir(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation))
-            .filePath("extensions");
+    directory_ = QDir(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation))
+                     .filePath("extensions");
     manager_ = new extensions::ExtensionManager(directory_, this);
-    connect(&manager_->configuration(), &extensions::ConfigurationService::fileUpdated,
-            this, &ExtensionsPanel::configurationFileUpdated);
-    connect(&manager_->configuration(), &extensions::ConfigurationService::diagnostic,
-            this, &ExtensionsPanel::configurationDiagnostic);
+    connect(&manager_->configuration(), &extensions::ConfigurationService::fileUpdated, this,
+            &ExtensionsPanel::configurationFileUpdated);
+    connect(&manager_->configuration(), &extensions::ConfigurationService::diagnostic, this,
+            &ExtensionsPanel::configurationDiagnostic);
     QPointer<CommandRegistry> registry(commands);
     manager_->setWorkbenchCommandSource(
         [registry] {
             QStringList ids;
-            if (!registry) return ids;
+            if (!registry)
+                return ids;
             for (const auto& id : registry->registeredIds())
-                if (!id.startsWith("extension:")) ids.append(id);
+                if (!id.startsWith("extension:"))
+                    ids.append(id);
             return ids;
         },
         [registry](const QString& id) { return registry && registry->invoke(id); });
@@ -147,8 +149,10 @@ ExtensionsPanel::ExtensionsPanel(CommandRegistry* commands, QWidget* parent) : Q
     connect(filter_, &QLineEdit::textChanged, this, &ExtensionsPanel::render);
     connect(more, &QToolButton::clicked, this, [this, more] {
         components::Menu menu(this);
-        menu.addAction(tr("Install Extension from File…"), this, [this] { chooseImport(false); })->setEnabled(!importing_);
-        menu.addAction(tr("Install Extension from Folder…"), this, [this] { chooseImport(true); })->setEnabled(!importing_);
+        menu.addAction(tr("Install Extension from File…"), this, [this] { chooseImport(false); })
+            ->setEnabled(!importing_);
+        menu.addAction(tr("Install Extension from Folder…"), this, [this] { chooseImport(true); })
+            ->setEnabled(!importing_);
         menu.exec(more->mapToGlobal(QPoint(0, more->height())));
     });
     list_->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -162,19 +166,19 @@ ExtensionsPanel::ExtensionsPanel(CommandRegistry* commands, QWidget* parent) : Q
         components::Menu menu(this);
         if (enabled) {
             for (const auto& view : manager_->nativeViews().contributions()) {
-                if (view.owner != id) continue;
+                if (view.owner != id)
+                    continue;
                 menu.addAction(tr("Open %1").arg(view.title), this,
-                    [this, viewId = view.id] { emit nativeViewOpenRequested(viewId); });
+                               [this, viewId = view.id] { emit nativeViewOpenRequested(viewId); });
             }
         }
         menu.addAction(enabled ? tr("Disable") : tr("Enable"), this,
-                       [this, id, enabled] { changeEnabled(id, !enabled); })->setEnabled(!importing_);
-        menu.addAction(tr("Uninstall"), this,
-                       [this, id] { uninstallExtension(id); })->setEnabled(!importing_);
+                       [this, id, enabled] { changeEnabled(id, !enabled); })
+            ->setEnabled(!importing_);
+        menu.addAction(tr("Uninstall"), this, [this, id] { uninstallExtension(id); })
+            ->setEnabled(!importing_);
         menu.addSeparator();
-        menu.addAction(tr("Show Details"), this, [this, id] {
-            emit detailsRequested(id);
-        });
+        menu.addAction(tr("Show Details"), this, [this, id] { emit detailsRequested(id); });
         menu.exec(list_->viewport()->mapToGlobal(point));
     });
     connect(list_, &QListWidget::itemClicked, this, [this](QListWidgetItem* item) {
@@ -186,12 +190,14 @@ ExtensionsPanel::ExtensionsPanel(CommandRegistry* commands, QWidget* parent) : Q
     connect(manager_, &extensions::ExtensionManager::changed, this, &ExtensionsPanel::render);
     connect(manager_, &extensions::ExtensionManager::uninstallFinished, this,
             [this](const QString& id, bool removed, const QString& error) {
-        importing_ = false;
-        importStatus_->setText(error.isEmpty() ? (removed ? tr("Uninstalled %1.").arg(id)
-                                                       : tr("Could not uninstall %1.").arg(id)) : error);
-        importStatus_->show();
-        emit enabledStateChanged();
-    });
+                importing_ = false;
+                importStatus_->setText(error.isEmpty()
+                                           ? (removed ? tr("Uninstalled %1.").arg(id)
+                                                      : tr("Could not uninstall %1.").arg(id))
+                                           : error);
+                importStatus_->show();
+                emit enabledStateChanged();
+            });
     connect(manager_, &extensions::ExtensionManager::openFileRequested, this,
             &ExtensionsPanel::openFileRequested);
     connect(manager_, &extensions::ExtensionManager::informationMessage, this,
@@ -205,8 +211,10 @@ ExtensionsPanel::ExtensionsPanel(CommandRegistry* commands, QWidget* parent) : Q
     render();
 }
 void ExtensionsPanel::chooseImport(bool folder) {
-    if (importing_) return;
-    auto* picker = new QFileDialog(this, folder ? tr("Install Native Extension from Folder") : tr("Install Native Extension from File"));
+    if (importing_)
+        return;
+    auto* picker = new QFileDialog(this, folder ? tr("Install Native Extension from Folder")
+                                                : tr("Install Native Extension from File"));
     picker->setAttribute(Qt::WA_DeleteOnClose);
     picker->setFileMode(folder ? QFileDialog::Directory : QFileDialog::ExistingFile);
     if (folder) {
@@ -226,34 +234,37 @@ void ExtensionsPanel::chooseImport(bool folder) {
     picker->open();
 }
 void ExtensionsPanel::importExtension(const QString& source) {
-    if (importing_ || source.isEmpty()) return;
+    if (importing_ || source.isEmpty())
+        return;
     importing_ = true;
     importStatus_->setText(tr("Installing native extension…"));
     importStatus_->show();
     auto* watcher = new QFutureWatcher<extensions::NativeExtensionInstallResult>(this);
-    connect(watcher, &QFutureWatcher<extensions::NativeExtensionInstallResult>::finished, this, [this, watcher] {
-        const auto result = watcher->result();
-        watcher->deleteLater();
-        importing_ = false;
-        if (!result.error.isEmpty()) {
-            importStatus_->setText(result.error);
-            return;
-        }
-        manager_->discover();
-        revealExtension(result.id);
-        importStatus_->setText(tr("Installed %1. Right-click it and choose Enable.").arg(result.id));
-    });
+    connect(watcher, &QFutureWatcher<extensions::NativeExtensionInstallResult>::finished, this,
+            [this, watcher] {
+                const auto result = watcher->result();
+                watcher->deleteLater();
+                importing_ = false;
+                if (!result.error.isEmpty()) {
+                    importStatus_->setText(result.error);
+                    return;
+                }
+                manager_->discover();
+                revealExtension(result.id);
+                importStatus_->setText(
+                    tr("Installed %1. Right-click it and choose Enable.").arg(result.id));
+            });
     const auto directory = directory_;
-    watcher->setFuture(QtConcurrent::run([source, directory] {
-        return extensions::installNativeExtension(source, directory);
-    }));
+    watcher->setFuture(QtConcurrent::run(
+        [source, directory] { return extensions::installNativeExtension(source, directory); }));
 }
 void ExtensionsPanel::discover() { manager_->discover(); }
 void ExtensionsPanel::revealExtension(const QString& id) {
     filter_->clear();
     for (int row = 0; row < list_->count(); ++row) {
         auto* item = list_->item(row);
-        if (item->data(Qt::UserRole).toString() != id) continue;
+        if (item->data(Qt::UserRole).toString() != id)
+            continue;
         list_->setCurrentItem(item);
         list_->scrollToItem(item);
         list_->setFocus(Qt::OtherFocusReason);
@@ -269,24 +280,31 @@ ExtensionDetailsPage* ExtensionsPanel::createDetailsPage(const QString& id) {
     return page;
 }
 void ExtensionsPanel::changeEnabled(const QString& id, bool enabled) {
-    if (importing_) return;
+    if (importing_)
+        return;
     if (!manager_->setEnabled(id, enabled))
-        ConfirmationDialog::showMessage(this, tr("Extensions"),
-                                        tr("Could not change extension state. Check its diagnostic."));
-    else emit enabledStateChanged();
+        ConfirmationDialog::showMessage(
+            this, tr("Extensions"), tr("Could not change extension state. Check its diagnostic."));
+    else
+        emit enabledStateChanged();
 }
 void ExtensionsPanel::uninstallExtension(const QString& id) {
-    if (importing_) return;
-    if (ConfirmationDialog::ask(this, tr("Uninstall Extension"),
+    if (importing_)
+        return;
+    if (ConfirmationDialog::ask(
+            this, tr("Uninstall Extension"),
             tr("Uninstall %1? Its host will stop and its installed package will be removed. "
-               "Settings and saved chat history will be kept.").arg(id),
-            tr("Uninstall"), {}, tr("Cancel")) != ConfirmationChoice::Primary) return;
+               "Settings and saved chat history will be kept.")
+                .arg(id),
+            tr("Uninstall"), {}, tr("Cancel")) != ConfirmationChoice::Primary)
+        return;
     importing_ = true;
     importStatus_->setText(tr("Uninstalling %1?").arg(id));
     importStatus_->show();
     if (!manager_->uninstall(id)) {
         importing_ = false;
-        importStatus_->setText(tr("Could not start uninstall. Another operation may be in progress."));
+        importStatus_->setText(
+            tr("Could not start uninstall. Another operation may be in progress."));
     }
 }
 void ExtensionsPanel::setWorkspace(const QString& path) { manager_->setWorkspace(path); }
@@ -307,8 +325,9 @@ QStringList ExtensionsPanel::commandIds() const {
 QVector<extensions::DebuggerContribution> ExtensionsPanel::debuggerContributions() const {
     return manager_->debuggerContributions();
 }
-quint64 ExtensionsPanel::requestDebugAdapter(const QString& type,
-                                            const QJsonObject& configuration, const QString& sessionId, const QJsonValue& folderOverride) {
+quint64 ExtensionsPanel::requestDebugAdapter(const QString& type, const QJsonObject& configuration,
+                                             const QString& sessionId,
+                                             const QJsonValue& folderOverride) {
     return manager_->requestDebugAdapter(type, configuration, sessionId, folderOverride);
 }
 QString ExtensionsPanel::commandTitle(const QString& id) const {
@@ -348,10 +367,10 @@ void ExtensionsPanel::render() {
         item->setData(Qt::UserRole, extension.id);
         item->setData(Qt::UserRole + 1, extension.enabled);
         item->setData(Qt::UserRole + 3, extension.iconPath);
-        item->setData(Qt::UserRole + 2, extension.uninstalling ? tr("Uninstalling…")
-                                      : !extension.error.isEmpty() ? extension.error
-                                        : extension.enabled        ? tr("Enabled")
-                                                                   : tr("Disabled"));
+        item->setData(Qt::UserRole + 2, extension.uninstalling       ? tr("Uninstalling…")
+                                        : !extension.error.isEmpty() ? extension.error
+                                        : extension.enabled          ? tr("Enabled")
+                                                                     : tr("Disabled"));
         item->setToolTip(extension.path + "\n" + extension.error);
         if (extension.id == selected)
             list_->setCurrentItem(item);

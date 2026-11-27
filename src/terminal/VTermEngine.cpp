@@ -229,7 +229,8 @@ void VTermEngine::archiveScreen() {
     std::vector<VTermScreenCell> cells(static_cast<size_t>(columns()));
     for (int row = 0; row <= last; ++row) {
         for (int column = 0; column < columns(); ++column)
-            vterm_screen_get_cell(d_->screen, {row, column}, &cells.at(static_cast<size_t>(column)));
+            vterm_screen_get_cell(d_->screen, {row, column},
+                                  &cells.at(static_cast<size_t>(column)));
         Private::scrollbackPush(columns(), cells.data(), d_.get());
     }
     vterm_screen_reset(d_->screen, 1);

@@ -55,7 +55,8 @@ class DropdownDelegate final : public QStyledItemDelegate {
         // Keep the original title/description boundary for our two-part rows.
         const auto lines = index.data(Qt::DisplayRole).toString().split('\n');
         const QFontMetrics metrics(item.font);
-        const int inset = textInset() + 28 + (item.icon.isNull() ? 0 : qBound(8, item.decorationSize.width(), 16) + 6);
+        const int inset = textInset() + 28 +
+                          (item.icon.isNull() ? 0 : qBound(8, item.decorationSize.width(), 16) + 6);
         int naturalWidth = 0;
         for (const auto& line : lines)
             naturalWidth = qMax(naturalWidth, metrics.horizontalAdvance(line));
@@ -64,9 +65,11 @@ class DropdownDelegate final : public QStyledItemDelegate {
         if (lines.size() > 1) {
             const auto* view = qobject_cast<const QAbstractItemView*>(parent());
             const int width = view ? view->viewport()->width() : option.rect.width();
-            const int descriptionHeight = metrics.boundingRect(
-                QRect(0, 0, qMax(1, width - inset), 10000), Qt::TextWordWrap,
-                lines.mid(1).join(' ')).height();
+            const int descriptionHeight =
+                metrics
+                    .boundingRect(QRect(0, 0, qMax(1, width - inset), 10000), Qt::TextWordWrap,
+                                  lines.mid(1).join(' '))
+                    .height();
             size.setHeight(metrics.height() + 2 + descriptionHeight + 4);
         }
         return size;
@@ -235,8 +238,8 @@ InputFrame::InputFrame(QWidget* parent) : QWidget(parent) {
 void InputFrame::paintEvent(QPaintEvent*) {
     const auto theme = Theme::tokens(qApp->property("litecodeDarkTheme").toBool());
     const auto* focused = QApplication::focusWidget();
-    const auto border = focused && isAncestorOf(focused) ? theme.searchFocusBorder
-                                                        : theme.inputBorder;
+    const auto border =
+        focused && isAncestorOf(focused) ? theme.searchFocusBorder : theme.inputBorder;
     QPainter painter(this);
     const auto transform = painter.deviceTransform();
     const auto bounds = transform.mapRect(QRectF(rect()));
@@ -374,7 +377,8 @@ int ComboBox::popupExtraHeight() const {
     const auto height = [](const QWidget* widget) {
         return widget && !widget->isHidden() ? widget->sizeHint().height() : 0;
     };
-    const int searchHeight = popupSearch_ ? height(popupSearch_) + ComponentMetrics{}.spacingSmall : 0;
+    const int searchHeight =
+        popupSearch_ ? height(popupSearch_) + ComponentMetrics{}.spacingSmall : 0;
     return height(popupHeader_) + searchHeight + height(popupActions_);
 }
 
@@ -464,12 +468,14 @@ QSize ComboBox::sizeHint() const {
     return size;
 }
 QSize ComboBox::minimumSizeHint() const {
-    if (iconOnly_) return sizeHint();
+    if (iconOnly_)
+        return sizeHint();
     return currentText().contains('\n') ? sizeHint() : QComboBox::minimumSizeHint();
 }
 QWidget* ComboBox::popupWidget() const { return popup_; }
 void ComboBox::setIconOnly(bool enabled) {
-    if (iconOnly_ == enabled) return;
+    if (iconOnly_ == enabled)
+        return;
     iconOnly_ = enabled;
     updateGeometry();
     update();
@@ -546,9 +552,11 @@ void ComboBox::showPopup() {
     rowOption.initFrom(popupView_);
     rowOption.decorationSize = iconSize();
     for (int row = 0; !uniform && row < count(); ++row)
-        desiredWidth = qMax(desiredWidth,
-            popupView_->itemDelegate()->sizeHint(rowOption, model()->index(row, modelColumn())).width() +
-                8 + 2 * popupView_->frameWidth());
+        desiredWidth =
+            qMax(desiredWidth, popupView_->itemDelegate()
+                                       ->sizeHint(rowOption, model()->index(row, modelColumn()))
+                                       .width() +
+                                   8 + 2 * popupView_->frameWidth());
     for (const auto* extra : {static_cast<QWidget*>(popupHeader_),
                               static_cast<QWidget*>(popupSearch_), popupActions_}) {
         if (extra && !extra->isHidden())
@@ -568,8 +576,7 @@ void ComboBox::showPopup() {
         const QRect first = popupView_->visualRect(model()->index(0, modelColumn()));
         const QRect last = popupView_->visualRect(model()->index(visibleRows - 1, modelColumn()));
         const int rowsHeight = last.bottom() - first.top() + 1;
-        const int exactHeight = rowsHeight + 8 + popupExtraHeight() +
-                                2 * popupView_->frameWidth();
+        const int exactHeight = rowsHeight + 8 + popupExtraHeight() + 2 * popupView_->frameWidth();
         popup_->setGeometry(PopupSurface::anchoredGeometry(*this, QSize(desiredWidth, exactHeight),
                                                            popupWithinWindow_, popupWithinWindow_));
     }
@@ -614,10 +621,11 @@ void ComboBox::paintEvent(QPaintEvent* event) {
     if (iconOnly_ && !isEditable()) {
         QPainter painter(this);
         const QSize extent = iconSize().boundedTo(QSize(16, 16));
-        const QRect bounds(QPoint((width() - extent.width()) / 2,
-                                  (height() - extent.height()) / 2), extent);
-        itemIcon(currentIndex()).paint(&painter, bounds, Qt::AlignCenter,
-                                      isEnabled() ? QIcon::Normal : QIcon::Disabled);
+        const QRect bounds(QPoint((width() - extent.width()) / 2, (height() - extent.height()) / 2),
+                           extent);
+        itemIcon(currentIndex())
+            .paint(&painter, bounds, Qt::AlignCenter,
+                   isEnabled() ? QIcon::Normal : QIcon::Disabled);
         return;
     }
     if ((currentText().contains('\n') || displayText() != currentText()) && !isEditable()) {

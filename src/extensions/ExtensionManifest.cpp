@@ -124,7 +124,8 @@ QString ExtensionManager::validateManifest(const QJsonObject& manifest) {
         QSet<QString> breakpointLanguages;
         for (const auto& value : contributions.value("breakpoints").toArray()) {
             const auto language = value.toObject().value("language").toString();
-            if (!value.isObject() || language.trimmed().isEmpty() || language.contains(QRegularExpression("\\s")) ||
+            if (!value.isObject() || language.trimmed().isEmpty() ||
+                language.contains(QRegularExpression("\\s")) ||
                 breakpointLanguages.contains(language))
                 return "Breakpoint languages must be nonempty and unique.";
             breakpointLanguages.insert(language);

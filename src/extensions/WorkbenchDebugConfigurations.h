@@ -1,9 +1,9 @@
 #pragma once
 #include "extensions/DebugConfigurationApi.h"
-#include <QObject>
 #include <QHash>
-#include <QJsonObject>
 #include <QJsonArray>
+#include <QJsonObject>
+#include <QObject>
 #include <QSet>
 #include <functional>
 
@@ -19,14 +19,21 @@ class WorkbenchDebugConfigurations final : public QObject {
     void ready(const QString& owner);
     void removeOwner(const QString& owner, const QString& error);
     quint64 request(const QString& type, const QString& method, const QJsonValue& configuration,
-        const std::optional<WorkspaceFolder>& folder, const QStringList& awaitingOwners,
-        DebugConfigurationProviderTriggerKind trigger = DebugConfigurationProviderTriggerKind::Initial);
+                    const std::optional<WorkspaceFolder>& folder, const QStringList& awaitingOwners,
+                    DebugConfigurationProviderTriggerKind trigger =
+                        DebugConfigurationProviderTriggerKind::Initial);
     bool accept(const QString& owner, const QJsonObject& message);
     bool cancel(quint64 id);
   signals:
     void finished(quint64 id, const QJsonValue& result, const QString& error);
+
   private:
-    struct Provider { QString owner; quint64 handle{}; QString type; DebugConfigurationProviderTriggerKind trigger{}; };
+    struct Provider {
+        QString owner;
+        quint64 handle{};
+        QString type;
+        DebugConfigurationProviderTriggerKind trigger{};
+    };
     struct Operation {
         QString type, method;
         QJsonValue configuration;
@@ -39,7 +46,10 @@ class WorkbenchDebugConfigurations final : public QObject {
         quint64 call{};
         bool started{};
     };
-    struct Call { quint64 operation{}; Provider provider; };
+    struct Call {
+        quint64 operation{};
+        Provider provider;
+    };
     void advance(quint64 id);
     void complete(quint64 id, const QJsonValue& result, const QString& error = {});
     Send send_;

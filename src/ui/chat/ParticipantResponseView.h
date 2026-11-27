@@ -1,13 +1,15 @@
 #pragma once
-#include <QWidget>
 #include <QJsonObject>
-#include <QSet>
 #include <QPointer>
+#include <QSet>
 #include <QUrl>
+#include <QWidget>
 class QVBoxLayout;
 class QLabel;
 class QTextBrowser;
-namespace litecode::extensions { class ExtensionManager; }
+namespace litecode::extensions {
+class ExtensionManager;
+}
 namespace litecode::ui::chat {
 // Workbench renderer, not an extension-facing widget/API. Native extensions
 // send typed parts through the host bridge and never insert their own widgets.
@@ -19,6 +21,7 @@ class ParticipantResponseView final : public QWidget {
     void finish(const QJsonObject& result, const QString& error);
   signals:
     void resourceActivated(const QUrl& uri, int line, int character);
+
   private:
     void activateResource(const QJsonValue& resource);
     void openLink(const QUrl& uri, const QJsonObject& markdown);

@@ -1,8 +1,8 @@
 #pragma once
 #include "extensions/WorkbenchStatusBar.h"
+#include <QPoint>
 #include <QPointer>
 #include <QSet>
-#include <QPoint>
 class QStatusBar;
 class QHBoxLayout;
 class QWidget;
@@ -11,8 +11,10 @@ class StatusBarService final : public QObject {
   public:
     StatusBarService(extensions::WorkbenchStatusBar& backend, QStatusBar& bar, QObject* parent);
     ~StatusBarService() override;
+
   protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
+
   private:
     void refresh();
     void showMenu(const QPoint& position);
@@ -24,4 +26,4 @@ class StatusBarService final : public QObject {
     QHash<QString, QPointer<QWidget>> buttons_;
     QSet<QString> hidden_;
 };
-}
+} // namespace litecode::ui

@@ -26,7 +26,8 @@ class ExtensionDetailsPage final : public QWidget {
     QPointer<extensions::ExtensionManager> manager_;
     QString id_;
     QString documentedPackage_;
-    QLabel *icon_{}, *name_{}, *identity_{}, *description_{}, *status_{}, *diagnostic_{}, *location_{};
+    QLabel *icon_{}, *name_{}, *identity_{}, *description_{}, *status_{}, *diagnostic_{},
+        *location_{};
     NativeMarkdownView* readme_{};
     QWidget* documentation_{};
     QPushButton *enable_{}, *uninstall_{};

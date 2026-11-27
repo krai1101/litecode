@@ -21,7 +21,8 @@ class DebugInspectorTree final : public components::Tree {
 
   protected:
     void resizeEvent(QResizeEvent* event) override;
-    void drawBranches(QPainter* painter, const QRect& rect, const QModelIndex& index) const override;
+    void drawBranches(QPainter* painter, const QRect& rect,
+                      const QModelIndex& index) const override;
     void drawRow(QPainter* painter, const QStyleOptionViewItem& option,
                  const QModelIndex& index) const override;
 };
