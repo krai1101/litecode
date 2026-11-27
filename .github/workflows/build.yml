@@ -206,7 +206,12 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
           LITECODE_REQUIRE_LINK_TESTS: '1'
-        run: ctest --preset release --parallel 2
+        run: ctest --preset release --parallel 2 -E '^litecode[.]extensions([.]editor_application)?$'
+      - name: Exercise extension editor and clipboard on Cocoa
+        env:
+          QT_QPA_PLATFORM: cocoa
+          LITECODE_REQUIRE_LINK_TESTS: '1'
+        run: ctest --preset release --no-tests=error -R '^litecode[.]extensions([.]editor_application)?$'
       - name: Build release archive
         run: cmake --build --preset release --target package
       - name: Verify installed SDK and packaged extension host
