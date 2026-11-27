@@ -5,6 +5,7 @@
 #include <QProcess>
 #include <QPromise>
 #include <QTemporaryDir>
+#include <QTimer>
 
 namespace litecode::java {
 class JavaLanguageServer final : public QObject {
@@ -27,6 +28,8 @@ class JavaLanguageServer final : public QObject {
     debug::DapDecoder decoder_;
     QHash<int, std::shared_ptr<QPromise<QJsonValue>>> pending_;
     QFuture<QJsonValue> ready_;
+    std::shared_ptr<QPromise<QJsonValue>> startup_;
+    QTimer startupTimeout_;
     std::unique_ptr<QTemporaryDir> data_;
     QString workspace_;
     int sequence_{};

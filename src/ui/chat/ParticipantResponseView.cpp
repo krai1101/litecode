@@ -4,6 +4,7 @@
 #include <QDesktopServices>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QTextBrowser>
 #include <QTextDocument>
@@ -12,6 +13,23 @@
 
 namespace litecode::ui::chat {
 namespace {
+class ResponseFileTree final : public components::Tree {
+  public:
+    using components::Tree::Tree;
+
+  protected:
+    void keyPressEvent(QKeyEvent* event) override {
+        auto* item = currentItem();
+        if (item && !item->childCount() && event->modifiers() == Qt::NoModifier &&
+            (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter)) {
+            event->accept();
+            emit itemActivated(item, currentColumn());
+            return;
+        }
+        components::Tree::keyPressEvent(event);
+    }
+};
+
 class ResponseMarkdown final : public QTextBrowser {
   public:
     explicit ResponseMarkdown(QWidget* parent) : QTextBrowser(parent) {
@@ -147,7 +165,7 @@ void ParticipantResponseView::appendPart(const QJsonObject& part) {
         connect(button, &QPushButton::clicked, this, [this, value] { activateResource(value); });
         widget = button;
     } else if (kind == "filetree") {
-        auto* tree = new components::Tree(this);
+        auto* tree = new ResponseFileTree(this);
         tree->setObjectName("chatResponseFileTree");
         tree->setHeaderHidden(true);
         addNodes(value.toArray(), tree, nullptr, QUrl(part.value("baseUri").toString()));

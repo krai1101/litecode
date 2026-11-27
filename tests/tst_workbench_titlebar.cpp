@@ -80,7 +80,7 @@ class WorkbenchTitleBarTests final : public QObject {
         CloseGuardWindow window;
         auto* chrome = addChrome(window);
         components::QuickInputDialog input("Input", "Value", "Enter value", &window);
-        input.open();
+        input.show();
         QTRY_VERIFY(input.isVisible());
         input.move(window.mapToGlobal(QPoint(30, 70)));
         auto* close = chrome->findChild<QToolButton*>("windowClose");

@@ -32,6 +32,11 @@ QString javaExecutable(extensions::ExtensionContext& context) {
 JavaLanguageServer::JavaLanguageServer(extensions::ExtensionContext& context)
     : context_(context), log_(context.window().createOutputChannel(
                              "Java Debugger", extensions::LogOutputChannelOptions{})) {
+    startupTimeout_.setSingleShot(true);
+    connect(&startupTimeout_, &QTimer::timeout, this, [this] {
+        reset("The Java language server did not finish starting.");
+        process_.kill();
+    });
     connect(&process_, &QProcess::readyReadStandardOutput, this, [this] {
         for (const auto& message : decoder_.feed(process_.readAllStandardOutput()))
             receive(message);
@@ -97,6 +102,11 @@ QFuture<QJsonValue> JavaLanguageServer::ensureStarted(const QString& workspace) 
         throw std::runtime_error("Could not create a Java language server data directory.");
     workspace_ = workspace;
     decoder_.reset();
+    const auto startup = std::make_shared<QPromise<QJsonValue>>();
+    startup->start();
+    startup_ = startup;
+    ready_ = startup->future();
+    startupTimeout_.start(120000);
     process_.setWorkingDirectory(workspace);
     process_.start(
         java,
@@ -111,22 +121,30 @@ QFuture<QJsonValue> JavaLanguageServer::ensureStarted(const QString& workspace) 
     const QJsonObject settings{
         {"java",
          QJsonObject{{"configuration", QJsonObject{{"updateBuildConfiguration", "automatic"}}}}}};
-    ready_ =
-        request(
-            "initialize",
-            {{"processId", QCoreApplication::applicationPid()},
-             {"rootUri", uri},
-             {"capabilities", QJsonObject{{"workspace", QJsonObject{{"configuration", true},
-                                                                    {"workspaceFolders", true}}}}},
-             {"workspaceFolders",
-              QJsonArray{QJsonObject{{"uri", uri}, {"name", QFileInfo(workspace).fileName()}}}},
-             {"initializationOptions", QJsonObject{{"bundles", QJsonArray{plugin}},
-                                                   {"workspaceFolders", QJsonArray{uri}},
-                                                   {"settings", settings}}}})
-            .then(this, [this](QJsonValue result) {
-                send({{"method", "initialized"}, {"params", QJsonObject{}}});
-                return result;
-            });
+    // JDT LS acknowledges initialize before its workspace import is ready.
+    // Wait for ServiceReady before running project or debugger commands.
+    (void)request(
+        "initialize",
+        {{"processId", QCoreApplication::applicationPid()},
+         {"rootUri", uri},
+         {"capabilities", QJsonObject{{"workspace", QJsonObject{{"configuration", true},
+                                                                {"workspaceFolders", true}}}}},
+         {"workspaceFolders",
+          QJsonArray{QJsonObject{{"uri", uri}, {"name", QFileInfo(workspace).fileName()}}}},
+         {"initializationOptions", QJsonObject{{"bundles", QJsonArray{plugin}},
+                                               {"workspaceFolders", QJsonArray{uri}},
+                                               {"settings", settings}}}})
+        .then(this,
+              [this, startup](QJsonValue) {
+                  if (startup_ == startup)
+                      send({{"method", "initialized"}, {"params", QJsonObject{}}});
+              })
+        .onFailed(this, [this, startup](const std::exception& error) {
+            if (startup_ != startup)
+                return;
+            reset(QString::fromUtf8(error.what()));
+            process_.kill();
+        });
     return ready_;
 }
 
@@ -198,8 +216,16 @@ void JavaLanguageServer::receive(const QJsonObject& message) {
         }
         send({{"id", id}, {"result", result}});
     } else if (!method.isEmpty()) {
-        if (method == "window/logMessage" || method == "window/showMessage")
-            log_->appendLine(message.value("params").toObject().value("message").toString());
+        const auto parameters = message.value("params").toObject();
+        if (method == "language/status" && parameters.value("type") == "ServiceReady") {
+            if (auto startup = std::exchange(startup_, {})) {
+                startupTimeout_.stop();
+                startup->addResult(QJsonValue{});
+                startup->finish();
+            }
+        } else if (method == "window/logMessage" || method == "window/showMessage") {
+            log_->appendLine(parameters.value("message").toString());
+        }
     } else if (auto pending = pending_.take(id.toInt())) {
         if (message.contains("error"))
             pending->setException(std::make_exception_ptr(
@@ -215,7 +241,12 @@ void JavaLanguageServer::receive(const QJsonObject& message) {
 }
 
 void JavaLanguageServer::reset(const QString& error) {
+    startupTimeout_.stop();
     ready_ = {};
+    if (auto startup = std::exchange(startup_, {})) {
+        startup->setException(std::make_exception_ptr(std::runtime_error(error.toStdString())));
+        startup->finish();
+    }
     for (const auto& pending : std::exchange(pending_, {})) {
         pending->setException(std::make_exception_ptr(std::runtime_error(error.toStdString())));
         pending->finish();

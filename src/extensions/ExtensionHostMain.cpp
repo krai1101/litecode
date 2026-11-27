@@ -1448,6 +1448,11 @@ class ExtensionHost final : public QObject {
 } // namespace
 
 int main(int argc, char* argv[]) {
+#ifdef Q_OS_MACOS
+    // QtKeychain delivers Security framework results on the main dispatch
+    // queue. The default console dispatcher does not service that queue.
+    qputenv("QT_EVENT_DISPATCHER_CORE_FOUNDATION", "1");
+#endif
     QCoreApplication application(argc, argv);
     QCommandLineParser parser;
     parser.addOption({"socket", "Local socket name", "name"});
