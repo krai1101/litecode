@@ -36,6 +36,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Could not install clang-format.' }
           $formatter = python -c "from pathlib import Path; import clang_format; print(Path(clang_format.__file__).parent / 'data' / 'bin' / 'clang-format.exe')"
           ./scripts/format.ps1 -Check -FormatterPath $formatter
+      - name: Set up Java debugger test runtime
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '21'
       - name: Build and test
         shell: pwsh
         env:
@@ -105,6 +110,11 @@ jobs:
           qt_lib="$(dirname "$qt_icu")"
           export LD_LIBRARY_PATH="$qt_lib:${LD_LIBRARY_PATH:-}"
           cmake --build --preset release
+      - name: Set up Java debugger test runtime
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '21'
       - name: Test
         env:
           QT_QPA_PLATFORM: offscreen
@@ -183,6 +193,15 @@ jobs:
           security unlock-keychain -p litecode-ci-test-keyring "$keychain"
           security default-keychain -d user -s "$keychain"
           security list-keychains -d user -s "$keychain"
+      - name: Set up Java debugger test runtime
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Prepare macOS test temporary directory
+        run: |
+          # Keep Unix socket paths short and avoid the /var symlink in file fixtures.
+          echo "TMPDIR=$(mktemp -d /private/tmp/lc.XXXXXX)" >> "$GITHUB_ENV"
       - name: Test
         env:
           QT_QPA_PLATFORM: offscreen

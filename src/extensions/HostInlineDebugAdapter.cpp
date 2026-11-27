@@ -23,8 +23,7 @@ HostInlineDebugAdapter::HostInlineDebugAdapter(std::shared_ptr<DebugAdapter> ada
     // Construction failures must dispose a returned native adapter too.
     try {
         server_.setSocketOptions(QLocalServer::UserAccessOption);
-        if (!server_.listen("litecode-inline-" +
-                            QUuid::createUuid().toString(QUuid::WithoutBraces)))
+        if (!server_.listen("lc-dap-" + QUuid::createUuid().toString(QUuid::Id128)))
             throw std::runtime_error(server_.errorString().toStdString());
         delivery_->receiver = this;
         subscription_ =

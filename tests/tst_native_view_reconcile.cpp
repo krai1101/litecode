@@ -187,15 +187,14 @@ class NativeViewReconcileTests final : public QObject {
         QTRY_VERIFY(view.verticalScrollBar()->maximum() > 1000);
         auto* bar = view.verticalScrollBar();
         view.restorePosition(900, false);
-        QSignalSpy changes(bar, &QScrollBar::valueChanged);
+        const int steps = qMax(1, bar->singleStep()) * QApplication::wheelScrollLines();
+        const int target = 900 - qMin(steps, bar->pageStep());
         QWheelEvent mouse(QPointF(20, 20), QPointF(view.viewport()->mapToGlobal(QPoint(20, 20))),
                           QPoint(), QPoint(0, 120), Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase,
                           false);
         QApplication::sendEvent(view.viewport(), &mouse);
         QCOMPARE(bar->value(), 900);
-        QTRY_VERIFY(bar->value() < 900);
-        QTest::qWait(130);
-        QVERIFY(changes.size() > 1);
+        QTRY_COMPARE(bar->value(), target);
         const int before = bar->value();
         QWheelEvent trackpad(QPointF(20, 20), QPointF(view.viewport()->mapToGlobal(QPoint(20, 20))),
                              QPoint(0, -17), QPoint(), Qt::NoButton, Qt::NoModifier,

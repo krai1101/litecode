@@ -588,8 +588,7 @@ bool ExtensionManager::activate(Entry& entry) {
     }
     entry.listener = std::make_unique<QLocalServer>();
     entry.listener->setSocketOptions(QLocalServer::UserAccessOption);
-    const auto socketName =
-        "litecode-extension-" + QUuid::createUuid().toString(QUuid::WithoutBraces);
+    const auto socketName = "lc-host-" + QUuid::createUuid().toString(QUuid::Id128);
     if (!entry.listener->listen(socketName)) {
         entry.info.error =
             "Could not start extension host listener: " + entry.listener->errorString();

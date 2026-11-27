@@ -82,6 +82,7 @@ class WorkbenchTitleBarTests final : public QObject {
         components::QuickInputDialog input("Input", "Value", "Enter value", &window);
         input.open();
         QTRY_VERIFY(input.isVisible());
+        input.move(window.mapToGlobal(QPoint(30, 70)));
         auto* close = chrome->findChild<QToolButton*>("windowClose");
         clickThroughPopup(&input, close->mapToGlobal(close->rect().center()));
         QTRY_COMPARE(window.attempts, 1);

@@ -144,7 +144,7 @@ class TaskConfigurationTests final : public QObject {
 #else
         file.write(R"({"version":"2.0.0","tasks":[
           {"label":"wait","type":"process","command":"/bin/sleep","args":["15"]},
-          {"label":"next","type":"process","command":"/bin/true"}
+          {"label":"next","type":"process","command":"/bin/echo","args":["next"]}
         ]})");
 #endif
         file.close();

@@ -123,17 +123,18 @@ class WorkbenchTabsTests final : public QObject {
         const int cleanWidth = bar->tabRect(0).width();
         litecode::workspace::GitStatus status;
         status.changes.append({name, {}, '?', '?'});
-        explorer.setGitStatus(folder.path(), status);
+        const auto repository = QDir(folder.path()).canonicalPath();
+        explorer.setGitStatus(repository, status);
         QTRY_VERIFY(bar->tabRect(0).width() > cleanWidth);
         QCOMPARE(bar->tabText(0), name);
         QCOMPARE(bar->tabData(0).toMap().value("badge").toString(), QString("U"));
-        QCOMPARE(bar->tabToolTip(0), QDir::toNativeSeparators(file.fileName()));
+        QCOMPARE(bar->tabToolTip(0), QDir::toNativeSeparators(QFileInfo(file).canonicalFilePath()));
         const auto green = litecode::ui::Theme::tokens(false).gitUntracked;
         QCOMPARE(bar->tabData(0).toMap().value("color").value<QColor>(), green);
         const auto capture = qEnvironmentVariable("LITECODE_GIT_TAB_CAPTURE");
         if (!capture.isEmpty())
             QVERIFY(bar->grab(bar->tabRect(0)).save(capture));
-        explorer.setGitStatus(folder.path(), {});
+        explorer.setGitStatus(repository, {});
         QTRY_COMPARE(bar->tabRect(0).width(), cleanWidth);
         QVERIFY(bar->tabData(0).toMap().value("badge").toString().isEmpty());
     }

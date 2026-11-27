@@ -95,7 +95,7 @@ void GitService::createWorktree(const QString& path, const QString& ref, const Q
         emit error(tr("Choose a new worktree path whose parent folder exists."));
         return;
     }
-    const QString target = QDir::fromNativeSeparators(destination.absoluteFilePath());
+    const QString target = QDir(parent).filePath(destination.fileName());
     const QString root = QDir::fromNativeSeparators(QDir(repository_).canonicalPath());
     if (target.compare(root, Qt::CaseInsensitive) == 0 ||
         target.startsWith(root + '/', Qt::CaseInsensitive)) {

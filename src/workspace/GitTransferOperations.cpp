@@ -189,12 +189,17 @@ void GitService::pullWithMode(std::optional<bool> rebase, bool pushAfter, const 
 
     const auto finishPull = [this, pushAfter](int code, const QByteArray& output,
                                               const QString& diagnostic) {
+        const QString report = QString::fromUtf8(output) + '\n' + diagnostic;
+        const bool stashConflict =
+            report.contains("autostash resulted in conflicts", Qt::CaseInsensitive) ||
+            report.simplified().contains("Your local changes are stashed, however applying them "
+                                         "resulted in conflicts",
+                                         Qt::CaseInsensitive);
         if (code != 0) {
             emit error(diagnostic.isEmpty() ? tr("Pull failed.") : diagnostic);
             if (diagnostic.contains("would clobber existing tag"))
                 emit tagConflict(repository_, diagnostic);
-        } else if ((QString::fromUtf8(output) + diagnostic)
-                       .contains("autostash resulted in conflicts", Qt::CaseInsensitive)) {
+        } else if (stashConflict) {
             emit error(tr("Pull completed, but restoring your local changes caused conflicts. "
                           "Git retained the auto-stash; resolve the conflicts before pushing.\n%1")
                            .arg(diagnostic));
