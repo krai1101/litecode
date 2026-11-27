@@ -62,9 +62,13 @@ class DropdownDelegate final : public QStyledItemDelegate {
             naturalWidth = qMax(naturalWidth, metrics.horizontalAdvance(line));
         auto size = QStyledItemDelegate::sizeHint(option, index);
         size.setWidth(qMax(size.width(), naturalWidth + inset));
+        const auto* view = qobject_cast<const QAbstractItemView*>(parent());
+        const int width = view ? view->viewport()->width() : option.rect.width();
+        // While the popup is closed, report the natural width so it can size
+        // itself. Once shown, rows must fit the actual, possibly clamped width.
+        if (view && view->isVisible() && width > 0)
+            size.setWidth(width);
         if (lines.size() > 1) {
-            const auto* view = qobject_cast<const QAbstractItemView*>(parent());
-            const int width = view ? view->viewport()->width() : option.rect.width();
             const int descriptionHeight =
                 metrics
                     .boundingRect(QRect(0, 0, qMax(1, width - inset), 10000), Qt::TextWordWrap,

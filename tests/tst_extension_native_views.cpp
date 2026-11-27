@@ -2610,8 +2610,25 @@ class NativeViewTests final : public QObject {
         auto* policyPopup = dynamic_cast<ui::components::ComboBox*>(policy)->popupWidget();
         auto* policyList = policyPopup->findChild<QListView*>();
         QVERIFY(policyList);
-        QTRY_VERIFY(policyList->viewport()->rect().contains(
-            policyList->visualRect(policyList->model()->index(2, 0))));
+        const auto fullAccess = policyList->model()->index(2, 0);
+        const auto choicesFit = QTest::qWaitFor([&] {
+            return policyPopup->isVisible() &&
+                   policyList->viewport()->rect().contains(policyList->visualRect(fullAccess));
+        });
+        const auto popupGeometry = QStringLiteral("visible=%1 window=%2x%3 popup=%4x%5 "
+                                                  "viewport=%6x%7 last=%8,%9 %10x%11")
+                                       .arg(policyPopup->isVisible())
+                                       .arg(window.width())
+                                       .arg(window.height())
+                                       .arg(policyPopup->width())
+                                       .arg(policyPopup->height())
+                                       .arg(policyList->viewport()->width())
+                                       .arg(policyList->viewport()->height())
+                                       .arg(policyList->visualRect(fullAccess).x())
+                                       .arg(policyList->visualRect(fullAccess).y())
+                                       .arg(policyList->visualRect(fullAccess).width())
+                                       .arg(policyList->visualRect(fullAccess).height());
+        QVERIFY2(choicesFit, qPrintable(popupGeometry));
         QVERIFY(!policyList->verticalScrollBar()->isVisible());
         QCOMPARE(policy->itemData(2, Qt::ForegroundRole).value<QColor>(), QColor("#d99500"));
         QVERIFY(policyPopup->findChild<QPushButton*>("comboPopupHelp"));
