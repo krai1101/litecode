@@ -2,7 +2,7 @@
 
 #include "ui/FileIconTheme.h"
 #include "ui/Theme.h"
-#include "ui/ThemedIcon.h"
+#include "ui/components/TreeDisclosure.h"
 #include "ui/components/Controls.h"
 
 #include <QApplication>
@@ -198,12 +198,7 @@ void ExplorerTreeView::drawBranches(QPainter* painter, const QRect& rect,
         return;
     }
     const bool dark = qApp->property("litecodeDarkTheme").toBool();
-    constexpr int glyphExtent = 16;
-    const QRect iconRect(rect.right() - glyphExtent, rect.center().y() - glyphExtent / 2,
-                         glyphExtent, glyphExtent);
-    const QString iconPath = isExpanded(index) ? QStringLiteral(":/icons/chevron-down.svg")
-                                               : QStringLiteral(":/icons/chevron-right.svg");
-    themedIcon(iconPath, dark).paint(painter, iconRect, Qt::AlignCenter);
+    components::paintTreeDisclosure(*painter, rect, isExpanded(index), dark);
 }
 
 void ExplorerTreeView::drawRow(QPainter* painter, const QStyleOptionViewItem& option,
@@ -217,9 +212,9 @@ void ExplorerTreeView::drawRow(QPainter* painter, const QStyleOptionViewItem& op
     } else if (!temporary && hoveredIndex_ == index) {
         rowBackground = theme.listHoverBackground;
     }
-    if (rowBackground.isValid())
-        painter->fillRect(QRect(0, option.rect.y(), contentRightEdge() + 1, option.rect.height()),
-                          rowBackground);
+    components::paintTreeRowHighlight(
+        *painter, QRect(0, option.rect.y(), contentRightEdge() + 1, option.rect.height()),
+        rowBackground);
 
     QRect itemRect = visualRect(index);
     itemRect.setTop(option.rect.top());
@@ -243,10 +238,23 @@ void ExplorerTreeView::drawRow(QPainter* painter, const QStyleOptionViewItem& op
     painter->save();
     painter->setFont(itemFont);
     painter->setPen(textColor);
-    const QRect textRect = itemRect.adjusted(itemTextInset, 0, -itemTextInset, 0);
+    const QString badge = index.data(ExplorerFileSystemModel::GitBadgeRole).toString();
+    const int badgeWidth = badge.isEmpty() ? 0 : 24;
+    const QRect textRect = itemRect.adjusted(itemTextInset, 0, -itemTextInset - badgeWidth, 0);
     const QString label = model()->data(index, Qt::DisplayRole).toString();
     painter->drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter,
                       QFontMetrics(itemFont).elidedText(label, Qt::ElideRight, textRect.width()));
+    if (!badge.isEmpty()) {
+        painter->setPen(index.data(ExplorerFileSystemModel::GitColorRole).value<QColor>());
+        const QRect badgeRect(itemRect.right() - 24, itemRect.top(), 18, itemRect.height());
+        if (badge == QStringLiteral("dot")) {
+            painter->setBrush(painter->pen().color());
+            painter->setPen(Qt::NoPen);
+            painter->drawEllipse(badgeRect.center(), 3, 3);
+        } else {
+            painter->drawText(badgeRect, Qt::AlignCenter, badge);
+        }
+    }
     painter->restore();
 }
 

@@ -10,7 +10,6 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $releaseRoot = Join-Path $root 'build\release'
-$zipPath = Join-Path $releaseRoot 'LiteCode-0.1.0-win64.zip'
 
 & (Join-Path $PSScriptRoot 'build-windows.ps1') -Configuration Release `
     -QtRoot $QtRoot -ParallelJobs $ParallelJobs
@@ -29,6 +28,10 @@ if (-not $SkipAnalyze) {
 
 cmake --build $releaseRoot --target package --parallel $ParallelJobs
 if ($LASTEXITCODE -ne 0) { throw 'CPack failed.' }
+$cpackConfig = Get-Content -LiteralPath (Join-Path $releaseRoot 'CPackConfig.cmake') -Raw
+$packageName = [regex]::Match($cpackConfig, '(?m)^set\(CPACK_PACKAGE_FILE_NAME "(LiteCode-[^"/\\]+)"\)\r?$')
+if (-not $packageName.Success) { throw 'Could not read the package filename from CPackConfig.cmake.' }
+$zipPath = Join-Path $releaseRoot ($packageName.Groups[1].Value + '.zip')
 if (-not (Test-Path -LiteralPath $zipPath -PathType Leaf)) {
     throw "Expected package was not produced at '$zipPath'."
 }

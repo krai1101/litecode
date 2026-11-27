@@ -1,6 +1,10 @@
 #include "ui/explorer/ExplorerFileSystemModel.h"
+#include "ui/Theme.h"
 
+#include <QApplication>
+#include <QBrush>
 #include <QDir>
+#include <QSet>
 
 #include <utility>
 
@@ -13,6 +17,46 @@ bool isSameOrDescendant(QModelIndex candidate, const QModelIndex& ancestor) {
             return true;
     }
     return false;
+}
+
+QString decorationKey(const QString& path) {
+    const QString clean = QDir::cleanPath(QDir::fromNativeSeparators(path));
+#ifdef Q_OS_WIN
+    return clean.toCaseFolded();
+#else
+    return clean;
+#endif
+}
+
+int decorationPriority(char kind) {
+    switch (kind) {
+    case '!': return 5;
+    case 'D': return 4;
+    case 'M': return 3;
+    case 'R': return 2;
+    default: return 1;
+    }
+}
+
+char decorationKind(const workspace::GitChange& change) {
+    if (change.conflict)
+        return '!';
+    for (char kind : {change.worktree, change.index}) {
+        if (kind == 'M' || kind == 'D' || kind == 'R' || kind == 'A')
+            return kind;
+    }
+    return change.index == '?' ? '?' : 'M';
+}
+
+QColor decorationColor(char kind, const ThemeTokens& theme) {
+    switch (kind) {
+    case '!': return theme.gitConflict;
+    case 'D': return theme.gitDeleted;
+    case 'M': return theme.gitModified;
+    case 'R': return theme.gitRenamed;
+    case 'A': return theme.gitAdded;
+    default: return theme.gitUntracked;
+    }
 }
 
 } // namespace
@@ -85,7 +129,67 @@ QVariant ExplorerFileSystemModel::data(const QModelIndex& proxyIndex, int role) 
         return false;
     if (role == DirectoryRole)
         return isDir(proxyIndex);
+    if (role == GitBadgeRole || role == GitColorRole || role == Qt::ForegroundRole) {
+        const auto decoration = gitDecoration(filePath(proxyIndex), qApp->property("litecodeDarkTheme").toBool());
+        if (!decoration.badge.isEmpty()) {
+            if (role == GitBadgeRole)
+                return isDir(proxyIndex) ? QStringLiteral("dot")
+                                         : decoration.badge;
+            return role == Qt::ForegroundRole ? QVariant(QBrush(decoration.color))
+                                              : QVariant(decoration.color);
+        }
+        if (role == GitBadgeRole || role == GitColorRole)
+            return {};
+    }
     return files_->data(mapToSource(proxyIndex), role);
+}
+
+GitFileDecoration ExplorerFileSystemModel::gitDecoration(const QString& path, bool dark) const {
+    const char kind = gitDecorations_.value(decorationKey(path), '\0');
+    if (!kind)
+        return {};
+    return {kind == '?' ? QStringLiteral("U") : QString(QChar::fromLatin1(kind)),
+            decorationColor(kind, Theme::tokens(dark))};
+}
+
+void ExplorerFileSystemModel::setGitStatus(const QString& repository,
+                                           const workspace::GitStatus& status) {
+    const auto previous = gitDecorations_;
+    gitDecorations_.clear();
+    if (!repository.isEmpty()) {
+        const QString root = decorationKey(QDir(repository).absolutePath());
+        const QString prefix = root + QLatin1Char('/');
+        for (const auto& change : status.changes) {
+            if (change.path.isEmpty() || QDir::isAbsolutePath(change.path))
+                continue;
+            const QString path = decorationKey(QDir(repository).absoluteFilePath(change.path));
+            if (!path.startsWith(prefix))
+                continue;
+            const char kind = decorationKind(change);
+            gitDecorations_.insert(path, kind);
+            QString parent = QFileInfo(path).path();
+            while (parent.startsWith(prefix)) {
+                const char previousKind = gitDecorations_.value(parent, '\0');
+                if (decorationPriority(kind) > decorationPriority(previousKind))
+                    gitDecorations_.insert(parent, kind);
+                parent = QFileInfo(parent).path();
+            }
+        }
+    }
+    QSet<QString> affected;
+    for (auto it = previous.cbegin(); it != previous.cend(); ++it)
+        if (gitDecorations_.value(it.key(), '\0') != it.value())
+            affected.insert(it.key());
+    for (auto it = gitDecorations_.cbegin(); it != gitDecorations_.cend(); ++it)
+        if (previous.value(it.key(), '\0') != it.value())
+            affected.insert(it.key());
+    for (const auto& path : affected) {
+        const QModelIndex row = index(path);
+        if (row.isValid())
+            emit dataChanged(row, row, {Qt::ForegroundRole, GitBadgeRole, GitColorRole});
+    }
+    if (!affected.isEmpty())
+        emit gitDecorationsChanged();
 }
 
 bool ExplorerFileSystemModel::setData(const QModelIndex& proxyIndex, const QVariant& value,

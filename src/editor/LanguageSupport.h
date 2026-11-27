@@ -12,5 +12,6 @@ struct LanguageSupport {
 };
 
 [[nodiscard]] LanguageSupport languageSupportForFile(const QString& filePath);
+[[nodiscard]] QString languageDisplayName(const QString& id);
 
 } // namespace litecode::editor

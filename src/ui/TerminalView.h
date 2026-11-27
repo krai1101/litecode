@@ -36,6 +36,8 @@ class TerminalView final : public QAbstractScrollArea {
     explicit TerminalView(QWidget* parent = nullptr);
 
     void feed(const QByteArray& bytes);
+    void beginShellRestart();
+    void finishShellRestart();
     void clearTerminal();
     [[nodiscard]] terminal::VTermEngine* engine() const;
     [[nodiscard]] QSize terminalSize() const;
@@ -107,6 +109,7 @@ class TerminalView final : public QAbstractScrollArea {
     int terminalMouseButton_{};
     bool linkPressed_{};
     bool selectionActive_{};
+    bool restartingShell_{};
     quint64 lastDoubleClickTimestamp_{};
     GridPosition selectionAnchor_;
     GridPosition selectionCaret_;

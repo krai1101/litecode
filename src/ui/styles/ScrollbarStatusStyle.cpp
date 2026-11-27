@@ -7,17 +7,18 @@ namespace litecode::ui {
 QString ComponentStyleSheets::scrollbarsAndStatus(const ThemeTokens& tokens) {
     return applyThemeTokens(QStringLiteral(R"QSS(
         QStatusBar#statusBar {
-            background: @panel; color: @muted; border: 0; border-top: 1px solid @border;
+            background: @panel; color: @foreground; border: 0; border-top: 1px solid @border;
         }
-        QStatusBar#statusBar QLabel { background: transparent; color: @muted; font-size: 12px; }
-        QToolButton#indentStatusButton, QToolButton#encodingStatusButton {
-            background: transparent; border: 0; color: @muted; font-size: 12px;
+        QStatusBar#statusBar QLabel { background: transparent; color: @foreground; font-size: 12px; }
+        QLabel#cursorStatus, QLabel#lineEndingStatus, QLabel#languageStatus,
+        QToolButton#indentStatusButton, QToolButton#encodingStatusButton, QToolButton#extensionProgressStatus {
+            background: transparent; border: 0; color: @foreground; font-size: 12px;
             padding: 0 4px;
         }
         QToolButton#indentStatusButton::menu-indicator,
         QToolButton#encodingStatusButton::menu-indicator { image: none; width: 0; }
         QToolButton#indentStatusButton:hover,
-        QToolButton#encodingStatusButton:hover { background: @hover; color: @foreground; }
+        QToolButton#encodingStatusButton:hover, QToolButton#extensionProgressStatus:hover { background: @hover; color: @foreground; }
         QStatusBar#statusBar::item { border: 0; }
         QScrollBar:vertical { background: transparent; border: 0; width: 10px; margin: 0; }
         QScrollBar::handle:vertical { background: transparent; border: 0; min-height: 28px; }

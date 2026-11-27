@@ -50,6 +50,8 @@ struct InputTokens final {
     QColor disabledForeground;
     QColor disabledBackground;
     QColor errorBorder;
+    QColor warningBorder;
+    QColor infoBorder;
 };
 
 struct ListTokens final {
@@ -80,6 +82,10 @@ struct MenuTokens final {
     QColor background;
     QColor border;
     QString arrowIcon;
+    QColor selectionBackground;
+    QColor selectionForeground;
+    QColor disabledForeground;
+    QColor separatorBackground;
 };
 
 struct ComponentTokens final {

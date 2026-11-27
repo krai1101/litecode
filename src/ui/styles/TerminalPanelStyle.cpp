@@ -7,29 +7,36 @@ namespace litecode::ui {
 QString ComponentStyleSheets::terminalAndPanel(const ThemeTokens& tokens) {
     return applyThemeTokens(QStringLiteral(R"QSS(
         QDockWidget#bottomDock { background: @panel; border: 0; }
-        QTabWidget#bottomTabs,
-        QWidget#bottomPanelHeader,
+        QWidget#bottomTabs,
         QWidget#terminalToolbar, QWidget#terminalBody { background: @panel; border: 0; }
         QWidget#bottomPanelContainer {
             background: @panel; border: 0; border-top: 1px solid @border;
         }
-        QWidget#bottomPanelTitleBlock { background: transparent; }
-        QLabel#bottomPanelTitle {
-            color: @foreground; font-size: 13px; font-weight: normal; padding: 0 8px;
+        QWidget#bottomTabs, QWidget#bottomTabs QStackedWidget { background: @panel; border: 0; }
+        QWidget#bottomTabs QTabBar { background: @panel; border: 0; }
+        QWidget#bottomTabs QTabBar::tab {
+            background: transparent; border: 0; color: @muted; font-size: 13px;
+            min-width: 0; min-height: 26px; padding: 0 9px;
+            margin: 4px 2px; border-radius: 4px;
         }
-        QFrame#bottomPanelTitleUnderline { background: @accent; border: 0; }
-        QTabWidget#bottomTabs { background: @panel; border: 0; }
-        QTabWidget#bottomTabs QTabBar { background: @panel; border: 0; }
-        QTabWidget#bottomTabs QTabBar::tab {
-            background: @panel; border: 0; color: @muted; font-size: 13px;
-            min-width: 0; min-height: 34px; padding: 0 8px;
+        QWidget#bottomTabs QTabBar::tab:hover { color: @foreground; }
+        QWidget#bottomTabs QTabBar::tab:selected {
+            background: @selection; color: @listSelectionForeground; border: 0;
         }
-        QTabWidget#bottomTabs QTabBar::tab:hover { color: @foreground; }
-        QTabWidget#bottomTabs QTabBar::tab:selected {
-            background: @panel; color: @foreground; border-top: 0;
-            border-bottom: 1px solid @accent;
+        QWidget#panelHeader { background: @panel; border: 0; }
+        QWidget#panelHeader QLineEdit, QWidget#panelHeader QComboBox {
+            font-size: 12px; padding: 1px 6px; min-height: 20px;
         }
-        QTabWidget#bottomTabs::pane { background: @panel; border: 0; }
+        QPlainTextEdit#extensionOutputText, QPlainTextEdit#debugConsole,
+        QPlainTextEdit#gitOutput {
+            background: @panel; color: @foreground; border: 0; padding: 6px 10px;
+            selection-background-color: @selection;
+        }
+        QWidget#debugConsolePrompt { background: @panel; border-top: 1px solid @border; }
+        QLineEdit#debugConsoleInput {
+            background: transparent; color: @foreground; border: 0;
+            border-radius: 0; padding: 4px 0; min-height: 20px;
+        }
         QToolButton#terminalToolButton {
             background: transparent; border: 0; border-radius: 3px; color: @muted;
             min-width: 25px; min-height: 23px; padding: 0;

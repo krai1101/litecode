@@ -1,4 +1,9 @@
 ﻿<RCC>
+  <qresource prefix="/litecode/editor/icons">
+    <file alias="debug-breakpoint.svg">../icons/codicon-debug-breakpoint.svg</file>
+    <file alias="debug-breakpoint-stackframe-active-light.svg">../icons/codicon-debug-breakpoint-stackframe-active-light.svg</file>
+    <file alias="debug-breakpoint-stackframe-active-dark.svg">../icons/codicon-debug-breakpoint-stackframe-active-dark.svg</file>
+  </qresource>
   <qresource prefix="/litecode/themes">
     <file>languages/asciidoc.json</file>
     <file>languages/asm.json</file>

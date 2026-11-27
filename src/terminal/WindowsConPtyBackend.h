@@ -53,6 +53,8 @@ class WindowsConPtyBackend final : public ITerminalBackend {
     void resizeTerminal(const QSize& characters) override;
     void requestStop() override;
     [[nodiscard]] TerminalState state() const override;
+    [[nodiscard]] qint64 processId() const override;
+    [[nodiscard]] bool shellIsIdle() const override;
 
   private:
     void pollRun();

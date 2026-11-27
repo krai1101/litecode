@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=LiteCode
+TryExec=LiteCode
+Exec=LiteCode --open-url %u
+Terminal=false
+Icon=litecode
+MimeType=x-scheme-handler/litecode;
+Categories=Development;IDE;
+Actions=NewWindow;
+
+[Desktop Action NewWindow]
+Name=New Window
+Exec=LiteCode --new-window

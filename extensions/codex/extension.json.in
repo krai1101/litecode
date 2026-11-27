@@ -1,0 +1,18 @@
+{
+  "id": "litecode.codex",
+  "displayName": "Codex",
+  "description": "Use Codex in LiteCode to ask questions about your project, plan changes, and review edits.",
+  "icon": "codex.svg",
+  "version": "1.0.0",
+  "apiVersion": 25,
+  "qtVersion": "@Qt6Core_VERSION@",
+  "architecture": "@LITECODE_CODEX_EXTENSION_ARCH@",
+  "activationEvents": ["onUri"],
+  "contributes": {
+    "viewsContainers": {"secondarySidebar": [{"id": "litecode.codex", "title": "Codex", "icon": "codex.svg"}]},
+    "views": {"litecode.codex": [{"id": "litecode.codex.view", "name": "Codex", "type": "native"}]},
+    "configuration": {"title": "Codex", "properties": {
+      "codex.executablePath": {"type": "string", "default": "", "description": "Optional Codex executable. Empty uses this extension's packaged runtime."}
+    }}
+  }
+}

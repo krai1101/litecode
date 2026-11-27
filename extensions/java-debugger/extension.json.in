@@ -1,0 +1,124 @@
+{
+  "id": "litecode.java-debugger",
+  "displayName": "Java Debugger",
+  "description": "Debug Java projects with Eclipse JDT LS and Microsoft's Java adapter.",
+  "version": "1.0.0",
+  "apiVersion": 25,
+  "qtVersion": "@Qt6Core_VERSION@",
+  "architecture": "@DEBUGGER_ARCH@",
+  "activationEvents": [
+    "onDebug"
+  ],
+  "contributes": {
+    "breakpoints": [
+      {
+        "language": "java"
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "java",
+        "label": "Java",
+        "languages": [
+          "java"
+        ],
+        "initialConfigurations": [
+          {
+            "name": "Current File",
+            "type": "java",
+            "request": "launch",
+            "mainClass": "${file}"
+          }
+        ],
+        "configurationAttributes": {
+          "launch": {
+            "required": [
+              "name",
+              "type",
+              "request"
+            ],
+            "properties": {
+              "mainClass": {
+                "type": "string"
+              },
+              "projectName": {
+                "type": "string"
+              },
+              "classPaths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "modulePaths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "javaExec": {
+                "type": "string"
+              },
+              "args": {
+                "type": "string"
+              },
+              "vmArgs": {
+                "type": "string"
+              },
+              "cwd": {
+                "type": "string"
+              },
+              "console": {
+                "enum": [
+                  "integratedTerminal",
+                  "internalConsole"
+                ]
+              }
+            }
+          },
+          "attach": {
+            "required": [
+              "name",
+              "type",
+              "request"
+            ],
+            "properties": {
+              "hostName": {
+                "type": "string"
+              },
+              "port": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
+              },
+              "projectName": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    ],
+    "configuration": {
+      "title": "Java Debugger",
+      "properties": {
+        "java.jdt.ls.java.home": {
+          "type": "string",
+          "default": "",
+          "description": "JDK 21 or newer home directory for the Java language server."
+        },
+        "java.debug.settings.console": {
+          "enum": [
+            "integratedTerminal",
+            "internalConsole"
+          ],
+          "default": "integratedTerminal"
+        },
+        "java.debug.settings.forceBuildBeforeLaunch": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    }
+  }
+}

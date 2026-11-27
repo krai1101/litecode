@@ -51,8 +51,9 @@ class EditorBackend : public QWidget {
   signals:
     void modificationChanged(bool modified);
     void textChanged();
+    void textReplacedWithLineEnding(const QByteArray& text, core::LineEnding eol, core::DocumentEditReason reason);
     void textEdited(qint64 position, qint64 removedLength, const QByteArray& insertedText,
-                    const core::TextRange& range);
+                    const core::TextRange& range, core::DocumentEditReason reason);
     void cursorPositionChanged(int line, int column);
 };
 

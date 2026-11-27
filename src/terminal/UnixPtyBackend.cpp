@@ -186,6 +186,11 @@ bool UnixPtyBackend::enqueueInput(const QByteArray& bytes) {
     return true;
 }
 
+bool UnixPtyBackend::shellIsIdle() const {
+    return state_ == TerminalState::Running && processId_ > 0 && masterFd_ >= 0 &&
+           inputQueue_.isEmpty() && ::tcgetpgrp(masterFd_) == processId_;
+}
+
 void UnixPtyBackend::resizeTerminal(const QSize& characters) {
     if (characters.width() <= 0 || characters.height() <= 0)
         return;

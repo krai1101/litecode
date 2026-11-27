@@ -268,20 +268,20 @@ QString foregroundProcessName(DWORD rootProcessId) {
     return processes.value(current).name;
 }
 
-QVector<DWORD> descendantProcessIds(DWORD rootProcessId) {
+std::optional<QVector<DWORD>> descendantProcessIds(DWORD rootProcessId) {
     UniqueHandle snapshot(CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0), {});
     if (snapshot.get() == INVALID_HANDLE_VALUE)
-        return {};
+        return std::nullopt;
 
     QMultiHash<DWORD, DWORD> children;
     PROCESSENTRY32W entry{};
     entry.dwSize = sizeof(entry);
-    if (Process32FirstW(snapshot.get(), &entry)) {
-        do {
-            if (entry.th32ProcessID != 0 && entry.th32ProcessID != rootProcessId)
-                children.insert(entry.th32ParentProcessID, entry.th32ProcessID);
-        } while (Process32NextW(snapshot.get(), &entry));
-    }
+    if (!Process32FirstW(snapshot.get(), &entry))
+        return std::nullopt;
+    do {
+        if (entry.th32ProcessID != 0 && entry.th32ProcessID != rootProcessId)
+            children.insert(entry.th32ParentProcessID, entry.th32ProcessID);
+    } while (Process32NextW(snapshot.get(), &entry));
 
     QVector<DWORD> descendants;
     QVector<DWORD> pending{rootProcessId};
@@ -301,7 +301,7 @@ QVector<DWORD> descendantProcessIds(DWORD rootProcessId) {
 }
 
 void terminateProcessTreeFallback(DWORD rootProcessId, HANDLE rootProcess, bool terminateRoot) {
-    QVector<DWORD> descendants = descendantProcessIds(rootProcessId);
+    auto descendants = descendantProcessIds(rootProcessId).value_or(QVector<DWORD>{});
     std::reverse(descendants.begin(), descendants.end());
     for (const DWORD processId : descendants) {
         UniqueHandle process(OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, FALSE, processId), {});
@@ -327,6 +327,7 @@ struct WindowsConPtyBackend::RunState final {
     bool stopRequested{false};
     bool readerStopRequested{false};
     bool startedPending{false};
+    qint64 processId{};
     bool supervisorFinished{false};
     bool completionDelivered{false};
     QString foregroundProcessName;
@@ -547,6 +548,7 @@ TerminalExit executeConPty(const std::shared_ptr<WindowsConPtyBackend::RunState>
         std::lock_guard lock(run->mutex);
         run->workerState = TerminalState::Running;
         run->startedPending = true;
+        run->processId = processInfo.dwProcessId;
     }
 
     bool cancellationRequested = false;
@@ -743,6 +745,28 @@ void WindowsConPtyBackend::requestStop() {
 }
 
 TerminalState WindowsConPtyBackend::state() const { return state_; }
+qint64 WindowsConPtyBackend::processId() const {
+    const auto run = run_;
+    if (!run || state_ == TerminalState::Stopped || state_ == TerminalState::Failed) return 0;
+    std::lock_guard lock(run->mutex); return run->processId;
+}
+
+bool WindowsConPtyBackend::shellIsIdle() const {
+    const auto run = run_;
+    if (!run || state_ != TerminalState::Running)
+        return false;
+    DWORD pid = 0;
+    {
+        std::lock_guard lock(run->mutex);
+        if (run->workerState != TerminalState::Running || !run->input.isEmpty())
+            return false;
+        pid = run->processId;
+    }
+    if (!pid)
+        return false;
+    const auto children = descendantProcessIds(pid);
+    return children && children->isEmpty();
+}
 
 void WindowsConPtyBackend::pollRun() {
     const auto run = run_;

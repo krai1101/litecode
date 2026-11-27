@@ -1,0 +1,14 @@
+{
+  "id": "example.hello",
+  "displayName": "Native Hello World",
+  "version": "@PROJECT_VERSION@",
+  "apiVersion": @LiteCodeExtensionSDK_API_VERSION@,
+  "qtVersion": "@LiteCodeExtensionSDK_QT_VERSION@",
+  "architecture": "@EXTENSION_ARCH@",
+  "contributes": {
+    "commands": [
+      {"command": "example.hello.greet", "title": "Hello World", "category": "Example"}
+    ],
+    "formatters": [{"language": "markdown"}]
+  }
+}

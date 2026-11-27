@@ -28,11 +28,11 @@ void WorkbenchController::setWorkspacePath(const QString& workspacePath) {
 }
 
 void WorkbenchController::showSidebar(SidebarView view) {
-    const bool changed = sidebarView_ != view || !primarySidebarVisible_;
     sidebarView_ = view;
     primarySidebarVisible_ = true;
-    if (changed)
-        emit sidebarChanged(sidebarView_, primarySidebarVisible_);
+    // An explicit selection also reopens the built-in container when an
+    // extension currently occupies the primary sidebar.
+    emit sidebarChanged(sidebarView_, primarySidebarVisible_);
 }
 
 void WorkbenchController::setPrimarySidebarVisible(bool visible) {

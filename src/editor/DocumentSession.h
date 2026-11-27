@@ -80,9 +80,16 @@ class DocumentSession final {
     [[nodiscard]] static bool matchesDiskSnapshot(const QString& filePath,
                                                   const DocumentLoadResult& result);
     bool acceptLoad(const DocumentLoadResult& result);
+    // Initialize a workbench-owned untitled model without pretending it has a
+    // disk path. Returns normalized UTF-8 content for the attached text buffer.
+    std::optional<QByteArray> initializeUntitled(const QString& content,
+        core::TextEncoding encoding = core::TextEncoding::Utf8,
+        core::LineEnding preferredLineEnding = core::LineEnding::None);
+    std::optional<QByteArray> initializeVirtual(const QString& content);
     bool acceptReload(const DocumentLoadResult& result);
     bool applyEdit(core::DocumentEdit* edit);
     void setModified(bool modified);
+    void setLineEnding(core::LineEnding value) { lineEnding_ = value; }
     void markExternallyModified();
     void markDeleted();
     void markRestored();

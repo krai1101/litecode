@@ -8,10 +8,15 @@ namespace litecode::ui {
 enum class SidebarView {
     Explorer,
     Search,
+    SourceControl,
+    Extensions,
+    RunDebug,
 };
 
 enum class BottomPanelView {
     Terminal,
+    DebugConsole,
+    Output,
 };
 
 class WorkbenchController final : public QObject {

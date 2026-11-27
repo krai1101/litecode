@@ -123,9 +123,29 @@ bool canSaveDecodedContents(bool hadDecodingErrors, QString* errorMessage) {
 } // namespace
 
 DocumentSession::DocumentSession(core::DocumentId id, QString filePath)
-    : id_(id), filePath_(QFileInfo(filePath).absoluteFilePath()) {}
+    : id_(id), filePath_(filePath.isEmpty() ? QString() : QFileInfo(filePath).absoluteFilePath()) {}
 
-QString DocumentSession::displayName() const { return QFileInfo(filePath_).fileName(); }
+QString DocumentSession::displayName() const {
+    return filePath_.isEmpty() ? QStringLiteral("Untitled-%1").arg(id_.value()) : QFileInfo(filePath_).fileName();
+}
+
+std::optional<QByteArray> DocumentSession::initializeUntitled(const QString& content,
+    core::TextEncoding encoding, core::LineEnding preferredLineEnding) {
+    if (!id_.isValid() || !filePath_.isEmpty() || state_ != DocumentState::Loading) return {};
+    DocumentLoadResult load;
+    load.outcome = DocumentLoadResult::Outcome::Loaded;
+    load.encoding = load.defaultEncoding = encoding;
+    load.requestedEncoding = encoding;
+    load.writeByteOrderMark = encoding == core::TextEncoding::Utf8Bom ||
+        encoding == core::TextEncoding::Utf16Le || encoding == core::TextEncoding::Utf16Be;
+    const auto bytes = content.toUtf8();
+    load.lineEnding = preferredLineEnding == core::LineEnding::Lf || preferredLineEnding == core::LineEnding::CrLf
+        ? preferredLineEnding : detectLineEnding(bytes);
+    load.contents = normalizedLineEndings(bytes, load.lineEnding);
+    if (!acceptLoad(load)) return {};
+    setModified(!content.isEmpty());
+    return load.contents;
+}
 
 DocumentLoadResult DocumentSession::loadBounded(const QString& filePath,
                                                 std::optional<core::TextEncoding> requestedEncoding,
@@ -245,6 +265,11 @@ bool DocumentSession::acceptLoad(const DocumentLoadResult& result) {
     return true;
 }
 
+std::optional<QByteArray> DocumentSession::initializeVirtual(const QString& content) {
+    auto text = initializeUntitled(content);
+    if (text) { readOnly_ = true; setModified(false); }
+    return text;
+}
 bool DocumentSession::acceptReload(const DocumentLoadResult& result) {
     if (state_ == DocumentState::Closed || state_ == DocumentState::Loading ||
         result.outcome != DocumentLoadResult::Outcome::Loaded)
@@ -300,13 +325,17 @@ void DocumentSession::close() {
 }
 
 void DocumentSession::rebindPath(const QString& filePath, core::DocumentPathChange* pathChange) {
-    const QString nextPath = QFileInfo(filePath).absoluteFilePath();
+    const QString nextPath = filePath.isEmpty() ? QString() : QFileInfo(filePath).absoluteFilePath();
     if (pathChange)
         *pathChange = {id_, filePath_, nextPath, version_};
     filePath_ = nextPath;
 }
 
 bool DocumentSession::save(const QByteArray& contents, QString* errorMessage) {
+    if (filePath_.isEmpty()) {
+        if (errorMessage) *errorMessage = QStringLiteral("Choose a file path before saving an untitled document.");
+        return false;
+    }
     if (state_ == DocumentState::Closed || state_ == DocumentState::Loading) {
         if (errorMessage)
             *errorMessage = state_ == DocumentState::Closed
@@ -331,6 +360,10 @@ bool DocumentSession::save(const QByteArray& contents, QString* errorMessage) {
 
 bool DocumentSession::saveWithEncoding(const QByteArray& contents, core::TextEncoding encoding,
                                        QString* errorMessage) {
+    if (filePath_.isEmpty()) {
+        if (errorMessage) *errorMessage = QStringLiteral("Choose a file path before saving an untitled document.");
+        return false;
+    }
     if (state_ == DocumentState::Closed || state_ == DocumentState::Loading) {
         if (errorMessage)
             *errorMessage = state_ == DocumentState::Closed
@@ -361,6 +394,10 @@ bool DocumentSession::saveWithEncoding(const QByteArray& contents, core::TextEnc
 
 bool DocumentSession::saveAs(const QString& filePath, const QByteArray& contents,
                              core::DocumentPathChange* pathChange, QString* errorMessage) {
+    if (filePath.isEmpty()) {
+        if (errorMessage) *errorMessage = QStringLiteral("The save target is empty.");
+        return false;
+    }
     if (state_ == DocumentState::Closed || state_ == DocumentState::Loading) {
         if (errorMessage)
             *errorMessage = state_ == DocumentState::Closed

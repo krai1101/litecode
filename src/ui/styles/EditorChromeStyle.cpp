@@ -7,22 +7,31 @@ namespace litecode::ui {
 QString ComponentStyleSheets::editorChrome(const ThemeTokens& tokens) {
     return applyThemeTokens(QStringLiteral(R"QSS(
         QWidget#editorArea { background: @editor; }
-        QTabWidget#editorTabs::pane { background: @editor; border: 0; }
+        QWidget#extensionDetailsPage, QWidget#extensionDetailsBody,
+        QScrollArea#extensionDetailsScroll, QScrollArea#extensionDetailsScroll > QWidget,
+        QTextBrowser#extensionDetailsReadme {
+            background: @editor; border: 0;
+        }
+        QWidget#welcomePage { background: @editor; }
+        QWidget#welcomePage QLabel { background: transparent; }
+        QWidget#editorTabs, QWidget#editorTabs QStackedWidget { background: @editor; border: 0; }
+        QScrollArea#tabStripViewport, QScrollArea#tabStripViewport > QWidget > QWidget {
+            background: @sidebar; border: 0;
+        }
         QTabBar#editorTabBar {
             background: @sidebar; border: 0; border-bottom: 1px solid @border;
         }
-        QTabBar#editorTabBar::scroller { width: 0px; }
-        QScrollBar#editorTabOverflowScroll {
-            background: @sidebar; border: 0; height: 4px; margin: 0;
+        QScrollBar#workbenchTabScroll {
+            background: transparent; border: 0; height: 4px; margin: 0;
         }
-        QScrollBar#editorTabOverflowScroll::handle:horizontal {
+        QScrollBar#workbenchTabScroll::handle:horizontal {
             background: @scrollbar; border: 0; min-width: 24px;
         }
-        QScrollBar#editorTabOverflowScroll::handle:horizontal:hover {
+        QScrollBar#workbenchTabScroll::handle:horizontal:hover {
             background: @scrollbarHover;
         }
-        QScrollBar#editorTabOverflowScroll::add-line:horizontal,
-        QScrollBar#editorTabOverflowScroll::sub-line:horizontal {
+        QScrollBar#workbenchTabScroll::add-line:horizontal,
+        QScrollBar#workbenchTabScroll::sub-line:horizontal {
             width: 0; background: transparent; border: 0;
         }
         QTabBar#editorTabBar::tab {
@@ -36,7 +45,7 @@ QString ComponentStyleSheets::editorChrome(const ThemeTokens& tokens) {
         QToolButton#editorTabClose {
             background: transparent; border: 0; border-radius: 3px; padding: 2px;
         }
-        QToolButton#editorTabClose:hover { background: @hover; }
+        QToolButton#editorTabClose:hover { background: @titleBarControlHover; }
         QToolButton#editorTabClose:pressed { background: @pressed; }
         QWidget#editorTabActions { background: transparent; border: 0; }
         QLabel#editorTabDirtyIndicator {

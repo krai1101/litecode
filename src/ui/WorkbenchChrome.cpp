@@ -1,15 +1,19 @@
 #include "ui/WorkbenchChrome.h"
+#include "ui/components/ElidingLabel.h"
 
 #include "ui/Theme.h"
 #include "ui/ThemedIcon.h"
 #include "ui/components/Controls.h"
+#include "ui/components/IconLabelButton.h"
 
 #include <QApplication>
 #include <QDockWidget>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QMenu>
 #include <QProxyStyle>
 #include <QStyleFactory>
+#include <QStyleOption>
 #include <QToolButton>
 
 namespace litecode::ui {
@@ -30,9 +34,28 @@ class WorkbenchStyle final : public QProxyStyle {
 
     void drawPrimitive(PrimitiveElement element, const QStyleOption* option, QPainter* painter,
                        const QWidget* widget = nullptr) const override {
+        if (qobject_cast<const QMenu*>(widget) && (element == QStyle::PE_IndicatorRadioButton ||
+                                                   element == QStyle::PE_IndicatorCheckBox ||
+                                                   element == QStyle::PE_IndicatorMenuCheckMark)) {
+            // Use the bundled VS Code Codicon, never the platform's tick or radio dot.
+            if (element == QStyle::PE_IndicatorMenuCheckMark ||
+                (option->state & QStyle::State_On)) {
+                const bool dark = qApp->property("litecodeDarkTheme").toBool();
+                const auto tokens = Theme::tokens(dark);
+                const auto color =
+                    (option->state & QStyle::State_Enabled)
+                        ? ((option->state & QStyle::State_Selected) ? tokens.menuSelectionForeground
+                                                                    : tokens.foreground)
+                        : tokens.disabledForeground;
+                tintedIcon(":/icons/check.svg", color, color)
+                    .paint(painter, QRect(option->rect.center().x() - 8,
+                                          option->rect.center().y() - 8, 16, 16));
+            }
+            return;
+        }
         if (element == QStyle::PE_IndicatorDockWidgetResizeHandle) {
-            // Keep Qt's one-pixel dock resize hit target, but do not let the native style paint
-            // its full-height/full-width guide through the workbench.
+            // The shared workbench edge handler owns dock resizing; do not let
+            // the native style paint a guide through the workbench.
             return;
         }
         if (element == QStyle::PE_FrameTabBarBase && widget != nullptr &&
@@ -44,9 +67,25 @@ class WorkbenchStyle final : public QProxyStyle {
         }
         QProxyStyle::drawPrimitive(element, option, painter, widget);
     }
+    void drawControl(ControlElement element, const QStyleOption* option, QPainter* painter,
+                     const QWidget* widget = nullptr) const override {
+        if (element == QStyle::CE_MenuItem) {
+            if (const auto* menuOption = qstyleoption_cast<const QStyleOptionMenuItem*>(option);
+                menuOption && menuOption->checkType == QStyleOptionMenuItem::Exclusive) {
+                auto tickOption = *menuOption;
+                tickOption.checkType = QStyleOptionMenuItem::NonExclusive;
+                QProxyStyle::drawControl(element, &tickOption, painter, widget);
+                return;
+            }
+        }
+        QProxyStyle::drawControl(element, option, painter, widget);
+    }
 
     int pixelMetric(PixelMetric metric, const QStyleOption* option,
                     const QWidget* widget) const override {
+        if (widget && widget->objectName() == "activityBar" &&
+            (metric == QStyle::PM_ToolBarItemMargin || metric == QStyle::PM_ToolBarItemSpacing))
+            return 0;
         if (metric == QStyle::PM_SubMenuOverlap)
             return 0;
         if (metric == QStyle::PM_DockWidgetSeparatorExtent) {
@@ -81,7 +120,7 @@ QIcon workbenchActivityIcon(const QString& normal, const QString& active) {
 }
 
 QWidget* createWorkbenchDockHeader(QDockWidget* dock, const QString& title, QLabel** titleLabel,
-                                   bool closable) {
+                                   bool closable, bool viewActions) {
     auto* header = new QWidget(dock);
     header->setObjectName(QStringLiteral("dockHeader"));
     header->setFixedHeight(ThemeMetrics::navigationBarHeight);
@@ -89,18 +128,34 @@ QWidget* createWorkbenchDockHeader(QDockWidget* dock, const QString& title, QLab
     auto* layout = new QHBoxLayout(header);
     layout->setContentsMargins(12, 0, 5, 0);
     layout->setSpacing(2);
-    auto* label = new QLabel(title, header);
+    auto* label = new components::ElidingLabel(title, header);
     label->setObjectName(QStringLiteral("dockHeaderTitle"));
+    label->setTextFormat(Qt::PlainText);
+    QObject::connect(dock, &QWidget::windowTitleChanged, label, &QLabel::setText);
     label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     label->setMinimumHeight(ThemeMetrics::navigationBarHeight);
-    layout->addWidget(label);
-    layout->addStretch();
+    layout->addWidget(label, 1);
+    if (viewActions) {
+        auto* options = new components::IconLabelButton(header);
+        options->setObjectName("workbenchViewActions");
+        options->setIconLabel("$(ellipsis)");
+        options->setFixedSize(24, 24);
+        options->setToolTip(QObject::tr("View actions"));
+        options->setAccessibleName(options->toolTip());
+        layout->addWidget(options);
+        QObject::connect(options, &QToolButton::clicked, dock, [dock, options] {
+            components::Menu menu(options);
+            menu.addActions(dock->actions());
+            menu.exec(options->mapToGlobal(QPoint(0, options->height())));
+        });
+    }
     if (closable) {
         auto* close = new components::IconButton(header);
         close->setObjectName(QStringLiteral("dockHeaderButton"));
         setThemedIcon(close, QStringLiteral(":/icons/close.svg"));
         close->setIconSize(QSize(17, 17));
         close->setToolTip(QObject::tr("Close"));
+        close->setAccessibleName(close->toolTip());
         QObject::connect(close, &QToolButton::clicked, dock, &QDockWidget::hide);
         layout->addWidget(close);
     }

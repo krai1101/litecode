@@ -9,7 +9,9 @@ param(
     [ValidateRange(1, 32)]
     [int]$ParallelJobs = 2,
 
-    [switch]$SkipTests
+    [switch]$SkipTests,
+
+    [string]$TestRegex = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -67,7 +69,11 @@ if (-not $SkipTests) {
         Get-ChildItem -LiteralPath $testResultsDirectory -Filter '*.qtest.txt' -File |
             Remove-Item -Force
     }
-    ctest --preset $preset --output-on-failure --parallel $ParallelJobs
+    if ($TestRegex) {
+        ctest --preset $preset --output-on-failure --parallel $ParallelJobs -R $TestRegex
+    } else {
+        ctest --preset $preset --output-on-failure --parallel $ParallelJobs
+    }
     if ($LASTEXITCODE -ne 0) {
         $lastTestLog = Join-Path $repositoryRoot "build\$preset\Testing\Temporary\LastTest.log"
         if (Test-Path -LiteralPath $lastTestLog) {

@@ -9,11 +9,30 @@ QString ComponentStyleSheets::dialogsMenusAndTooltips(const ThemeTokens& tokens)
     // surfaces, states and variants live in ui/components/ComponentStyle.cpp.
     return applyThemeTokens(QStringLiteral(R"QSS(
         QWidget#confirmationBody { background: @elevated; color: @foreground; }
+        QFrame#extensionNotificationFrame {
+            background: @elevated; color: @foreground;
+            border: 1px solid @border; border-radius: 6px;
+        }
+        QFrame#extensionNotificationFrame QLabel {
+            background: transparent; color: @foreground; border: 0;
+        }
+        QProgressBar#extensionNotificationProgress, QProgressBar#extensionViewProgress {
+            background: @border; border: 0; border-radius: 0;
+            min-height: 2px; max-height: 2px;
+        }
+        QProgressBar#extensionNotificationProgress::chunk, QProgressBar#extensionViewProgress::chunk {
+            background: @accent; border: 0; border-radius: 0;
+        }
+        QScrollArea#extensionNotificationCenter,
+        QScrollArea#extensionNotificationCenter > QWidget > QWidget {
+            background: transparent; border: 0;
+        }
         QLabel#confirmationMessage {
             background: transparent; color: @foreground; font-size: 13px;
         }
 
-        QLineEdit#commandQuery, QLineEdit#quickOpenQuery { padding: 6px 9px; }
+        QLineEdit#commandQuery { padding: 6px 9px; }
+        QLineEdit#quickOpenQuery { min-height: 22px; max-height: 22px; padding: 2px 6px; }
         QLineEdit#commandQuery:focus, QLineEdit#quickOpenQuery:focus,
         QLineEdit#keyboardShortcutsSearch:focus {
             border-color: @searchFocusBorder;
@@ -23,7 +42,7 @@ QString ComponentStyleSheets::dialogsMenusAndTooltips(const ThemeTokens& tokens)
             background: @elevated; border: 0; border-radius: 0;
         }
         QListWidget#commandResults { font-size: 13px; }
-        QListWidget#quickOpenResults::item { min-height: 24px; }
+        QListWidget#quickOpenResults::item { min-height: 23px; padding: 0 8px; border-radius: 4px; }
 
         QTableWidget#keyboardShortcutsTable {
             background: @elevated; color: @foreground; border: 1px solid @border;
@@ -111,7 +130,6 @@ QString ComponentStyleSheets::dialogsMenusAndTooltips(const ThemeTokens& tokens)
         QDialog#settingsDialog QComboBox#editorFontFamily { min-width: 430px; }
         QDialog#settingsDialog QComboBox#editorFontWeight { min-width: 180px; }
         QDialog#settingsDialog QSpinBox#editorFontSize { min-width: 110px; }
-        QDialog#settingsDialog QComboBox#fileEncoding { min-height: 24px; }
     )QSS"),
                             tokens);
 }

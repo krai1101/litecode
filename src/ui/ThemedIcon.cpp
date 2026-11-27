@@ -69,9 +69,20 @@ QIcon tintedIcon(const QString& resourcePath, const QColor& color, const QColor&
     return result;
 }
 
+namespace {
+QIcon themedButtonIcon(const QAbstractButton& button, const QString& resource, bool dark) {
+    const auto tokens = Theme::tokens(dark);
+    if (button.property("uiVariant").toString() == "primary")
+        return tintedIcon(resource, tokens.onAccent, tokens.onAccent);
+    if (button.property("uiIconTone").toString() == "success")
+        return tintedIcon(resource, tokens.success, tokens.success);
+    return themedIcon(resource, dark);
+}
+} // namespace
+
 void setThemedIcon(QAbstractButton* button, const QString& resourcePath) {
     button->setProperty(iconResourceProperty, resourcePath);
-    button->setIcon(themedIcon(resourcePath, currentThemeIsDark()));
+    button->setIcon(themedButtonIcon(*button, resourcePath, currentThemeIsDark()));
 }
 
 void setThemedIcon(QAction* action, const QString& resourcePath) {
@@ -85,11 +96,10 @@ void refreshThemedIcons(QObject* root, bool dark) {
         if (resource.isEmpty()) {
             return;
         }
-        const QIcon icon = themedIcon(resource, dark);
         if (auto* button = qobject_cast<QAbstractButton*>(object)) {
-            button->setIcon(icon);
+            button->setIcon(themedButtonIcon(*button, resource, dark));
         } else if (auto* action = qobject_cast<QAction*>(object)) {
-            action->setIcon(icon);
+            action->setIcon(themedIcon(resource, dark));
         }
     };
     refresh(root);

@@ -1,4 +1,5 @@
 #include "ui/TerminalPanel.h"
+#include "ui/debug/DebugTerminalLaunch.h"
 
 #include "ui/components/Controls.h"
 #include "ui/components/TerminalFindControls.h"
@@ -34,6 +35,8 @@
 #include <QVBoxLayout>
 
 #include <algorithm>
+#include <optional>
+#include <utility>
 
 namespace litecode::ui {
 namespace {
@@ -50,6 +53,42 @@ QString compactProfileName(const QString& profileId) {
     return profileId;
 }
 
+QString quoteDebugArgument(const QString& value, const QString& shell) {
+    if (shell == QStringLiteral("powershell")) {
+        QString escaped = value;
+        escaped.replace(QChar(0x27), QStringLiteral("''"));
+        if (escaped.endsWith('\\')) escaped.append('\\');
+        return QStringLiteral("'") + escaped + QStringLiteral("'");
+    }
+    if (shell == QStringLiteral("cmd")) {
+        QString escaped = value;
+        escaped.replace('"', QStringLiteral("\"\""));
+        QString protectedValue;
+        for (const QChar character : escaped) {
+            if (QStringLiteral("><!^&|").contains(character)) protectedValue.append('^');
+            protectedValue.append(character);
+        }
+        escaped = protectedValue;
+        if (escaped.isEmpty() || escaped.contains(' ') || escaped.contains('"'))
+            return QStringLiteral("\"") + escaped + QStringLiteral("\"");
+        return escaped;
+    }
+    QString escaped = value;
+    escaped.replace(QChar(0x27), QStringLiteral("'\\''"));
+    return QStringLiteral("'") + escaped + QStringLiteral("'");
+}
+
+QString debugShellKind(const terminal::TerminalProfile& profile) {
+    const QString executable = QFileInfo(profile.executable).fileName().toLower();
+    if (executable == QStringLiteral("cmd.exe")) return QStringLiteral("cmd");
+    if (executable == QStringLiteral("powershell.exe") ||
+        executable == QStringLiteral("pwsh.exe")) return QStringLiteral("powershell");
+    if (executable == QStringLiteral("bash") || executable == QStringLiteral("bash.exe") ||
+        executable == QStringLiteral("zsh") || executable == QStringLiteral("sh"))
+        return QStringLiteral("posix");
+    return {};
+}
+
 } // namespace
 
 struct TerminalPanel::Session final {
@@ -60,12 +99,16 @@ struct TerminalPanel::Session final {
     QString foregroundProcessName;
     TerminalView* view{};
     QSize backendSize;
+    std::optional<terminal::TerminalProfile> debugShell;
+    bool debugTerminalLeased{};
+    bool debugTerminalChanged{};
 };
 
 TerminalPanel::TerminalPanel(QWidget* parent, BackendFactory backendFactory)
     : QWidget(parent), workingDirectory_(QDir::homePath()),
       sessionService_(
           std::make_unique<terminal::TerminalSessionService>(nullptr, std::move(backendFactory))) {
+    setObjectName(QStringLiteral("terminalPanel"));
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
@@ -106,6 +149,8 @@ TerminalPanel::TerminalPanel(QWidget* parent, BackendFactory backendFactory)
     deleteSession_ = addTool(QStringLiteral(":/icons/clear.svg"), tr("Kill Terminal"));
     auto* maximize = addTool(QStringLiteral(":/icons/maximize.svg"), tr("Toggle Maximized Panel"));
     auto* closePanel = addTool(QStringLiteral(":/icons/close.svg"), tr("Close Panel"));
+    maximizePanel_ = maximize;
+    closePanel_ = closePanel;
 
     auto* terminalBody = new QWidget(this);
     terminalBody->setObjectName(QStringLiteral("terminalBody"));
@@ -236,12 +281,15 @@ TerminalPanel::TerminalPanel(QWidget* parent, BackendFactory backendFactory)
                     session->view->feed(
                         tr("\r\n[terminal exited with code %1]\r\n").arg(result.exitCode).toUtf8());
                 }
+                emit processCompleted(result);
             });
     connect(sessionService_.get(), &terminal::TerminalSessionService::sessionRemoved, this,
             &TerminalPanel::removeSessionView);
 }
 
 TerminalPanel::~TerminalPanel() {
+    const auto launches = debugLaunches_;
+    for (const auto& launch : launches) if (launch) launch->cancel();
     // Stopping a backend may synchronously emit completion. Disconnect before the
     // session views and session list start being destroyed.
     QObject::disconnect(sessionService_.get(), nullptr, this, nullptr);
@@ -249,6 +297,10 @@ TerminalPanel::~TerminalPanel() {
 }
 
 QWidget* TerminalPanel::controlsWidget() const { return controls_; }
+void TerminalPanel::setEmbeddedPanel(bool embedded) {
+    maximizePanel_->setVisible(!embedded);
+    closePanel_->setVisible(!embedded);
+}
 
 void TerminalPanel::setWorkingDirectory(const QString& path) {
     const QFileInfo directory(path);
@@ -282,10 +334,21 @@ void TerminalPanel::showFind() {
 void TerminalPanel::newTerminal() { start(); }
 
 void TerminalPanel::setDefaultProfile(const QString& profileId) {
+    const auto previous = defaultShell();
     const auto found = std::find_if(
         sessionService_->profiles().cbegin(), sessionService_->profiles().cend(),
         [&profileId](const terminal::TerminalProfile& profile) { return profile.id == profileId; });
     defaultProfileId_ = found == sessionService_->profiles().cend() ? QString{} : profileId;
+    const auto current = defaultShell();
+    if (previous != current) emit defaultShellChanged(current);
+}
+
+QString TerminalPanel::defaultShell() const {
+    const auto& profiles = sessionService_->profiles();
+    if (profiles.isEmpty()) return {};
+    const auto found = std::find_if(profiles.cbegin(), profiles.cend(),
+        [this](const terminal::TerminalProfile& profile) { return profile.id == defaultProfileId_; });
+    return (found == profiles.cend() ? profiles.constFirst() : *found).executable;
 }
 
 void TerminalPanel::setTerminalFont(const QFont& font) {
@@ -347,18 +410,128 @@ void TerminalPanel::startWithProfile(const QString& profileId, const QString& wo
     const QString sessionWorkingDirectory =
         workingDirectory.isEmpty() ? workingDirectory_ : workingDirectory;
     const core::OperationId id = sessionService_->createSession(profileId, sessionWorkingDirectory);
+    createSessionView(id, *profile, sessionWorkingDirectory);
+}
+
+core::OperationId TerminalPanel::runProcess(const terminal::TerminalProfile& process,
+                                            const QString& workingDirectory) {
+    const auto id = sessionService_->createProcessSession(process, workingDirectory);
+    if (id.isValid())
+        createSessionView(id, process, workingDirectory);
+    return id;
+}
+
+core::OperationId TerminalPanel::runDebugCommand(const QString& title,
+                                                 const QStringList& command,
+                                                 const QProcessEnvironment& environment,
+                                                 const QString& workingDirectory,
+                                                 bool argsCanBeInterpretedByShell) {
+    if (command.isEmpty() || command.first().isEmpty()) return {};
+    const QString selected = defaultProfileId_.isEmpty()
+                                 ? sessionService_->profiles().constFirst().id : defaultProfileId_;
+    const auto found = std::find_if(sessionService_->profiles().cbegin(),
+                                    sessionService_->profiles().cend(),
+                                    [&selected](const terminal::TerminalProfile& profile) {
+                                        return profile.id == selected;
+                                    });
+    if (found == sessionService_->profiles().cend()) return {};
+    terminal::TerminalProfile shell = *found;
+    const QString kind = debugShellKind(shell);
+    if (kind.isEmpty()) return {};
+    shell.id = QStringLiteral("debug-terminal");
+    shell.displayName = title.isEmpty() ? tr("Debug Terminal") : title;
+    shell.environment = environment;
+    QStringList quoted;
+    for (const QString& argument : command) {
+        if (argument.contains(QChar('\0'))) return {};
+        quoted.append(argsCanBeInterpretedByShell || argument == "<" || argument == ">" ? argument : quoteDebugArgument(argument, kind));
+    }
+    QString line;
+    if (kind == QStringLiteral("powershell") && quoted.first().startsWith('\'')) line = QStringLiteral("& ");
+    line.prepend(' ');
+    line += quoted.join(' ');
+    // cmd's literal-argument escaping is evaluated by the nested command
+    // interpreter, as in VS Code's prepareCommand implementation.
+    if (kind == QStringLiteral("cmd")) line = QStringLiteral(" cmd /C \"") + quoted.join(' ') + QStringLiteral("\"");
+    const auto reusable = std::find_if(sessions_.cbegin(), sessions_.cend(), [&](const auto& entry) {
+        const auto& profile = entry->debugShell;
+        return profile && !entry->debugTerminalLeased && !entry->debugTerminalChanged &&
+               profile->displayName == shell.displayName && profile->executable == shell.executable &&
+               profile->arguments == shell.arguments &&
+               entry->workingDirectory == workingDirectory && sessionService_->shellIsIdle(entry->id);
+    });
+    const bool reuseView = reusable != sessions_.cend();
+    const bool reuseShell = reuseView && (*reusable)->debugShell->environment == shell.environment;
+    const auto id = reuseShell ? (*reusable)->id
+                               : sessionService_->createProcessSession(shell, workingDirectory);
+    if (!id.isValid())
+        return id;
+    if (!reuseView) {
+        createSessionView(id, shell, workingDirectory);
+        sessions_.back()->debugShell = shell;
+    }
+    auto& session = reuseView ? **reusable : *sessions_.back();
+    session.debugTerminalLeased = true;
+    if (reuseView) {
+        if (!reuseShell) {
+            // Adapters can supply fresh process-only credentials or inspector settings for each run.
+            // Keep the terminal view and its scrollback while starting a shell with the new environment.
+            const auto previous = std::exchange(session.id, id);
+            session.debugShell = shell;
+            session.backendSize = {};
+            session.foregroundProcessName.clear();
+            session.view->beginShellRestart();
+            sessionService_->requestRemove(previous);
+            resizeBackend(session);
+        }
+        activateSession(static_cast<int>(std::distance(sessions_.cbegin(), reusable)));
+    }
+    auto* launch = new DebugTerminalLaunch(sessionService_.get(), id, line, reuseShell, [this, id](qint64 pid, const QString& error) {
+        debugLaunches_.remove(id.value());
+        if (auto* session = findSession(id))
+            session->view->finishShellRestart();
+        if (!error.isEmpty())
+            releaseDebugTerminal(id);
+        emit debugCommandReady(id, pid, error);
+    }, this);
+    debugLaunches_.insert(id.value(), launch);
+    return id;
+}
+void TerminalPanel::cancelDebugCommand(core::OperationId id) {
+    const auto launch = debugLaunches_.value(id.value()); if (launch) launch->cancel();
+}
+
+void TerminalPanel::releaseDebugTerminal(core::OperationId id) {
+    if (auto* session = findSession(id))
+        session->debugTerminalLeased = false;
+}
+
+void TerminalPanel::stopProcess(core::OperationId id) { sessionService_->requestRemove(id); }
+
+void TerminalPanel::createSessionView(core::OperationId id,
+                                      const terminal::TerminalProfile& profile,
+                                      const QString& sessionWorkingDirectory) {
     auto session = std::make_unique<Session>();
     session->id = id;
-    session->profileId = profile->id;
-    session->displayName = profile->displayName;
+    session->profileId = profile.id;
+    session->displayName = profile.displayName;
     session->workingDirectory = sessionWorkingDirectory;
     session->view = new TerminalView(outputs_);
     session->view->setTerminalFont(terminalFont_);
-    session->view->setAccessibleName(tr("%1 terminal output and input").arg(profile->displayName));
+    session->view->setAccessibleName(tr("%1 terminal output and input").arg(profile.displayName));
+    auto* view = session->view;
     connect(session->view, &TerminalView::inputGenerated, this,
-            [this, id](const QByteArray& bytes) { (void)sessionService_->sendInput(id, bytes); });
-    connect(session->view, &TerminalView::terminalSizeChanged, this, [this, id](const QSize&) {
-        if (findSession(id) == activeSession())
+            [this, view](const QByteArray& bytes) {
+                auto* session = findSession(view);
+                if (!session)
+                    return;
+                // An interactively edited prompt may contain a partial command or a different cwd.
+                if (session->debugShell)
+                    session->debugTerminalChanged = true;
+                (void)sessionService_->sendInput(session->id, bytes);
+            });
+    connect(session->view, &TerminalView::terminalSizeChanged, this, [this, view](const QSize&) {
+        if (const auto* active = activeSession(); active && active->view == view)
             scheduleTerminalResize();
     });
     connect(session->view, &TerminalView::terminalTitleChanged, this,
@@ -369,7 +542,7 @@ void TerminalPanel::startWithProfile(const QString& profileId, const QString& wo
                     updateFindResult(current, total);
             });
     connect(session->view, &TerminalView::linkActivated, this,
-            [this, id](const QString& target, int line, int column, bool external) {
+            [this, view](const QString& target, int line, int column, bool external) {
                 const QUrl url(target);
                 if (external && !url.isLocalFile()) {
                     const QString scheme = url.scheme().toLower();
@@ -380,7 +553,7 @@ void TerminalPanel::startWithProfile(const QString& profileId, const QString& wo
                 }
                 QString path = url.isLocalFile() ? url.toLocalFile() : target;
                 if (QDir::isRelativePath(path)) {
-                    const Session* source = findSession(id);
+                    const Session* source = findSession(view);
                     if (!source)
                         return;
                     path = QDir(source->workingDirectory).absoluteFilePath(path);
@@ -450,7 +623,8 @@ void TerminalPanel::rebuildSessionList() {
     for (const auto& session : sessions_) {
         const QString sequenceTitle = session->view->engine()->title().trimmed();
         const QString visibleName =
-            !session->foregroundProcessName.isEmpty()
+            session->profileId == QStringLiteral("debug-terminal") ? session->displayName
+            : !session->foregroundProcessName.isEmpty()
                 ? session->foregroundProcessName
                 : (!sequenceTitle.isEmpty() ? sequenceTitle
                                             : compactProfileName(session->profileId));
@@ -474,6 +648,12 @@ TerminalPanel::Session* TerminalPanel::findSession(core::OperationId id) {
     const auto found = std::find_if(sessions_.begin(), sessions_.end(),
                                     [id](const auto& session) { return session->id == id; });
     return found == sessions_.end() ? nullptr : found->get();
+}
+
+TerminalPanel::Session* TerminalPanel::findSession(const TerminalView* view) {
+    const auto found = std::find_if(sessions_.cbegin(), sessions_.cend(),
+                                    [view](const auto& session) { return session->view == view; });
+    return found == sessions_.cend() ? nullptr : found->get();
 }
 
 void TerminalPanel::resizeEvent(QResizeEvent* event) {

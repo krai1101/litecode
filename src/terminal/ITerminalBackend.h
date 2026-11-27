@@ -20,6 +20,8 @@ class ITerminalBackend : public QObject {
     virtual void resizeTerminal(const QSize& characters) = 0;
     virtual void requestStop() = 0;
     [[nodiscard]] virtual TerminalState state() const = 0;
+    [[nodiscard]] virtual qint64 processId() const { return 0; }
+    [[nodiscard]] virtual bool shellIsIdle() const { return false; }
 
   signals:
     void stateChanged(litecode::core::OperationId operationId,

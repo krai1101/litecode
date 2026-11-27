@@ -232,12 +232,21 @@ void TerminalView::feed(const QByteArray& bytes) {
 #endif
     recentOutputTail_ =
         output.right(std::max(16, engine_->rows() * 5 + engine_->columns() * 4 + 64));
-    engine_->feed(bytes);
-    if (clearsScrollback)
+    engine_->feed(bytes, restartingShell_);
+    if (clearsScrollback && !restartingShell_)
         engine_->clearScrollback();
     if (clearsViewport)
         updateScrollBar(false);
 }
+
+void TerminalView::beginShellRestart() {
+    restartingShell_ = true;
+    recentOutputTail_.clear();
+    selectionActive_ = false;
+    engine_->archiveScreen();
+}
+
+void TerminalView::finishShellRestart() { restartingShell_ = false; }
 
 void TerminalView::clearTerminal() {
     selectionActive_ = false;

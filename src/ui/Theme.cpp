@@ -2,10 +2,12 @@
 
 #include "ui/components/ComponentStyle.h"
 #include "ui/components/ComponentTokens.h"
+#include "ui/components/Tooltip.h"
 #include "ui/styles/ComponentStyleSheets.h"
 
 #include <QApplication>
 #include <QFont>
+#include <QPalette>
 
 namespace litecode::ui {
 
@@ -14,7 +16,26 @@ void Theme::apply(QApplication& application, bool dark) {
     QFont interfaceFont(QStringLiteral("Segoe UI"));
     interfaceFont.setPixelSize(13);
     application.setFont(interfaceFont);
+    const ThemeTokens theme = tokens(dark);
+    QPalette palette;
+    palette.setColor(QPalette::Window, theme.appSurface);
+    palette.setColor(QPalette::WindowText, theme.foreground);
+    palette.setColor(QPalette::Base, theme.inputSurface);
+    palette.setColor(QPalette::AlternateBase, theme.sidebarSurface);
+    palette.setColor(QPalette::Text, theme.foreground);
+    palette.setColor(QPalette::Button, theme.inputSurface);
+    palette.setColor(QPalette::ButtonText, theme.foreground);
+    palette.setColor(QPalette::ToolTipBase, QColor(dark ? "#333333" : "#fafafa"));
+    palette.setColor(QPalette::ToolTipText, QColor(dark ? "#f5f5f5" : "#3b3b3b"));
+    palette.setColor(QPalette::PlaceholderText, theme.placeholderForeground);
+    palette.setColor(QPalette::Highlight, theme.listSelectionBackground);
+    palette.setColor(QPalette::HighlightedText, theme.listSelectionForeground);
+    palette.setColor(QPalette::Link, dark ? QColor("#4daafc") : theme.accent);
+    for (auto role : {QPalette::WindowText, QPalette::Text, QPalette::ButtonText})
+        palette.setColor(QPalette::Disabled, role, theme.disabledForeground);
+    application.setPalette(palette);
     application.setStyleSheet(dark ? darkStyleSheet() : lightStyleSheet());
+    components::installTooltips(application);
 }
 
 WorkbenchPalette Theme::workbenchPalette(bool dark) {
@@ -23,118 +44,96 @@ WorkbenchPalette Theme::workbenchPalette(bool dark) {
 }
 
 ThemeTokens Theme::tokens(bool dark) {
-    if (dark) {
-        // VS Code Dark Modern, with neutral search focus and selection states.
-        return {QColor(QStringLiteral("#181818")),
-                QColor(QStringLiteral("#1f1f1f")),
-                QColor(QStringLiteral("#181818")),
-                QColor(QStringLiteral("#181818")),
-                QColor(QStringLiteral("#202020")),
-                QColor(QStringLiteral("#cccccc")),
-                QColor(QStringLiteral("#9d9d9d")),
-                QColor(QStringLiteral("#2b2b2b")),
-                QColor(0x19, 0x1b, 0x1d, 0x4d),
-                QColor(QStringLiteral("#2b2b2b")),
-                QColor(0xff, 0xff, 0xff, 0x22),
-                QColor(QStringLiteral("#0078d4")),
-                QColor(QStringLiteral("#0078d4")),
-                QColor(QStringLiteral("#f85149")),
-                QColor(QStringLiteral("#e5ba7d")),
-                QColor(QStringLiteral("#73c991")),
-                QColor(0xa8, 0xa9, 0xaa, 0x85),
-                QColor(0xa8, 0xa9, 0xaa, 0x90),
-                QColor(0xa8, 0xa9, 0xaa, 0x9c),
-                QColor(QStringLiteral("#313131")),
-                QColor(QStringLiteral("#3c3c3c")),
-                QColor(QStringLiteral("#2b2b2b")),
-                QColor(QStringLiteral("#313131")),
-                QColor(QStringLiteral("#555555")),
-                QColor(QStringLiteral("#ffffff")),
-                QColor(QStringLiteral("#c42b1c")),
-                QColor(QStringLiteral("#1f1f1f")),
-                QColor(QStringLiteral("#ffffff")),
-                QColor(QStringLiteral("#313131")),
-                QColor(QStringLiteral("#3c3c3c")),
-                QColor(QStringLiteral("#1f1f1f")),
-                QColor(QStringLiteral("#3c3c3c")),
-                QColor(QStringLiteral("#cccccc")),
-                QColor(QStringLiteral("#202020")),
-                QColor(QStringLiteral("#313131")),
-                QColor(QStringLiteral("#3c3c3c")),
-                QColor(QStringLiteral("#cccccc")),
-                QColor(QStringLiteral("#1f1f1f")),
-                QColor(QStringLiteral("#454545")),
-                QStringLiteral(":/icons/chevron-right-menu-dark.svg"),
-                QColor(QStringLiteral("#cccccc")),
-                QColor(0xff, 0xff, 0xff, 0x1a),
-                QColor(0xe8, 0x11, 0x23, 0xe6),
-                QColor(QStringLiteral("#6b6b6b")),
-                QColor(QStringLiteral("#2a2d2e")),
-                QColor(QStringLiteral("#cccccc")),
-                QColor(QStringLiteral("#3d3d3d")),
-                QColor(QStringLiteral("#cccccc")),
-                QColor(QStringLiteral("#264f78")),
-                QColor(QStringLiteral("#613214")),
-                QColor(QStringLiteral("#9e6a03")),
-                QColor(QStringLiteral("#454545")),
-                QColor(QStringLiteral("#505050")),
-                QColor(0, 0, 0, 36)};
-    }
-    // VS Code Light Modern.
-    return {QColor(QStringLiteral("#f8f8f8")),
-            QColor(QStringLiteral("#ffffff")),
-            QColor(QStringLiteral("#f8f8f8")),
-            QColor(QStringLiteral("#f8f8f8")),
-            QColor(QStringLiteral("#ffffff")),
-            QColor(QStringLiteral("#3b3b3b")),
-            QColor(QStringLiteral("#767676")),
-            QColor(QStringLiteral("#e5e5e5")),
-            QColor(0, 0, 0, 12),
-            QColor(QStringLiteral("#f2f2f2")),
-            QColor(QStringLiteral("#e8e8e8")),
-            QColor(QStringLiteral("#005fb8")),
-            QColor(QStringLiteral("#005fb8")),
-            QColor(QStringLiteral("#c42b1c")),
-            QColor(QStringLiteral("#795e26")),
-            QColor(QStringLiteral("#16825d")),
-            QColor(0x64, 0x64, 0x64, 0x66),
-            QColor(0x64, 0x64, 0x64, 0xb3),
-            QColor(0x00, 0x00, 0x00, 0x99),
-            QColor(QStringLiteral("#ffffff")),
-            QColor(QStringLiteral("#cecece")),
-            QColor(QStringLiteral("#dddddd")),
-            QColor(QStringLiteral("#dddddd")),
-            QColor(QStringLiteral("#888888")),
-            QColor(QStringLiteral("#ffffff")),
-            QColor(QStringLiteral("#c42b1c")),
-            QColor(QStringLiteral("#ffffff")),
-            QColor(QStringLiteral("#1f1f1f")),
-            QColor(QStringLiteral("#ffffff")),
-            QColor(QStringLiteral("#cecece")),
-            QColor(QStringLiteral("#ffffff")),
-            QColor(QStringLiteral("#cecece")),
-            QColor(QStringLiteral("#3b3b3b")),
-            QColor(QStringLiteral("#f8f8f8")),
-            QColor(QStringLiteral("#bed6ed")),
-            QColor(QStringLiteral("#005fb8")),
-            QColor(QStringLiteral("#000000")),
-            QColor(QStringLiteral("#fafafd")),
-            QColor(QStringLiteral("#cecece")),
-            QStringLiteral(":/icons/chevron-right-menu-light.svg"),
-            QColor(QStringLiteral("#1e1e1e")),
-            QColor(0x00, 0x00, 0x00, 0x1a),
-            QColor(0xe8, 0x11, 0x23, 0xe6),
-            QColor(QStringLiteral("#767676")),
-            QColor(QStringLiteral("#f2f2f2")),
-            QColor(QStringLiteral("#000000")),
-            QColor(QStringLiteral("#e8e8e8")),
-            QColor(QStringLiteral("#3b3b3b")),
-            QColor(QStringLiteral("#add6ff")),
-            QColor(QStringLiteral("#f8df9b")),
-            QColor(QStringLiteral("#f1c15b")),
-            QColor(QStringLiteral("#c9c9c9")),
-            QColor(QStringLiteral("#929292")),
-            QColor(0, 0, 0, 36)};
+    // Sources: microsoft/vscode extensions/theme-defaults/themes/{light,dark}_modern.json.
+    // Inherited roles: src/vs/platform/theme/common/colors/{base,misc,list,menu}Colors.ts.
+    // Each assignment names its role; no positional palette or post-hoc overrides.
+    const auto color = [dark](const char* light, const char* darkValue) {
+        return QColor(QString::fromLatin1(dark ? darkValue : light));
+    };
+    const auto alpha = [](QColor value, int opacity) {
+        value.setAlpha(opacity);
+        return value;
+    };
+    ThemeTokens theme;
+    theme.appSurface = color("#f8f8f8", "#181818");          // titleBar.activeBackground
+    theme.editorSurface = color("#ffffff", "#1f1f1f");       // editor.background
+    theme.sidebarSurface = theme.appSurface;                 // sideBar.background
+    theme.panelSurface = theme.appSurface;                   // panel.background
+    theme.elevatedSurface = color("#f8f8f8", "#222222");     // quickInput.background
+    theme.foreground = color("#3b3b3b", "#cccccc");          // foreground
+    theme.mutedForeground = color("#3b3b3b", "#9d9d9d");     // descriptionForeground
+    theme.border = color("#e5e5e5", "#2b2b2b");              // sideBar.border
+    theme.shadow = alpha(QColor("#000000"), dark ? 92 : 41); // widget.shadow
+    theme.hover = color("#f2f2f2", "#2a2d2e");               // list.hoverBackground
+    theme.listHoverBackground = theme.hover;
+    theme.listSelectionBackground = color("#e8e8e8", "#04395e"); // list.activeSelectionBackground
+    theme.listSelectionForeground = color("#000000", "#ffffff");
+    theme.selection = theme.listSelectionBackground;
+    theme.focus = color("#005fb8", "#0078d4"); // focusBorder
+    theme.accent = theme.focus;
+    theme.error = QColor("#f85149");             // errorForeground
+    theme.warning = color("#895503", "#e2c08d"); // gitDecoration.modifiedResourceForeground
+    theme.success = QColor("#2ea043");           // editorGutter.addedBackground
+    theme.scrollbar = alpha(color("#646464", "#797979"), 102);
+    theme.scrollbarHover = alpha(QColor("#646464"), 179);
+    theme.scrollbarActive = alpha(color("#000000", "#bfbfbf"), dark ? 102 : 153);
+    theme.inputSurface = color("#ffffff", "#313131"); // input.background
+    theme.inputBorder = color("#cecece", "#3c3c3c");  // input.border
+    theme.pressed = theme.hover;
+    // Qt disabled button surfaces have no direct CSS-opacity equivalent.
+    theme.disabledSurface = color("#dddddd", "#313131");
+    theme.disabledForeground = alpha(color("#616161", "#cccccc"), 128); // disabledForeground
+    theme.onAccent = QColor("#ffffff");
+    theme.closeHover = QColor("#c42b1c"); // destructive/native caption control
+    theme.settingsSurface = theme.editorSurface;
+    theme.settingsHeaderForeground = color("#1f1f1f", "#ffffff");
+    theme.dropdownSurface = theme.inputSurface;
+    theme.dropdownBorder = theme.inputBorder;
+    theme.dropdownListSurface = theme.editorSurface;
+    theme.dropdownListBorder = theme.inputBorder;
+    theme.dropdownForeground = theme.foreground;
+    theme.findWidgetSurface = color("#f8f8f8", "#202020"); // editorWidget.background
+    theme.findOptionActiveBackground = dark ? QColor(36, 137, 219, 130) : QColor("#bed6ed");
+    theme.findOptionActiveBorder = color("#005fb8", "#2488db");
+    theme.findOptionActiveForeground = color("#000000", "#ffffff"); // inputOption.activeForeground
+    theme.menuSurface = theme.editorSurface; // menu.background -> dropdown.listBackground
+    theme.menuBorder = dark ? QColor(Qt::transparent) : QColor("#cecece"); // menu.border
+    theme.menuArrowIcon = dark ? QStringLiteral(":/icons/chevron-right-menu-dark.svg")
+                               : QStringLiteral(":/icons/chevron-right-menu-light.svg");
+    theme.titleBarForeground = color("#1e1e1e", "#cccccc");
+    theme.titleBarControlHover = alpha(color("#000000", "#ffffff"), 26);
+    theme.titleBarCloseHover = QColor(232, 17, 35, 230); // native Windows caption convention
+    theme.searchFocusBorder = theme.focus;
+    theme.iconForeground = theme.foreground;
+    theme.terminalSelectionBackground = color("#add6ff", "#264f78");
+    theme.terminalSearchBackground =
+        QColor(234, 92, 0, 85); // terminal.findMatchHighlightBackground
+    theme.terminalCurrentSearchBackground = color("#a8ac94", "#9e6a03");
+    theme.terminalSessionActionHover = theme.hover;
+    theme.windowOutline = theme.border;
+    theme.popupShadow = theme.shadow;
+    theme.inactiveTabForeground = color("#616161", "#9d9d9d");
+    theme.activeTabForeground = color("#3b3b3b", "#ffffff");
+    theme.placeholderForeground = color("#767676", "#989898");
+    theme.primaryButtonHover = color("#0258a8", "#026ec1");
+    // Explicit user-requested exception: neutral popup hover, not VS Code's blue menu selection.
+    theme.menuSelectionBackground = theme.hover;
+    theme.menuSelectionForeground = theme.foreground;
+    theme.activityForeground = color("#1f1f1f", "#d7d7d7");
+    theme.activityInactiveForeground = color("#616161", "#868686");
+    theme.badgeBackground = color("#cccccc", "#616161");
+    theme.badgeForeground = color("#3b3b3b", "#f8f8f8");
+    theme.secondaryButtonBackground = dark ? QColor(Qt::transparent) : QColor("#e5e5e5");
+    theme.secondaryButtonHover = color("#cccccc", "#2b2b2b");
+    theme.textSelectionBackground = theme.terminalSelectionBackground;
+    // VS Code Git extension's gitDecoration.*ResourceForeground defaults.
+    theme.gitAdded = color("#587c0c", "#81b88b");
+    theme.gitModified = color("#895503", "#e2c08d");
+    theme.gitDeleted = color("#ad0707", "#c74e39");
+    theme.gitUntracked = color("#007100", "#73c991");
+    theme.gitRenamed = theme.gitUntracked;
+    theme.gitConflict = color("#ad0707", "#e4676b");
+    return theme;
 }
 
 namespace {
@@ -145,7 +144,9 @@ QString composeStyleSheet(const ThemeTokens& tokens) {
            ComponentStyleSheets::editorChrome(tokens) +
            ComponentStyleSheets::terminalAndPanel(tokens) +
            ComponentStyleSheets::dialogsMenusAndTooltips(tokens) +
-           ComponentStyleSheets::scrollbarsAndStatus(tokens);
+           ComponentStyleSheets::scrollbarsAndStatus(tokens) +
+           ComponentStyleSheets::sourceControl(tokens) +
+           ComponentStyleSheets::runDebug(tokens);
 }
 
 } // namespace

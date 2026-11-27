@@ -7,8 +7,19 @@ $ErrorActionPreference = 'Stop'
 $resolvedRoot = (Resolve-Path -LiteralPath $PackageRoot).Path
 $required = @(
     'bin\LiteCode.exe',
+    'bin\LiteCodeExtensionHost.exe',
+    'bin\LiteCodeGitAskPass.exe',
     'bin\rg.exe',
+    'extensions\python-debugger\litecode_python_debugger_extension.dll',
+    'extensions\python-debugger\bundled\libs\debugpy\adapter\__main__.py',
+    'extensions\codex\litecode_codex_extension.dll',
+    'extensions\codex\runtime\bin\codex.exe',
+    'extensions\codex\runtime\bin\codex-code-mode-host.exe',
+    'extensions\codex\runtime\codex-resources\codex-command-runner.exe',
+    'extensions\codex\runtime\codex-resources\codex-windows-sandbox-setup.exe',
+    'extensions\codex\runtime\codex-package.json',
     'bin\Qt6Core.dll',
+    'bin\Qt6Network.dll',
     'bin\Qt6Core5Compat.dll',
     'bin\Qt6Gui.dll',
     'bin\Qt6Svg.dll',
@@ -18,6 +29,11 @@ $required = @(
     'NOTICE.md',
     'THIRD_PARTY.md',
     'SBOM.spdx.json',
+    'sdk\include\extensions\ExtensionApi.h',
+    'sdk\lib\litecode_extension_sdk.lib',
+    'sdk\lib\cmake\LiteCodeExtensionSDK\LiteCodeExtensionSDKConfig.cmake',
+    'sdk\lib\cmake\LiteCodeExtensionSDK\LiteCodeExtensionSDKConfigVersion.cmake',
+    'sdk\lib\cmake\LiteCodeExtensionSDK\LiteCodeExtensionSDKTargets.cmake',
     'licenses\LGPL-3.0.txt',
     'licenses\GPL-3.0.txt',
     'licenses\SCINTILLA.txt',
@@ -26,7 +42,9 @@ $required = @(
     'licenses\SETI-UI-MIT.txt',
     'licenses\VSCODE-MIT.txt',
     'licenses\LUCIDE-ISC.txt',
-    'licenses\RIPGREP-MIT.txt'
+    'licenses\RIPGREP-MIT.txt',
+    'licenses\CODEX-APACHE-2.0.txt',
+    'licenses\CODEX-NOTICE.txt'
 )
 
 $missing = @($required | Where-Object {
@@ -52,7 +70,8 @@ $requiredPackages = @(
     'Visual Studio Code Seti icon theme / Seti UI',
     'Visual Studio Code Light Modern and Dark Modern themes',
     'Lucide Icons',
-    'ripgrep'
+    'ripgrep',
+    'OpenAI Codex'
 )
 $sbomPackageNames = @($sbom.packages | ForEach-Object name)
 $missingPackages = @($requiredPackages | Where-Object { $sbomPackageNames -notcontains $_ })

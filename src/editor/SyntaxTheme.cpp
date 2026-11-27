@@ -71,6 +71,13 @@ SyntaxPalette loadPalette(bool dark) {
         color(colors, "markupItalic", dark ? "#c586c0" : "#800080"),
         color(colors, "markupQuote", dark ? "#6a9955" : "#008000"),
         color(colors, "markupList", dark ? "#6796e6" : "#0451a5"),
+        cssColor(colors, "diffEditor.insertedLineBackground", "#9bb95533"),
+        cssColor(colors, "diffEditor.removedLineBackground", "#ff000033"),
+        cssColor(colors, "diffEditor.insertedTextBackground", dark ? "#9ccc2c33" : "#9ccc2c40"),
+        cssColor(colors, "diffEditor.removedTextBackground", "#ff000033"),
+        color(colors, "diffEditor.paddingBackground", dark ? "#252526" : "#f3f3f3"),
+        cssColor(colors, "editor.stackFrameHighlightBackground",
+                 dark ? "#ffff0040" : "#ffff0070"),
     };
 }
 

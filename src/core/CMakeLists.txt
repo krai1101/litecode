@@ -1,3 +1,7 @@
+add_library(litecode_jsonc STATIC JsoncDocument.h JsoncDocument.cpp)
+target_link_libraries(litecode_jsonc PUBLIC Qt6::Core PRIVATE litecode_project_options)
+target_include_directories(litecode_jsonc PUBLIC ${PROJECT_SOURCE_DIR}/src)
+
 add_library(litecode_core STATIC
     DocumentTypes.cpp
     DocumentTypes.h
@@ -9,6 +13,7 @@ add_library(litecode_core STATIC
     ProcessLifetime.h
     SettingsService.cpp
     SettingsService.h
+    GitPreferences.h
     TextEncoding.cpp
     TextEncoding.h
 )

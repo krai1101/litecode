@@ -57,7 +57,8 @@ class VTermEngine final : public QObject {
     VTermEngine(const VTermEngine&) = delete;
     VTermEngine& operator=(const VTermEngine&) = delete;
 
-    void feed(const QByteArray& bytes);
+    void feed(const QByteArray& bytes, bool preserveScrollback = false);
+    void archiveScreen();
     void resize(int rows, int columns);
     void clear();
     void clearScrollback();

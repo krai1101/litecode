@@ -1,9 +1,12 @@
 #pragma once
 
 #include "core/DocumentTypes.h"
+#include "core/GitPreferences.h"
 
 #include <QByteArray>
 #include <QHash>
+#include <QMap>
+#include <QSet>
 #include <QString>
 #include <QStringList>
 #include <QVariant>
@@ -45,10 +48,16 @@ class SettingsService final {
     void saveSession(const QString& workspaceFolder, const QStringList& openFiles,
                      const QString& activeFile = {});
     void rememberWorkspaceFolder(const QString& workspaceFolder);
+    [[nodiscard]] QStringList recentFiles() const;
+    void rememberRecentFile(const QString& path);
+    void forgetRecentPath(const QString& path);
     [[nodiscard]] QStringList searchHistory(const QString& workspaceFolder,
                                             const QString& kind) const;
     void saveSearchHistory(const QString& workspaceFolder, const QString& kind,
                            const QStringList& entries);
+    [[nodiscard]] QMap<QString, QSet<int>> debugBreakpoints(const QString& workspaceFolder) const;
+    void saveDebugBreakpoints(const QString& workspaceFolder,
+                              const QMap<QString, QSet<int>>& breakpoints);
     [[nodiscard]] bool userEncodingValid() const;
     [[nodiscard]] QString editorFontFamily() const;
     [[nodiscard]] int editorFontSize() const;
@@ -84,7 +93,11 @@ class SettingsService final {
     void saveBottomPanelTab(int index);
     [[nodiscard]] WorkbenchLayout workbenchLayout() const;
     void saveWorkbenchLayout(const WorkbenchLayout& layout);
+    [[nodiscard]] QByteArray sidebarState() const;
+    void saveSidebarState(const QByteArray& state);
     bool sync();
+    [[nodiscard]] GitPreferences gitPreferences() const;
+    void saveGitPreferences(const GitPreferences& preferences);
 
   private:
     std::unique_ptr<QSettings> settings_;

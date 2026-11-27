@@ -186,7 +186,9 @@ struct VTermEngine::Private final {
     }
 
     static int scrollbackClear(void* user) {
-        static_cast<Private*>(user)->scrollback.clear();
+        auto* self = static_cast<Private*>(user);
+        if (!self->preserveScrollback)
+            self->scrollback.clear();
         return 1;
     }
 
@@ -200,6 +202,7 @@ struct VTermEngine::Private final {
     int mouseMode{VTERM_PROP_MOUSE_NONE};
     bool focusReporting{};
     std::deque<std::vector<VTermScreenCell>> scrollback;
+    bool preserveScrollback{};
     QString title;
     QString pendingTitle;
 };
@@ -209,11 +212,29 @@ VTermEngine::VTermEngine(int rows, int columns, QObject* parent)
 
 VTermEngine::~VTermEngine() = default;
 
-void VTermEngine::feed(const QByteArray& bytes) {
+void VTermEngine::feed(const QByteArray& bytes, bool preserveScrollback) {
     if (bytes.isEmpty())
         return;
+    d_->preserveScrollback = preserveScrollback;
     vterm_input_write(d_->terminal, bytes.constData(), static_cast<size_t>(bytes.size()));
+    d_->preserveScrollback = false;
     vterm_screen_flush_damage(d_->screen);
+}
+
+void VTermEngine::archiveScreen() {
+    const int history = historyLineCount();
+    int last = rows() - 1;
+    while (last >= 0 && lineText(history + last).isEmpty())
+        --last;
+    std::vector<VTermScreenCell> cells(static_cast<size_t>(columns()));
+    for (int row = 0; row <= last; ++row) {
+        for (int column = 0; column < columns(); ++column)
+            vterm_screen_get_cell(d_->screen, {row, column}, &cells.at(static_cast<size_t>(column)));
+        Private::scrollbackPush(columns(), cells.data(), d_.get());
+    }
+    vterm_screen_reset(d_->screen, 1);
+    vterm_screen_flush_damage(d_->screen);
+    emit updated();
 }
 
 void VTermEngine::resize(int rows, int columns) {

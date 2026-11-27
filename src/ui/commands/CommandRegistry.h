@@ -5,6 +5,7 @@
 #include <QKeySequence>
 #include <QObject>
 #include <QString>
+#include <QStringList>
 #include <QVector>
 
 #include <functional>
@@ -52,6 +53,7 @@ class CommandRegistry final : public QObject {
                              std::optional<QKeySequence> currentShortcut = std::nullopt);
     [[nodiscard]] QAction* action(const QString& id) const;
     [[nodiscard]] QVector<CommandSnapshot> commandsFor(CommandSurface surface) const;
+    [[nodiscard]] QStringList registeredIds() const;
     [[nodiscard]] bool invoke(const QString& id);
     [[nodiscard]] bool setShortcut(const QString& id, const QKeySequence& shortcut);
     [[nodiscard]] bool resetShortcut(const QString& id);
@@ -59,6 +61,8 @@ class CommandRegistry final : public QObject {
     [[nodiscard]] std::optional<CommandSnapshot>
     shortcutConflict(const QString& id, const QKeySequence& shortcut) const;
     [[nodiscard]] bool setEnabled(const QString& id, bool enabled);
+    [[nodiscard]] bool setTitles(const QString& id, const QString& title,
+                                 const QString& paletteTitle);
 
   signals:
     void commandInvoked(const QString& id);

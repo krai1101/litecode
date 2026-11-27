@@ -1,0 +1,32 @@
+{
+  "id": "litecode.python-debugger",
+  "displayName": "Python Debugger",
+  "description": "Python debugging with extension-owned debugpy and your installed Python interpreter.",
+  "version": "1.0.0",
+  "apiVersion": 25,
+  "qtVersion": "@Qt6Core_VERSION@",
+  "architecture": "@PYTHON_DEBUGGER_ARCH@",
+  "icon": "python-debugger.png",
+  "activationEvents": ["onDebug", "onLanguage:python"],
+  "contributes": {
+    "breakpoints": [{"language": "python"}],
+    "debuggers": [{
+      "type": "debugpy", "label": "Python Debugger", "languages": ["python"],
+      "initialConfigurations": [{"name": "Python Debugger: Python File", "type": "debugpy", "request": "launch", "program": "${file}", "console": "integratedTerminal"}],
+      "configurationAttributes": {
+        "launch": {"required": ["name", "type", "request"], "properties": {"python": {"type": ["string", "array"]}, "program": {"type": "string"}, "module": {"type": "string"}, "args": {"type": "array", "items": {"type": "string"}}, "console": {"enum": ["integratedTerminal", "internalConsole"]}, "justMyCode": {"type": "boolean"}, "envFile": {"type": "string"}}},
+        "attach": {"required": ["name", "type", "request"], "properties": {"connect": {"type": "object"}, "listen": {"type": "object"}, "processId": {"type": ["string", "integer"]}}}
+      }
+    }],
+    "commands": [
+      {"command": "debugpy.debugInTerminal", "title": "Debug Python File in Terminal", "category": "Python Debugger"},
+      {"command": "debugpy.triggerEnvSelection", "title": "Select Interpreter", "category": "Python Debugger"},
+      {"command": "debugpy.viewOutput", "title": "Show Output", "category": "Python Debugger"}
+    ],
+    "configuration": {"title": "Python Debugger", "properties": {
+      "python.defaultInterpreterPath": {"type": "string", "default": "python", "description": "Default Python executable or virtual-environment directory. A selected workspace interpreter takes precedence."},
+      "python.envFile": {"type": "string", "default": "${workspaceFolder}/.env", "description": "Environment file for Python debug sessions."},
+      "debugpy.debugJustMyCode": {"type": "boolean", "default": true, "description": "Debug user-written code only by default."}
+    }}
+  }
+}

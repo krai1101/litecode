@@ -1,0 +1,15 @@
+{
+  "id": "tests.chatConflict",
+  "displayName": "Conflicting chat fixture",
+  "version": "1.0.0",
+  "apiVersion": 25,
+  "qtVersion": "@Qt6Core_VERSION@",
+  "architecture": "@LITECODE_PLUGIN_ARCH@",
+  "contributes": {
+    "chatParticipants": [{
+      "id": "tests.native.assistant",
+      "name": "other-assistant",
+      "fullName": "Other Assistant"
+    }]
+  }
+}

@@ -11,7 +11,9 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPalette>
+#include <QPointer>
 #include <QResizeEvent>
+#include <QTimer>
 #include <QToolButton>
 #include <QWindow>
 
@@ -31,7 +33,6 @@ WorkbenchTitleBar::WorkbenchTitleBar(QMenuBar* menuBar, QWidget* window)
     menuBar_->setObjectName(QStringLiteral("workbenchMenuBar"));
     menuBar_->setNativeMenuBar(false);
     menuBar_->setFixedHeight(ThemeMetrics::navigationBarHeight);
-    menuBar_->setStyle(qApp->style());
 
     auto* appMark = new QLabel(this);
     appMark->setObjectName(QStringLiteral("appMark"));
@@ -49,15 +50,23 @@ WorkbenchTitleBar::WorkbenchTitleBar(QMenuBar* menuBar, QWidget* window)
             QIcon(), tooltip, QSize(32, ThemeMetrics::navigationBarHeight), QSize(16, 16));
         button->setAutoRaise(true);
         button->setObjectName(QStringLiteral("titleLayoutButton"));
+        button->setAccessibleName(tooltip);
         button->setProperty("titleBarIconResource", icon);
         updateButtonIcon(button);
         return button;
     };
-    connect(addLayoutButton(QStringLiteral(":/icons/layout-sidebar-left.svg"),
-                            tr("Toggle Primary Side Bar")),
-            &QToolButton::clicked, this, &WorkbenchTitleBar::togglePrimarySidebarRequested);
+    auto* primary = addLayoutButton(QStringLiteral(":/icons/layout-sidebar-left.svg"),
+                                    tr("Toggle Primary Side Bar"));
+    primary->setObjectName(QStringLiteral("togglePrimarySidebar"));
+    connect(primary, &QToolButton::clicked, this,
+            &WorkbenchTitleBar::togglePrimarySidebarRequested);
     connect(addLayoutButton(QStringLiteral(":/icons/layout-panel.svg"), tr("Toggle Panel")),
             &QToolButton::clicked, this, &WorkbenchTitleBar::toggleBottomPanelRequested);
+    auto* secondary = addLayoutButton(QStringLiteral(":/icons/layout-sidebar-right.svg"),
+                                      tr("Toggle Secondary Side Bar"));
+    secondary->setObjectName(QStringLiteral("toggleSecondarySidebar"));
+    connect(secondary, &QToolButton::clicked, this,
+            &WorkbenchTitleBar::toggleSecondarySidebarRequested);
     controls->addSpacing(8);
 
     const auto addWindowButton = [this, controls](const QString& icon, const QString& name,
@@ -66,6 +75,7 @@ WorkbenchTitleBar::WorkbenchTitleBar(QMenuBar* menuBar, QWidget* window)
             QIcon(), tooltip, QSize(46, ThemeMetrics::navigationBarHeight), QSize(16, 16));
         button->setAutoRaise(true);
         button->setObjectName(name);
+        button->setAccessibleName(tooltip);
         button->setProperty("titleBarIconResource", icon);
         updateButtonIcon(button);
         return button;
@@ -74,13 +84,52 @@ WorkbenchTitleBar::WorkbenchTitleBar(QMenuBar* menuBar, QWidget* window)
                                      QStringLiteral("windowMinimize"), tr("Minimize"));
     maximize_ = addWindowButton(QStringLiteral(":/icons/window-maximize.svg"),
                                 QStringLiteral("windowMaximize"), tr("Maximize"));
-    auto* close = addWindowButton(QStringLiteral(":/icons/window-close.svg"),
-                                  QStringLiteral("windowClose"), tr("Close"));
+    close_ = addWindowButton(QStringLiteral(":/icons/window-close.svg"),
+                             QStringLiteral("windowClose"), tr("Close"));
     connect(minimize, &QToolButton::clicked, window_, &QWidget::showMinimized);
     connect(maximize_, &QToolButton::clicked, this, &WorkbenchTitleBar::toggleMaximizeRestore);
-    connect(close, &QToolButton::clicked, window_, &QWidget::close);
+    connect(close_, &QToolButton::clicked, window_, &QWidget::close);
     controls_->setFixedWidth(controls->sizeHint().width());
     setDarkTheme(qApp->property("litecodeDarkTheme").toBool());
+    qApp->installEventFilter(this);
+}
+
+WorkbenchTitleBar::~WorkbenchTitleBar() { qApp->removeEventFilter(this); }
+
+bool WorkbenchTitleBar::eventFilter(QObject* watched, QEvent* event) {
+    auto* popup = QApplication::activePopupWidget();
+    if (event->type() != QEvent::MouseButtonPress || !popup || !window_->isVisible() ||
+        !close_->isVisible() || !close_->isEnabled())
+        return QWidget::eventFilter(watched, event);
+    const auto* mouse = static_cast<QMouseEvent*>(event);
+    const auto position = mouse->globalPosition().toPoint();
+    if (mouse->button() != Qt::LeftButton ||
+        !QRect(close_->mapToGlobal(QPoint{}), close_->size()).contains(position) ||
+        QRect(popup->mapToGlobal(QPoint{}), popup->size()).contains(position))
+        return QWidget::eventFilter(watched, event);
+    bool owned = false;
+    for (auto* owner = popup->parentWidget(); owner; owner = owner->parentWidget())
+        if (owner == window_) {
+            owned = true;
+            break;
+        }
+    if (!owned && QApplication::activeWindow() != window_)
+        return QWidget::eventFilter(watched, event);
+
+    // Qt grabs outside mouse clicks for popups. Handle a caption Close click
+    // before the popup consumes it, canceling menus without activating an item.
+    const QPointer<QWidget> target(window_);
+    while (auto* active = QApplication::activePopupWidget()) {
+        active->close();
+        if (QApplication::activePopupWidget() == active)
+            return true;
+    }
+    if (target)
+        QTimer::singleShot(0, target.data(), [target] {
+            if (target)
+                target->close(); // Keep the normal unsaved-document close checks.
+        });
+    return true;
 }
 
 bool WorkbenchTitleBar::containsInteractivePoint(const QPoint& point) const {
@@ -92,6 +141,9 @@ void WorkbenchTitleBar::setDarkTheme(bool dark) {
 
     QPalette menuPalette = menuBar_->palette();
     for (const QPalette::ColorGroup group : {QPalette::Active, QPalette::Inactive}) {
+        menuPalette.setColor(group, QPalette::Window, tokens.appSurface);
+        menuPalette.setColor(group, QPalette::Button, tokens.appSurface);
+        menuPalette.setColor(group, QPalette::Base, tokens.appSurface);
         menuPalette.setColor(group, QPalette::WindowText, tokens.foreground);
         menuPalette.setColor(group, QPalette::Text, tokens.foreground);
         menuPalette.setColor(group, QPalette::ButtonText, tokens.foreground);
@@ -118,6 +170,7 @@ void WorkbenchTitleBar::updateWindowState() {
                                                   : QStringLiteral(":/icons/window-maximize.svg"));
     updateButtonIcon(maximize_);
     maximize_->setToolTip(window_->isMaximized() ? tr("Restore") : tr("Maximize"));
+    maximize_->setAccessibleName(maximize_->toolTip());
 }
 
 void WorkbenchTitleBar::updateButtonIcon(QToolButton* button) {

@@ -13,6 +13,13 @@ QString ComponentStyleSheets::workbench(const ThemeTokens& tokens) {
             background: transparent;
         }
         QMainWindow#mainWindow::separator:hover { background: transparent; }
+        QTabBar#sidebarTabs { background: transparent; border: 0; }
+        QTabBar#sidebarTabs::tab {
+            background: transparent; color: @muted; border: 0;
+            padding: 5px 8px; margin: 2px; border-radius: 4px;
+        }
+        QTabBar#sidebarTabs::tab:selected { background: @selection; color: @listSelectionForeground; }
+        QTabBar#sidebarTabs::tab:hover { background: @hover; }
         QWidget#workbenchTitleBar { background: transparent; border: 0; }
         QMenuBar {
             background: transparent; color: @foreground; border: 0;
@@ -57,27 +64,48 @@ QString ComponentStyleSheets::workbench(const ThemeTokens& tokens) {
         QLineEdit#commandCenter:focus { background: @input; border-color: @focus; }
         QToolBar#activityBar {
             background: @sidebar; border: 0; border-right: 1px solid @border;
-            spacing: 2px; padding: 4px 0;
+            spacing: 0; padding: 0;
         }
         QToolBar#activityBar QToolButton {
-            background: transparent; border: 0; min-width: 48px; max-width: 48px;
-            min-height: 48px; padding: 0;
+            background: transparent; border: 0; min-width: 39px; max-width: 39px;
+            min-height: 40px; max-height: 40px; padding: 0; margin: 4px;
         }
-        QToolBar#activityBar QToolButton:hover,
+        QToolBar#activityBar QToolButton:hover { background: @hover; border-radius: 4px; }
         QToolBar#activityBar QToolButton:checked,
-        QToolBar#activityBar QToolButton:checked:hover { background: transparent; }
+        QToolBar#activityBar QToolButton:checked:hover { background: @selection; border-radius: 4px; }
         QToolBar#activityBar::separator { height: 2px; background: transparent; }
         QDockWidget { background: @sidebar; color: @foreground; border: 0; }
         QDockWidget::title { background: @sidebar; height: 0; padding: 0; }
+        QMainWindow#mainWindow > QTabBar {
+            background: @sidebar; border: 0; qproperty-drawBase: false;
+        }
+        QMainWindow#mainWindow > QTabBar::tab {
+            background: transparent; color: @foreground; border: 0;
+            border-radius: 4px; padding: 4px 10px; margin: 3px 2px;
+        }
+        QMainWindow#mainWindow > QTabBar::tab:selected { background: @selection; }
+        QMainWindow#mainWindow > QTabBar::tab:hover { background: @hover; }
         QWidget#dockHeader { background: @sidebar; border: 0; }
         QLabel#dockHeaderTitle {
-            color: @muted; font-size: 13px; font-weight: 600; padding: 0; min-height: 35px;
+            color: @foreground; font-size: 13px; font-weight: 600; padding: 0; min-height: 35px;
         }
         QToolButton#dockHeaderButton {
             background: transparent; border: 0; border-radius: 4px; color: @muted;
             font-size: 13px; min-width: 24px; min-height: 24px; padding: 0;
         }
         QToolButton#dockHeaderButton:hover { background: @hover; color: @foreground; }
+        QToolButton#workspaceRootLabel, QToolButton#debugSectionHeader {
+            background: transparent; border: 0; border-radius: 0;
+            color: @foreground; font-size: 13px; text-align: left;
+        }
+        QToolButton#workspaceRootLabel:hover, QToolButton#workspaceRootLabel:checked,
+        QToolButton#workspaceRootLabel:checked:hover, QToolButton#debugSectionHeader:hover {
+            background: transparent;
+        }
+        QLineEdit[uiRole="inlineInput"] {
+            background: @input; color: @foreground; border: 1px solid @focus;
+            border-radius: 4px; padding: 1px 2px;
+        }
         QWidget#hiddenDockHeader { background: @app; border: 0; }
         QDockWidget#workspaceDock {
             background: @sidebar; border: 0;
