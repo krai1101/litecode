@@ -211,6 +211,7 @@ void DebugSession::setState(State state) {
 }
 void DebugSession::invalidateReferences() {
     ++inspectionEpoch_;
+    resuming_ = false;
     stoppedThread_ = 0;
     emit referencesInvalidated();
 }
@@ -515,20 +516,27 @@ void DebugSession::fail(const QString& error) {
     transport_.stop();
 }
 bool DebugSession::control(const QString& command, int threadId) {
-    if (state_ != State::Stopped || threadId <= 0)
+    if (state_ != State::Stopped || resuming_ || threadId <= 0)
         return false;
-    const auto epoch = inspectionEpoch_;
-    return send(command, {{"threadId", threadId}},
-                [this, epoch](bool success, const QJsonObject&, const QString& error) {
-                    if (epoch != inspectionEpoch_)
-                        return;
-                    if (!success) {
-                        emit errorOccurred(error);
-                        return;
-                    }
-                    invalidateReferences();
-                    setState(State::Running);
-                }) > 0;
+    // An adapter can resume the program before acknowledging the request.
+    // Stop issuing suspended-frame requests and drop late inspection replies.
+    const auto epoch = ++inspectionEpoch_;
+    resuming_ = true;
+    const auto id = send(command, {{"threadId", threadId}},
+                         [this, epoch](bool success, const QJsonObject&, const QString& error) {
+                             if (epoch != inspectionEpoch_)
+                                 return;
+                             resuming_ = false;
+                             if (!success) {
+                                 emit errorOccurred(error);
+                                 return;
+                             }
+                             invalidateReferences();
+                             setState(State::Running);
+                         });
+    if (!id)
+        resuming_ = false;
+    return id > 0;
 }
 bool DebugSession::continueExecution(int threadId) { return control("continue", threadId); }
 bool DebugSession::stepOver(int threadId) { return control("next", threadId); }
@@ -570,7 +578,7 @@ int DebugSession::inspect(const QString& command, const QJsonObject& arguments,
                           bool suspendedOnly) {
     if (debuggeeExited_)
         return 0;
-    if (suspendedOnly ? state_ != State::Stopped
+    if (suspendedOnly ? state_ != State::Stopped || resuming_
                       : (state_ != State::Running && state_ != State::Stopped))
         return 0;
     const auto epoch = inspectionEpoch_;

@@ -208,6 +208,7 @@ jobs:
           LITECODE_REQUIRE_LINK_TESTS: '1'
         run: ctest --preset release --parallel 2 -E '^litecode[.]extensions([.]editor_application)?$'
       - name: Exercise extension editor and clipboard on Cocoa
+        if: ${{ !cancelled() }}
         env:
           QT_QPA_PLATFORM: cocoa
           LITECODE_REQUIRE_LINK_TESTS: '1'

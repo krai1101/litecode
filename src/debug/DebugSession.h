@@ -99,6 +99,7 @@ class DebugSession final : public QObject {
     QString adapterId_, launchRequest_;
     State state_{State::Idle};
     quint64 inspectionEpoch_{};
+    bool resuming_{};
     int stoppedThread_{};
     int configuring_{};
     bool initialized_{};

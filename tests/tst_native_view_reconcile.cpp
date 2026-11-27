@@ -139,6 +139,19 @@ class NativeViewReconcileTests final : public QObject {
         QCOMPARE(view.findChild<QTextBrowser*>("message.7"), shared.data());
         QCOMPARE(view.findChild<QPlainTextEdit*>("draft"), draft.data());
     }
+    void appendingToOneMessageKeepsFollowingLatest() {
+        ui::NativeViewWidget view;
+        auto root = frame();
+        auto& messages = root.children[1].children[0].children;
+        messages = {message(0)};
+        view.setContent(root, 1);
+        auto* scroll = view.findChild<ui::NativeTranscriptView*>("scroll");
+        QVERIFY(scroll);
+        scroll->restorePosition(0, true);
+        messages.append(message(1));
+        view.setContent(root, 2);
+        QVERIFY(scroll->followingLatest());
+    }
     void incrementalAndUserChangesCannotLeaveStaleCachedParents() {
         ui::NativeViewWidget view;
         auto root = frame();

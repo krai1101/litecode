@@ -73,8 +73,8 @@ void NativeViewScrollState::restore(QScrollArea& scroll) const {
     const auto rows = contentRows(scroll);
     // Consecutive history windows share a boundary row. Preserve that row's
     // viewport offset rather than jumping to either end of the new window.
-    const bool nextWindow =
-        !rows.isEmpty() && last != rows.last()->objectName() && last == rows.first()->objectName();
+    const bool nextWindow = !rows.isEmpty() && first != rows.first()->objectName() &&
+                            last != rows.last()->objectName() && last == rows.first()->objectName();
     const bool pinned = followEnd && !nextWindow;
     int target = position;
     QString matchedAnchor;

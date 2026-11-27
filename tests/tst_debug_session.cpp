@@ -195,6 +195,8 @@ class DebugSessionTests final : public QObject {
         QTRY_VERIFY(std::any_of(inspections.begin(), inspections.end(),
                                 [id](const auto& entry) { return entry[0].toInt() == id; }));
         QVERIFY(session.stepOver(1));
+        QCOMPARE(session.scopes(0), 0);
+        QVERIFY(!session.continueExecution(1));
         QTRY_COMPARE(stops.size(), 2);
         QTRY_COMPARE(session.state(), DebugSession::State::Stopped);
         session.stop();
