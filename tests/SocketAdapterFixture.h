@@ -23,7 +23,10 @@ class SocketAdapterFixture final : public QObject {
     void send(QJsonObject message) {
         if (!peer_)
             return;
-        message.insert("seq", ++sequence_);
+        if (message.contains("seq"))
+            sequence_ = qMax(sequence_, message.value("seq").toInt());
+        else
+            message.insert("seq", ++sequence_);
         const auto bytes = litecode::debug::DapDecoder::encode(message);
         // Force the parser to handle split headers and payloads.
         peer_->write(bytes.left(7));

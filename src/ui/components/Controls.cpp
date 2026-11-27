@@ -576,7 +576,8 @@ void ComboBox::showPopup() {
         const QRect first = popupView_->visualRect(model()->index(0, modelColumn()));
         const QRect last = popupView_->visualRect(model()->index(visibleRows - 1, modelColumn()));
         const int rowsHeight = last.bottom() - first.top() + 1;
-        const int exactHeight = rowsHeight + 8 + popupExtraHeight() + 2 * popupView_->frameWidth();
+        const int chromeHeight = popup_->height() - popupView_->viewport()->height();
+        const int exactHeight = rowsHeight + chromeHeight;
         popup_->setGeometry(PopupSurface::anchoredGeometry(*this, QSize(desiredWidth, exactHeight),
                                                            popupWithinWindow_, popupWithinWindow_));
     }

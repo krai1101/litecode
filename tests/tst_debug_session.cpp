@@ -57,10 +57,12 @@ class DebugSessionTests final : public QObject {
         DebugSession session;
         session.setRunInTerminalEnabled(true);
         QSignalSpy requests(&session, &DebugSession::runInTerminalRequested);
+        constexpr int reverseSequence = 100;
         QVERIFY(session.startServer({server.serverPort()}, "fixture", "launch", {}));
         QTRY_COMPARE(session.state(), DebugSession::State::Running);
         peer->send(
             {{"type", "request"},
+             {"seq", reverseSequence},
              {"command", "runInTerminal"},
              {"arguments",
               QJsonObject{{"kind", "integrated"}, {"args", QJsonArray{"target"}}, {"cwd", ""}}}});
@@ -75,8 +77,10 @@ class DebugSessionTests final : public QObject {
         QTRY_COMPARE(session.state(), DebugSession::State::Idle);
         QVERIFY(session.startServer({server.serverPort()}, "fixture", "launch", {}));
         QTRY_COMPARE(session.state(), DebugSession::State::Running);
-        peer->send(
-            {{"type", "request"}, {"command", "runInTerminal"}, {"arguments", QJsonObject{}}});
+        peer->send({{"type", "request"},
+                    {"seq", reverseSequence},
+                    {"command", "runInTerminal"},
+                    {"arguments", QJsonObject{}}});
         QTRY_COMPARE(requests.size(), 2);
         const auto currentRequest = requests.last().first().toJsonObject();
         QCOMPARE(currentRequest.value("seq"), oldRequest.value("seq"));
