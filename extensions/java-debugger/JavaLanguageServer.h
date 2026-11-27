@@ -14,6 +14,7 @@ class JavaLanguageServer final : public QObject {
     ~JavaLanguageServer() override;
     QFuture<QJsonValue> execute(const QString& workspace, const QString& command,
                                 QJsonArray arguments = {});
+    QFuture<QJsonValue> buildSourceProject(const QString& workspace, const QUrl& source);
 
   private:
     QFuture<QJsonValue> ensureStarted(const QString& workspace);

@@ -83,7 +83,7 @@ class ConfigurationProvider final : public QObject, public DebugConfigurationPro
             resolved =
                 resolveEntry(root, config, token)
                     .then(this,
-                          [this, root, config, token](QJsonValue entry) mutable {
+                          [this, root, config, main, token](QJsonValue entry) mutable {
                               if (entry.isUndefined() || token.isCancellationRequested())
                                   return QtFuture::makeReadyValueFuture(
                                       DebugConfiguration(QJsonValue::Undefined));
@@ -91,7 +91,10 @@ class ConfigurationProvider final : public QObject, public DebugConfigurationPro
                               config.insert("mainClass", selected.value("mainClass"));
                               if (selected.value("projectName").isString())
                                   config.insert("projectName", selected.value("projectName"));
-                              return prepareLaunch(root, config, token);
+                              const auto source = main.endsWith(".java", Qt::CaseInsensitive)
+                                                      ? QDir(root).absoluteFilePath(main)
+                                                      : QString{};
+                              return prepareLaunch(root, config, source, token);
                           })
                     .unwrap();
         } catch (...) {
@@ -165,7 +168,7 @@ class ConfigurationProvider final : public QObject, public DebugConfigurationPro
     }
 
     QFuture<DebugConfiguration> prepareLaunch(const QString& root, QJsonObject config,
-                                              CancellationToken token) {
+                                              const QString& source, CancellationToken token) {
         const auto main = config.value("mainClass");
         const auto project = config.value("projectName").toString();
         const auto projectArgument =
@@ -175,12 +178,18 @@ class ConfigurationProvider final : public QObject, public DebugConfigurationPro
                 .getConfiguration("java.debug.settings")
                 ->get("forceBuildBeforeLaunch", true)
                 .toBool()) {
-            QJsonObject build{{"mainClass", main}, {"isFullBuild", false}};
-            if (!project.isEmpty())
-                build.insert("projectName", project);
-            built = server_->execute(
-                root, "vscode.java.buildWorkspace",
-                {QString::fromUtf8(QJsonDocument(build).toJson(QJsonDocument::Compact))});
+            // The debug plugin skips JDT's default project. Build loose Java
+            // files through JDT's document-to-project target before launch.
+            if (project.isEmpty() && !source.isEmpty())
+                built = server_->buildSourceProject(root, QUrl::fromLocalFile(source));
+            else {
+                QJsonObject build{{"mainClass", main}, {"isFullBuild", false}};
+                if (!project.isEmpty())
+                    build.insert("projectName", project);
+                built = server_->execute(
+                    root, "vscode.java.buildWorkspace",
+                    {QString::fromUtf8(QJsonDocument(build).toJson(QJsonDocument::Compact))});
+            }
         }
         return built
             .then(this,

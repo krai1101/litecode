@@ -159,6 +159,18 @@ QFuture<QJsonValue> JavaLanguageServer::execute(const QString& workspace, const 
         .unwrap();
 }
 
+QFuture<QJsonValue> JavaLanguageServer::buildSourceProject(const QString& workspace,
+                                                           const QUrl& source) {
+    const QJsonArray identifiers{QJsonObject{{"uri", source.toString(QUrl::FullyEncoded)}}};
+    return ensureStarted(workspace)
+        .then(this,
+              [this, identifiers](QJsonValue) {
+                  return request("java/buildProjects",
+                                 {{"identifiers", identifiers}, {"fullBuild", false}});
+              })
+        .unwrap();
+}
+
 QFuture<QJsonValue> JavaLanguageServer::request(const QString& method, QJsonObject params) {
     const int id = ++sequence_;
     auto promise = std::make_shared<QPromise<QJsonValue>>();
