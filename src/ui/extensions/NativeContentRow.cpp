@@ -1,5 +1,6 @@
 #include "ui/extensions/NativeContentRow.h"
 #include <QLayout>
+#include <QPointer>
 #include <QResizeEvent>
 #include <QTimer>
 namespace litecode::ui {
@@ -10,9 +11,14 @@ QSize NativeContentRow::minimumSizeHint() const {
     return size;
 }
 bool NativeContentRow::event(QEvent* event) {
+    // QWidget handles DeferredDelete itself. Only inspect the row after events
+    // that can change its layout.
+    if (event->type() != QEvent::Resize && event->type() != QEvent::LayoutRequest)
+        return QWidget::event(event);
+
+    const QPointer<NativeContentRow> row(this);
     const bool handled = QWidget::event(event);
-    if (property("nativeTrailingActions").toBool() && layout() &&
-        (event->type() == QEvent::Resize || event->type() == QEvent::LayoutRequest)) {
+    if (row && property("nativeTrailingActions").toBool() && layout()) {
         // Keep action captions intact; any overflow is clipped by this row,
         // rather than becoming the minimum width of the entire card.
         auto bounds = contentsRect();
