@@ -12,6 +12,7 @@ class NativeTranscriptView final : public QScrollArea {
     Q_OBJECT
   public:
     explicit NativeTranscriptView(QWidget* parent = nullptr);
+    void followLatest();
     void restorePosition(int position, bool followEnd);
     void preserveAnchor(const QString& id, int offset);
     bool followingLatest() const { return following_; }

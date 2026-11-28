@@ -152,6 +152,23 @@ class NativeViewReconcileTests final : public QObject {
         view.setContent(root, 2);
         QVERIFY(scroll->followingLatest());
     }
+    void explicitFollowLatestSupersedesQueuedScrollRestore() {
+        ui::NativeViewWidget view;
+        auto root = frame();
+        view.resize(480, 360);
+        view.show();
+        view.setContent(root, 1);
+        auto* scroll = view.findChild<ui::NativeTranscriptView*>("scroll");
+        QVERIFY(scroll);
+        QTRY_VERIFY(scroll->verticalScrollBar()->maximum() > 0);
+        scroll->restorePosition(0, false);
+        root.children[1].children[0].children.append(message(8));
+        view.setContent(root, 2);
+        view.scrollToEnd("scroll");
+        QTest::qWait(40); // Include both queued restore and deferred text layout.
+        QVERIFY(scroll->followingLatest());
+        QTRY_COMPARE(scroll->verticalScrollBar()->value(), scroll->verticalScrollBar()->maximum());
+    }
     void incrementalAndUserChangesCannotLeaveStaleCachedParents() {
         ui::NativeViewWidget view;
         auto root = frame();

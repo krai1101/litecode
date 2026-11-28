@@ -777,9 +777,8 @@ void NativeViewWidget::setText(const QString& id, const QString& text) {
 }
 void NativeViewWidget::scrollToEnd(const QString& id) {
     if (auto* scroll = qobject_cast<QScrollArea*>(controls_.value(id).data())) {
-        scroll->setProperty("nativeActivatedAnchor", {});
         if (auto* transcript = qobject_cast<NativeTranscriptView*>(scroll))
-            transcript->restorePosition(scroll->verticalScrollBar()->maximum(), true);
+            transcript->followLatest();
         else
             QTimer::singleShot(0, scroll, [scroll] {
                 scroll->verticalScrollBar()->setValue(scroll->verticalScrollBar()->maximum());

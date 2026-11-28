@@ -296,7 +296,11 @@ void DapTransport::finish(QProcess* process, int exitCode, bool crashed) {
     emit stopped(exitCode, unexpectedlyCrashed);
     finishing_ = false;
 }
-void DapTransport::stop() {
+void DapTransport::stop() { stop(false); }
+
+void DapTransport::stopAfterDisconnect() { stop(true); }
+
+void DapTransport::stop(bool allowNaturalExit) {
     if (connection_) {
         finishSocket(connection_, false);
         return;
@@ -310,11 +314,20 @@ void DapTransport::stop() {
     if (process != process_)
         return;
     if (process_->state() == QProcess::NotRunning) {
-        finish(process_, 0, false);
+        finish(process, process->exitCode(), process->exitStatus() == QProcess::CrashExit);
         return;
     }
-    process_->terminate();
-    shutdown_.start(500);
+    if (allowNaturalExit) {
+        // Acknowledging disconnect precedes process exit. Preserve the
+        // adapter's own exit status while allowing it to release resources.
+        process->closeWriteChannel();
+        if (process == process_)
+            shutdown_.start(1000);
+    } else {
+        process->terminate();
+        if (process == process_)
+            shutdown_.start(500);
+    }
 }
 void DapTransport::abort(const QString& message) {
     auto* process = process_;

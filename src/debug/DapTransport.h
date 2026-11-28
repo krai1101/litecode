@@ -36,6 +36,7 @@ class DapTransport final : public QObject {
     bool startServer(const AdapterServer& configuration);
     bool startNamedPipeServer(const AdapterNamedPipeServer& configuration);
     void stop();
+    void stopAfterDisconnect();
     int request(const QString& command, const QJsonObject& arguments = {}, int timeoutMs = 10000);
     int requestValue(const QString& command, const QJsonValue& arguments, int timeoutMs = 10000);
     bool respond(const QJsonObject& request, bool success, const QJsonObject& body = {},
@@ -57,6 +58,7 @@ class DapTransport final : public QObject {
     void messageReceived(const QJsonObject& message);
 
   private:
+    void stop(bool allowNaturalExit);
     void setState(State state);
     void drain(QProcess* process, quint64 generation);
     void finish(QProcess* process, int exitCode, bool crashed);

@@ -568,9 +568,12 @@ void DebugSession::stop() {
     send(
         "disconnect", {{"terminateDebuggee", launchRequest_ == "launch"}, {"restart", false}},
         [this](bool success, const QJsonObject&, const QString& error) {
-            if (!success)
+            if (success)
+                transport_.stopAfterDisconnect();
+            else {
                 emit errorOccurred("Debug disconnect failed: " + error);
-            transport_.stop();
+                transport_.stop();
+            }
         },
         3000);
 }

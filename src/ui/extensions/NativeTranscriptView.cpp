@@ -81,10 +81,14 @@ NativeTranscriptView::NativeTranscriptView(QWidget* parent) : QScrollArea(parent
         notifyNavigation(bar->sliderPosition(), direction);
     });
     connect(latest_, &QToolButton::clicked, this, [this] {
-        ++navigationEpoch_;
-        restorePosition(verticalScrollBar()->maximum(), true);
+        followLatest();
         emit endRequested();
     });
+}
+void NativeTranscriptView::followLatest() {
+    ++navigationEpoch_;
+    setProperty("nativeActivatedAnchor", {});
+    restorePosition(verticalScrollBar()->maximum(), true);
 }
 void NativeTranscriptView::notifyNavigation(int position, int direction) {
     if (!direction)
