@@ -1,10 +1,13 @@
 #include "extensions/JsonMessageTransfer.h"
 #include "extensions/ExtensionWireProtocol.h"
 #include <QJsonDocument>
+#include <QLoggingCategory>
 #include <stdexcept>
 
 namespace litecode::extensions::wire {
 namespace {
+Q_LOGGING_CATEGORY(jsonTransferLog, "litecode.extension.jsonTransfer", QtWarningMsg)
+
 std::optional<quint64> number(const QJsonValue& value, bool allowZero = false) {
     if (!value.isString())
         return {};
@@ -29,6 +32,7 @@ void sendJsonTransfer(const QJsonObject& message, const JsonTransferRoute& route
         return;
     }
     const auto requestId = message.value("requestId");
+    qCDebug(jsonTransferLog) << "Queueing" << route.prefix << requestId.toString() << bytes.size();
     send({{route.field, route.prefix + "Begin"},
           {"requestId", requestId},
           {"length", QString::number(bytes.size())}});
@@ -42,6 +46,7 @@ void sendJsonTransfer(const QJsonObject& message, const JsonTransferRoute& route
     send({{route.field, route.prefix + "End"},
           {"requestId", requestId},
           {"sequence", QString::number(sequence)}});
+    qCDebug(jsonTransferLog) << "Queued" << route.prefix << requestId.toString() << sequence;
 }
 bool JsonMessageTransferDecoder::recognizes(const QJsonObject& message) const {
     const auto name = message.value(route_.field).toString();
@@ -74,6 +79,7 @@ std::optional<QJsonObject> JsonMessageTransferDecoder::accept(const QJsonObject&
             return fail();
         requestId_ = id;
         length_ = static_cast<qsizetype>(*length);
+        qCDebug(jsonTransferLog) << "Receiving" << route_.prefix << id << length_;
         return {};
     }
     const auto sequence = number(message.value("sequence"), true);
@@ -93,6 +99,9 @@ std::optional<QJsonObject> JsonMessageTransferDecoder::accept(const QJsonObject&
             return fail();
         bytes_.append(decoded);
         ++sequence_;
+        if (sequence_ % 64 == 0)
+            qCDebug(jsonTransferLog)
+                << "Received" << route_.prefix << id << bytes_.size() << "of" << length_;
         return {};
     }
     if (event != route_.prefix + "End" || bytes_.size() != length_)
@@ -106,6 +115,7 @@ std::optional<QJsonObject> JsonMessageTransferDecoder::accept(const QJsonObject&
         reconstructed.value("requestId").toString() != requestId_ ||
         !number(reconstructed.value("requestId")))
         return fail();
+    qCDebug(jsonTransferLog) << "Finished" << route_.prefix << id << bytes_.size();
     reset();
     return reconstructed;
 }

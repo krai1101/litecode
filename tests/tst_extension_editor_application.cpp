@@ -124,7 +124,7 @@ class EditorApplicationTests final : public QObject {
         const int largeSize = 9 * 1024 * 1024;
         const auto largeRequest = manager.requestCommand("tests.native.editorEdit", {largeSize});
         QVERIFY(largeRequest);
-        QTRY_VERIFY_WITH_TIMEOUT(!replies.isEmpty(), 30000);
+        QVERIFY(!replies.isEmpty() || replies.wait(30000));
         reply = replies.takeFirst();
         QCOMPARE(reply[0].toULongLong(), largeRequest);
         QVERIFY2(reply[2].toString().isEmpty(), qPrintable(reply[2].toString()));

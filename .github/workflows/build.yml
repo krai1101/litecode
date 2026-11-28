@@ -211,6 +211,7 @@ jobs:
         if: ${{ !cancelled() }}
         env:
           QT_QPA_PLATFORM: cocoa
+          QT_LOGGING_RULES: 'litecode.extension.jsonTransfer.debug=true'
           LITECODE_REQUIRE_LINK_TESTS: '1'
         run: ctest --preset release --no-tests=error -R '^litecode[.]extensions([.]editor_application)?$'
       - name: Build release archive

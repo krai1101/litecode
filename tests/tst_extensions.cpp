@@ -401,14 +401,16 @@ class ExtensionTests : public QObject {
             QString(9 * 1024 * 1024, QLatin1Char('x')) + QString::fromUtf8("\n\xf0\x9f\x98\x80");
         QVERIFY(manager.requestCommand("tests.native.clipboard",
                                        {QJsonObject{{"length", 9 * 1024 * 1024}}}) != 0);
-        QTRY_COMPARE(results.size(), 1);
+        QVERIFY(results.size() == 1 || results.wait(5000));
+        QCOMPARE(results.size(), 1);
         result = results.takeFirst();
         QVERIFY2(result.at(2).toString().isEmpty(), qPrintable(result.at(2).toString()));
         QVERIFY(result.at(1).value<QJsonValue>().toBool());
         QCOMPARE(clipboard, large);
         QVERIFY(manager.requestCommand("tests.native.clipboard",
                                        {QJsonObject{{"measure", true}}}) != 0);
-        QTRY_COMPARE(results.size(), 1);
+        QVERIFY(results.size() == 1 || results.wait(5000));
+        QCOMPARE(results.size(), 1);
         result = results.takeFirst();
         QVERIFY2(result.at(2).toString().isEmpty(), qPrintable(result.at(2).toString()));
         const auto measured = result.at(1).value<QJsonValue>().toObject();
