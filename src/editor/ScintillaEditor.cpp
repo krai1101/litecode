@@ -475,19 +475,15 @@ bool ScintillaEditor::eventFilter(QObject* watched, QEvent* event) {
         } else if (event->type() == QEvent::MouseMove ||
                    event->type() == QEvent::MouseButtonPress ||
                    event->type() == QEvent::HoverMove) {
-            const auto* mouse =
-                event->type() == QEvent::MouseMove || event->type() == QEvent::MouseButtonPress
-                    ? static_cast<QMouseEvent*>(event)
-                    : nullptr;
             const QPoint targetPoint = event->type() == QEvent::HoverMove
                                            ? static_cast<QHoverEvent*>(event)->position().toPoint()
-                                           : mouse->position().toPoint();
+                                           : static_cast<QMouseEvent*>(event)->position().toPoint();
             const QPoint point = watched == control_
                                      ? targetPoint
                                      : control_->viewport()->mapTo(control_, targetPoint);
             if (event->type() == QEvent::MouseButtonPress) {
                 const int line = gutterLineAtPoint(point);
-                if (line > 0 && mouse->button() == Qt::LeftButton) {
+                if (line > 0 && static_cast<QMouseEvent*>(event)->button() == Qt::LeftButton) {
                     gutterPressHandled_ = true;
                     setBreakpointHintLine(0);
                     emit breakpointToggleRequested(line);
