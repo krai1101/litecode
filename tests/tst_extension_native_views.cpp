@@ -1866,10 +1866,15 @@ class NativeViewTests final : public QObject {
         view.show();
         auto* button = view.findChild<QAbstractButton*>(trigger.id);
         QTRY_VERIFY(button && button->isVisible());
-        QTest::mouseMove(&view, view.rect().bottomRight() - QPoint(2, 2));
+        // Dispatch the widget transition directly so unrelated desktop windows
+        // and the system cursor cannot decide whether this paint check runs.
+        QEvent leave(QEvent::Leave);
+        QApplication::sendEvent(button, &leave);
         const auto before = button->grab().toImage();
-        QTest::mouseMove(button, button->rect().center());
-        QTRY_VERIFY(button->underMouse());
+        const QPoint center = button->rect().center();
+        QEnterEvent enter(center, button->mapTo(&view, center), button->mapToGlobal(center));
+        QApplication::sendEvent(button, &enter);
+        QVERIFY(button->underMouse());
         const QPoint sample(before.width() - 6, before.height() / 2);
         QTRY_VERIFY(button->grab().toImage().pixelColor(sample) != before.pixelColor(sample));
     }
