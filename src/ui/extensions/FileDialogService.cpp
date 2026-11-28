@@ -158,8 +158,11 @@ void FileDialogService::show(const extensions::FileDialogRequest& request) {
         return;
     }
     const auto* open = std::get_if<extensions::OpenDialogOptions>(&request.options);
-    const auto* save = std::get_if<extensions::SaveDialogOptions>(&request.options);
-    auto initial = open ? open->defaultUri : save->defaultUri;
+    const auto [initial, filters] = std::visit(
+        [](const auto& options) {
+            return std::pair(options.defaultUri, nameFilters(options.filters));
+        },
+        request.options);
     if (!owner_ || (initial && !initial->isLocalFile())) {
         dialogs_->complete(
             request.owner, request.id, {},
@@ -174,23 +177,23 @@ void FileDialogService::show(const extensions::FileDialogRequest& request) {
 #ifdef Q_OS_MACOS
     mixed = folders && files;
 #endif
-    auto* dialog = (folders && many) || mixed
-                       ? static_cast<QFileDialog*>(new MultiResourceDialog(owner_, !mixed, many))
-                       : new QFileDialog(owner_);
+    auto* multi =
+        (folders && many) || mixed ? new MultiResourceDialog(owner_, !mixed, many) : nullptr;
+    auto* dialog = multi ? static_cast<QFileDialog*>(multi) : new QFileDialog(owner_);
     dialog->setObjectName(QStringLiteral("extensionFileDialog"));
     dialog->setProperty("windowDialogOwner", request.owner);
     dialog->setProperty("windowDialogId", QString::number(request.id));
     dialog->setWindowModality(Qt::WindowModal);
-    if (save) {
+    if (const auto* save = std::get_if<extensions::SaveDialogOptions>(&request.options)) {
         dialog->setAcceptMode(QFileDialog::AcceptSave);
         dialog->setFileMode(QFileDialog::AnyFile);
         dialog->setWindowTitle(save->title && !save->title->isEmpty() ? *save->title
                                                                       : tr("Save File"));
         if (save->saveLabel && !save->saveLabel->isEmpty())
             dialog->setLabelText(QFileDialog::Accept, *save->saveLabel);
-    } else {
+    } else if (open) {
         dialog->setAcceptMode(QFileDialog::AcceptOpen);
-        if (!dynamic_cast<MultiResourceDialog*>(dialog))
+        if (!multi)
             dialog->setFileMode(folders ? QFileDialog::Directory
                                 : many  ? QFileDialog::ExistingFiles
                                         : QFileDialog::ExistingFile);
@@ -200,7 +203,6 @@ void FileDialogService::show(const extensions::FileDialogRequest& request) {
         if (open->openLabel && !open->openLabel->isEmpty())
             dialog->setLabelText(QFileDialog::Accept, *open->openLabel);
     }
-    const auto filters = nameFilters(open ? open->filters : save->filters);
     if (!filters.isEmpty())
         dialog->setNameFilters(filters);
     if (initial) {
@@ -216,10 +218,9 @@ void FileDialogService::show(const extensions::FileDialogRequest& request) {
     active_ = dialog;
     activeOwner_ = request.owner;
     activeId_ = request.id;
-    connect(dialog, &QDialog::accepted, this, [this, request, dialog] {
+    connect(dialog, &QDialog::accepted, this, [this, request, dialog, multi] {
         if (!dialogs_)
             return;
-        const auto* multi = dynamic_cast<MultiResourceDialog*>(dialog);
         const auto paths = multi ? multi->selection() : dialog->selectedFiles();
         QVector<QUrl> resources;
         for (const auto& path : paths) {

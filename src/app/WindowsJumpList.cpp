@@ -6,7 +6,7 @@
 #include <QFileInfo>
 #include <QSet>
 
-#include <array>
+#include <vector>
 #include <windows.h>
 
 #include <propkey.h>
@@ -58,8 +58,9 @@ ComPtr<IShellLinkW> shellLink(const QString& target, const QString& arguments, c
 
 ComPtr<IObjectCollection> collection() {
     ComPtr<IObjectCollection> objects;
-    CoCreateInstance(CLSID_EnumerableObjectCollection, nullptr, CLSCTX_INPROC_SERVER,
-                     IID_PPV_ARGS(objects.GetAddressOf()));
+    if (FAILED(CoCreateInstance(CLSID_EnumerableObjectCollection, nullptr, CLSCTX_INPROC_SERVER,
+                                IID_PPV_ARGS(objects.GetAddressOf()))))
+        return {};
     return objects;
 }
 
@@ -68,7 +69,7 @@ QSet<QString> removedArguments(IObjectArray& removed, const QString& executable)
     UINT count = 0;
     if (FAILED(removed.GetCount(&count)))
         return result;
-    std::array<wchar_t, 32768> buffer{};
+    std::vector<wchar_t> buffer(32768);
     for (UINT index = 0; index < count; ++index) {
         ComPtr<IShellLinkW> link;
         if (SUCCEEDED(removed.GetAt(index, IID_PPV_ARGS(link.GetAddressOf()))) &&
