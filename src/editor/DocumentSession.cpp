@@ -3,13 +3,46 @@
 #include "core/TextEncoding.h"
 
 #include <QCryptographicHash>
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QSaveFile>
 #include <utility>
 
+#ifdef Q_OS_WIN
+#include <fcntl.h>
+#include <io.h>
+#include <windows.h>
+#endif
+
 namespace litecode::editor {
 namespace {
+
+bool openSnapshot(QFile& file) {
+#ifdef Q_OS_WIN
+    // Snapshot readers must not hold up an editor or external atomic save.
+    auto path = QDir::toNativeSeparators(file.fileName()).toStdWString();
+    if (path.starts_with(L"\\\\") && !path.starts_with(L"\\\\?\\") && !path.starts_with(L"\\\\.\\"))
+        path = L"\\\\?\\UNC\\" + path.substr(2);
+    else if (path.size() > 2 && path[1] == L':' && path[2] == L'\\')
+        path.insert(0, L"\\\\?\\");
+    const HANDLE handle = CreateFileW(path.c_str(), GENERIC_READ,
+                                      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                      nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (handle != INVALID_HANDLE_VALUE) {
+        const int fd = _open_osfhandle(reinterpret_cast<intptr_t>(handle),
+                                       _O_RDONLY | _O_BINARY | _O_NOINHERIT);
+        if (fd < 0)
+            CloseHandle(handle);
+        else {
+            if (file.open(fd, QIODevice::ReadOnly, QFileDevice::AutoCloseHandle))
+                return true;
+            _close(fd);
+        }
+    }
+#endif
+    return file.open(QIODevice::ReadOnly);
+}
 
 core::LineEnding detectLineEnding(const QByteArray& text) {
     qint64 lf = 0;
@@ -84,7 +117,7 @@ QByteArray fingerprint(QByteArrayView contents) {
 
 std::optional<QByteArray> fingerprintOnDisk(const QString& path) {
     QFile file(path);
-    if (!file.open(QIODevice::ReadOnly))
+    if (!openSnapshot(file))
         return std::nullopt;
     QCryptographicHash hash(QCryptographicHash::Sha256);
     if (!hash.addData(&file) || file.error() != QFileDevice::NoError)
@@ -180,7 +213,7 @@ DocumentLoadResult DocumentSession::loadBounded(const QString& filePath,
     result.storageMode = info.size() > normalFileLimit() ? core::DocumentStorageMode::Large
                                                          : core::DocumentStorageMode::Normal;
     QFile file(info.absoluteFilePath());
-    if (!file.open(QIODevice::ReadOnly)) {
+    if (!openSnapshot(file)) {
         result.diagnostic = file.errorString();
         return result;
     }
@@ -197,6 +230,7 @@ DocumentLoadResult DocumentSession::loadBounded(const QString& filePath,
         }
         offset += count;
     }
+    file.close();
     result.sourceFingerprint = fingerprint(result.contents);
     QFileInfo completedInfo(info.absoluteFilePath());
     completedInfo.refresh();

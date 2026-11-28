@@ -2950,21 +2950,25 @@ class NativeViewTests final : public QObject {
         window.findChild<QPlainTextEdit*>("codex.prompt")
             ->setPlainText("fixture changes edited " + externalFile.fileName());
         QTest::mouseClick(window.findChild<QAbstractButton*>("codex.send"), Qt::LeftButton);
-        const auto editedPromptVisible = [&] {
+        const auto editedTurnId = [&]() -> QString {
             for (auto* label : window.findChildren<QLabel*>())
                 if (label->objectName().endsWith(".prompt") &&
                     label->text().startsWith("fixture changes edited "))
-                    return true;
-            return false;
+                    return label->objectName().chopped(7);
+            return {};
         };
-        QTRY_VERIFY(editedPromptVisible());
+        QTRY_VERIFY(!editedTurnId().isEmpty());
         QTRY_VERIFY(!window.findChild<QWidget*>("codex.editNotice")->isVisible());
         QTRY_VERIFY(!window.findChild<QAbstractButton*>("codex.stop")->isVisible());
         // This turn includes an unavailable neighboring file. It must not block
         // opening example.py, and the documents must contain complete source,
         // not recorded-patch headers or a different diff presentation.
-        QVERIFY(turnAction(".review"));
-        QTest::mouseClick(turnAction(".review"), Qt::LeftButton);
+        const auto review = [&] {
+            const auto id = editedTurnId();
+            return id.isEmpty() ? nullptr : window.findChild<QAbstractButton*>(id + ".review");
+        };
+        QTRY_VERIFY(review() && review()->isVisible() && review()->isEnabled());
+        QTest::mouseClick(review(), Qt::LeftButton);
         QTRY_VERIFY(editors->findChild<ui::DiffEditorWidget*>());
         auto* diff = editors->findChild<ui::DiffEditorWidget*>();
         auto* diffBefore = diff->findChild<editor::ScintillaEditor*>("diffOriginal");
@@ -2980,8 +2984,9 @@ class NativeViewTests final : public QObject {
         QVERIFY(!window.findChild<QPlainTextEdit*>("codex.details"));
         QVERIFY(window.findChild<QWidget*>("codex.conversation")->isVisible());
         // File links use the same route and tab identity, not a second chat surface.
-        QVERIFY(turnAction(".reviewFile.0"));
-        QTest::mouseClick(turnAction(".reviewFile.0"), Qt::LeftButton);
+        auto* fileReview = window.findChild<QAbstractButton*>(editedTurnId() + ".reviewFile.0");
+        QVERIFY(fileReview);
+        QTest::mouseClick(fileReview, Qt::LeftButton);
         QTRY_COMPARE(editors->findChildren<ui::DiffEditorWidget*>().size(), 1);
         QCOMPARE(editors->findChild<ui::DiffEditorWidget*>(), diff);
         window.findChild<QPlainTextEdit*>("codex.prompt")->setPlainText("approval fixture");

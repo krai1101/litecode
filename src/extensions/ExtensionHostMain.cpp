@@ -5,6 +5,7 @@
 #include "extensions/ExtensionApi.h"
 #include "extensions/ExtensionMemento.h"
 #include "extensions/ExtensionSecretStorage.h"
+#include "extensions/ExtensionSocket.h"
 #include "extensions/ExtensionWireProtocol.h"
 #include "extensions/HostChatParticipant.h"
 #include "extensions/HostClipboard.h"
@@ -824,6 +825,7 @@ class ExtensionHost final : public QObject {
           libraryPath_(std::move(libraryPath)), expectedHash_(std::move(expectedHash)),
           extensionId_(std::move(extensionId)), workspace_(std::move(workspace)),
           storageRoot_(std::move(storageRoot)) {
+        wire::drainSocketWrites(socket_);
         connect(&socket_, &QLocalSocket::connected, this, [this] { connected(); });
         connect(&socket_, &QLocalSocket::readyRead, this, [this] { readMessages(); });
         connect(&socket_, &QLocalSocket::disconnected, qApp, &QCoreApplication::quit);

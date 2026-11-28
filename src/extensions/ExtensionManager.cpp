@@ -5,6 +5,7 @@
 #include "extensions/ConfigurationWire.h"
 #include "extensions/DebugAdapterContribution.h"
 #include "extensions/DebugDescriptorWire.h"
+#include "extensions/ExtensionSocket.h"
 #include "extensions/ExtensionWireProtocol.h"
 #include "extensions/JsonMessageTransfer.h"
 #include "extensions/NativeExtensionUninstaller.h"
@@ -619,6 +620,7 @@ bool ExtensionManager::activate(Entry& entry) {
                 return;
             }
             current.socket = incoming;
+            wire::drainSocketWrites(*incoming);
             connect(incoming, &QLocalSocket::readyRead, this, [this, extension, processGuard] {
                 if (!processGuard || extension->process.get() != processGuard.data())
                     return;
