@@ -23,6 +23,8 @@ class UnixPtyBackend final : public ITerminalBackend {
     void resizeTerminal(const QSize& characters) override;
     void requestStop() override;
     [[nodiscard]] TerminalState state() const override;
+    [[nodiscard]] qint64 processId() const override { return processId_ > 0 ? processId_ : 0; }
+    [[nodiscard]] bool shellIsIdle() const override;
 
   private:
     void setState(TerminalState state);

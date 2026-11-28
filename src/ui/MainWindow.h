@@ -4,8 +4,8 @@
 #include "workspace/WorkspaceSearch.h"
 #include <QHash>
 #include <QMainWindow>
-#include <QPersistentModelIndex>
 #include <QPoint>
+#include <QPointer>
 #include <QSet>
 #include <QString>
 #include <QVector>
@@ -15,6 +15,7 @@
 class QAction;
 class QDockWidget;
 class QEvent;
+class QFont;
 class QStackedWidget;
 class QTreeView;
 class QLineEdit;
@@ -22,6 +23,7 @@ class QListWidget;
 class QListWidgetItem;
 class QPushButton;
 class QMenuBar;
+class QMenu;
 class QTimer;
 class QToolBar;
 class QLabel;
@@ -29,6 +31,7 @@ class QToolButton;
 class QWidget;
 class QTabWidget;
 class QShowEvent;
+class QPlainTextEdit;
 
 namespace litecode::core {
 class SettingsService;
@@ -42,19 +45,26 @@ struct SearchResult;
 } // namespace litecode::workspace
 
 namespace litecode::ui {
+namespace components {
+class PanelHeader;
+class WorkbenchTabs;
+} // namespace components
 
 class EditorArea;
 class KeyboardShortcutsDialog;
 class SettingsDialog;
 class TerminalPanel;
+class OutputPanel;
 class ExplorerTreeView;
 class ExplorerFileSystemModel;
 class ExplorerController;
 class EditorSessionController;
 class WorkbenchController;
+class SidebarService;
 class WorkbenchTitleBar;
 class WindowOutline;
 class CommandRegistry;
+class SourceControlPanel;
 struct ExplorerEditRequest;
 
 struct WorkbenchServices final {
@@ -71,9 +81,13 @@ class MainWindow final : public QMainWindow {
                         WorkbenchServices services, bool restorePreviousSession,
                         QWidget* parent = nullptr);
     ~MainWindow() override;
+    bool openWorkspaceFolder(const QString& path, QString* error = nullptr);
+    bool openFile(const QString& path, QString* error = nullptr);
+    QMenu* createPopupMenu() override;
 
   signals:
     void firstFramePresented();
+    void recentPathsChanged();
 
   protected:
     void closeEvent(QCloseEvent* event) override;
@@ -105,8 +119,12 @@ class MainWindow final : public QMainWindow {
     void buildNavigationBar();
     void buildActivityBar();
     void buildWorkspaceDock();
+    void registerSidebarContainers();
     void buildEditorShell();
     void buildBottomPanel();
+    void buildSourceControl();
+    void buildExtensions();
+    void buildRunDebug();
     void buildStatusBar();
     void toggleTerminalPanel();
     void setBottomPanelMaximized(bool maximized);
@@ -137,10 +155,12 @@ class MainWindow final : public QMainWindow {
     void reopenCurrentWithEncoding(core::TextEncoding encoding);
     void saveCurrentWithEncoding(core::TextEncoding encoding);
     void updateEncodingStatus(core::TextEncoding encoding);
+    void updateDocumentModeStatus();
     void configureSettings();
     void checkExternalUserSettings();
     [[nodiscard]] UserSettingsSnapshot captureUserSettings() const;
     void applyEditorSettings();
+    QFont editorCodeFont() const;
     void refreshSettingsDialogValues();
     bool persistSettings(bool showWarning = true);
     void setEditorIndentWidth(int width);
@@ -162,6 +182,10 @@ class MainWindow final : public QMainWindow {
     WorkbenchController* workbenchController_{};
     QDockWidget* workspaceDock_{};
     QDockWidget* bottomDock_{};
+    QAction* sourceControlAction_{};
+    QAction* extensionsAction_{};
+    QAction* runDebugAction_{};
+    int currentEditorLine_{1};
     bool bottomPanelMaximized_{false};
     int bottomPanelRestoreHeight_{};
     WorkbenchTitleBar* titleBar_{};
@@ -173,12 +197,14 @@ class MainWindow final : public QMainWindow {
     QToolButton* workspaceRootLabel_{};
     bool showGeneratedFolders_{false};
     QStackedWidget* workspacePages_{};
+    SidebarService* sidebars_{};
+    components::PanelHeader* panelHeader_{};
+    QWidget* debugConsoleTools_{};
     ExplorerFileSystemModel* fileSystemModel_{};
     ExplorerTreeView* fileTree_{};
-    QPersistentModelIndex explorerPressedIndex_;
-    bool explorerExpandedAtPress_{false};
     ExplorerController* explorerController_{};
     QWidget* searchHeaderActions_{};
+    QWidget* runDebugHeaderActions_{};
     QLineEdit* searchInput_{};
     QLineEdit* replaceInput_{};
     QWidget* replaceRow_{};
@@ -202,11 +228,17 @@ class MainWindow final : public QMainWindow {
     workspace::WorkspaceReplace* workspaceReplace_{};
     QToolButton* replaceAllWorkspaceButton_{};
     EditorSessionController* editorSessionController_{};
-    QTabWidget* bottomTabs_{};
+    components::WorkbenchTabs* bottomTabs_{};
+    OutputPanel* outputPanel_{};
+    QPlainTextEdit* debugConsole_{};
+    QWidget* debugConsolePage_{};
+    QLineEdit* debugConsoleInput_{};
     QString workspaceSearchRoot_;
     QLabel* cursorStatus_{};
     QToolButton* encodingStatusButton_{};
     QToolButton* indentStatusButton_{};
+    QLabel* lineEndingStatus_{};
+    QLabel* languageStatus_{};
     EditorArea* editorArea_{};
     TerminalPanel* terminalPanel_{};
     CommandRegistry* commands_{};
@@ -224,11 +256,15 @@ class MainWindow final : public QMainWindow {
     bool restoringSession_{true};
     bool applyingSavedLayout_{false};
     bool postShowLayoutApplied_{false};
+    bool sidebarLayoutRestored_{false};
     bool firstFrameSeen_{false};
     DockResizeAxis dockResizeAxis_{DockResizeAxis::None};
     QPoint dockResizePressPosition_;
     int dockResizeInitialSize_{};
-    QWidget* dockResizeCursorTarget_{};
+    int dockResizeDirection_{1};
+    bool dockResizeCollapsed_{};
+    QPointer<QDockWidget> dockResizeTarget_;
+    QPointer<QWidget> dockResizeCursorTarget_;
 };
 
 } // namespace litecode::ui

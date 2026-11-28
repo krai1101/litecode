@@ -2,6 +2,10 @@
 
 #include <QCryptographicHash>
 #include <QDir>
+#include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QSettings>
 
 namespace litecode::core {
@@ -36,6 +40,40 @@ SettingsService::SettingsService(const QString& fileName)
                                    : std::make_unique<QSettings>(fileName, QSettings::IniFormat)) {}
 
 SettingsService::~SettingsService() = default;
+GitPreferences SettingsService::gitPreferences() const {
+    GitPreferences result;
+    result.branchPrefix = settings_->value("git/branchPrefix").toString();
+    result.branchWhitespace = settings_->value("git/branchWhitespace", "-").toString();
+    result.randomBranchName = settings_->value("git/randomBranchName", false).toBool();
+    result.pruneOnFetch = settings_->value("git/pruneOnFetch", false).toBool();
+    result.fetchOnPull = settings_->value("git/fetchOnPull", false).toBool();
+    result.pullTags = settings_->value("git/pullTags", true).toBool();
+    result.autoStash = settings_->value("git/autoStash", false).toBool();
+    result.allowNoVerifyCommit = settings_->value("git/allowNoVerifyCommit", false).toBool();
+    result.allowForcePush = settings_->value("git/allowForcePush", false).toBool();
+    result.useForcePushWithLease = settings_->value("git/useForcePushWithLease", true).toBool();
+    result.useForcePushIfIncludes = settings_->value("git/useForcePushIfIncludes", true).toBool();
+    result.confirmForcePush = settings_->value("git/confirmForcePush", true).toBool();
+    const int policy = settings_->value("git/pullPolicy", 0).toInt();
+    if (policy >= 0 && policy <= 3)
+        result.pullPolicy = static_cast<GitPullPolicy>(policy);
+    return result;
+}
+void SettingsService::saveGitPreferences(const GitPreferences& preferences) {
+    settings_->setValue("git/branchPrefix", preferences.branchPrefix);
+    settings_->setValue("git/branchWhitespace", preferences.branchWhitespace);
+    settings_->setValue("git/randomBranchName", preferences.randomBranchName);
+    settings_->setValue("git/pruneOnFetch", preferences.pruneOnFetch);
+    settings_->setValue("git/fetchOnPull", preferences.fetchOnPull);
+    settings_->setValue("git/pullTags", preferences.pullTags);
+    settings_->setValue("git/autoStash", preferences.autoStash);
+    settings_->setValue("git/allowNoVerifyCommit", preferences.allowNoVerifyCommit);
+    settings_->setValue("git/allowForcePush", preferences.allowForcePush);
+    settings_->setValue("git/useForcePushWithLease", preferences.useForcePushWithLease);
+    settings_->setValue("git/useForcePushIfIncludes", preferences.useForcePushIfIncludes);
+    settings_->setValue("git/confirmForcePush", preferences.confirmForcePush);
+    settings_->setValue("git/pullPolicy", static_cast<int>(preferences.pullPolicy));
+}
 
 bool SettingsService::userEncodingValid() const {
     const QVariant stored = settings_->value(QStringLiteral("files/encoding"));
@@ -72,11 +110,13 @@ QStringList SettingsService::recentWorkspaceFolders() const {
         settings_->value(QStringLiteral("session/recentWorkspaceFolders")).toStringList();
     for (const QString& path : stored) {
         const QString cleanPath = QDir::cleanPath(path);
-        if (!cleanPath.isEmpty() && QDir(cleanPath).exists() && !result.contains(cleanPath))
+        const QFileInfo folder(cleanPath);
+        if (folder.isAbsolute() && folder.isDir() && !result.contains(cleanPath))
             result.append(cleanPath);
     }
-    const QString current = QDir::cleanPath(workspaceFolder());
-    if (!current.isEmpty() && QDir(current).exists() && !result.contains(current))
+    const QString current = workspaceFolder();
+    if (!settings_->contains(QStringLiteral("session/recentWorkspaceFolders")) &&
+        QFileInfo(current).isAbsolute() && QFileInfo(current).isDir())
         result.prepend(current);
     return result;
 }
@@ -104,7 +144,7 @@ void SettingsService::saveSession(const QString& workspaceFolder, const QStringL
 
 void SettingsService::rememberWorkspaceFolder(const QString& workspaceFolder) {
     const QString cleanPath = QDir::cleanPath(workspaceFolder);
-    if (cleanPath.isEmpty())
+    if (!QDir::isAbsolutePath(cleanPath))
         return;
     QStringList recent = recentWorkspaceFolders();
     recent.removeAll(cleanPath);
@@ -113,6 +153,36 @@ void SettingsService::rememberWorkspaceFolder(const QString& workspaceFolder) {
     if (recent.size() > maximumRecentWorkspaces)
         recent.erase(recent.begin() + maximumRecentWorkspaces, recent.end());
     settings_->setValue(QStringLiteral("session/recentWorkspaceFolders"), recent);
+}
+
+QStringList SettingsService::recentFiles() const {
+    auto paths =
+        settings_->value(QStringLiteral("session/recentFiles"), openFiles()).toStringList();
+    paths.removeIf([](const QString& path) {
+        const QFileInfo file(path);
+        return !file.isAbsolute() || !file.isFile();
+    });
+    paths.removeDuplicates();
+    return paths;
+}
+
+void SettingsService::rememberRecentFile(const QString& path) {
+    const QFileInfo file(path);
+    if (!file.isAbsolute() || !file.isFile())
+        return;
+    auto paths = recentFiles();
+    paths.removeAll(file.absoluteFilePath());
+    paths.prepend(file.absoluteFilePath());
+    settings_->setValue(QStringLiteral("session/recentFiles"), paths.mid(0, 10));
+}
+
+void SettingsService::forgetRecentPath(const QString& path) {
+    auto folders = recentWorkspaceFolders();
+    if (folders.removeAll(path))
+        settings_->setValue(QStringLiteral("session/recentWorkspaceFolders"), folders);
+    auto files = recentFiles();
+    if (files.removeAll(path))
+        settings_->setValue(QStringLiteral("session/recentFiles"), files);
 }
 
 QStringList SettingsService::searchHistory(const QString& workspaceFolder,
@@ -131,6 +201,55 @@ void SettingsService::saveSearchHistory(const QString& workspaceFolder, const QS
                                                      QCryptographicHash::Sha256)
                                 .toHex());
     settings_->setValue(QStringLiteral("history/%1/%2").arg(scope, kind), entries.mid(0, 50));
+}
+
+QMap<QString, QSet<int>> SettingsService::debugBreakpoints(const QString& workspaceFolder) const {
+    QMap<QString, QSet<int>> result;
+    if (workspaceFolder.isEmpty())
+        return result;
+    const QString scope =
+        QString::fromLatin1(QCryptographicHash::hash(QDir::cleanPath(workspaceFolder).toUtf8(),
+                                                     QCryptographicHash::Sha256)
+                                .toHex());
+    const auto document = QJsonDocument::fromJson(
+        settings_->value(QStringLiteral("debug/%1/breakpoints").arg(scope)).toByteArray());
+    const auto stored = document.object();
+    for (auto it = stored.begin(); it != stored.end(); ++it) {
+        if (!QDir::isAbsolutePath(it.key()) || !it.value().isArray())
+            continue;
+        QSet<int> lines;
+        for (const auto& value : it.value().toArray()) {
+            const int line = value.toInt();
+            if (line > 0)
+                lines.insert(line);
+        }
+        if (!lines.isEmpty())
+            result.insert(QDir::cleanPath(it.key()), lines);
+    }
+    return result;
+}
+void SettingsService::saveDebugBreakpoints(const QString& workspaceFolder,
+                                           const QMap<QString, QSet<int>>& breakpoints) {
+    if (workspaceFolder.isEmpty())
+        return;
+    const QString scope =
+        QString::fromLatin1(QCryptographicHash::hash(QDir::cleanPath(workspaceFolder).toUtf8(),
+                                                     QCryptographicHash::Sha256)
+                                .toHex());
+    QJsonObject values;
+    for (auto it = breakpoints.cbegin(); it != breakpoints.cend(); ++it) {
+        QJsonArray lines;
+        for (int line : it.value())
+            if (line > 0)
+                lines.append(line);
+        if (!lines.isEmpty())
+            values.insert(it.key(), lines);
+    }
+    const QString key = QStringLiteral("debug/%1/breakpoints").arg(scope);
+    if (values.isEmpty())
+        settings_->remove(key);
+    else
+        settings_->setValue(key, QJsonDocument(values).toJson(QJsonDocument::Compact));
 }
 
 QString SettingsService::editorFontFamily() const {
@@ -350,6 +469,13 @@ void SettingsService::saveWorkbenchLayout(const WorkbenchLayout& layout) {
 bool SettingsService::sync() {
     settings_->sync();
     return settings_->status() == QSettings::NoError;
+}
+
+QByteArray SettingsService::sidebarState() const {
+    return settings_->value(QStringLiteral("workbench/sidebarContainers")).toByteArray();
+}
+void SettingsService::saveSidebarState(const QByteArray& state) {
+    settings_->setValue(QStringLiteral("workbench/sidebarContainers"), state);
 }
 
 } // namespace litecode::core

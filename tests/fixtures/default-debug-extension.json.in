@@ -1,0 +1,15 @@
+{
+  "id": "tests.defaultDebug",
+  "displayName": "Manifest debugger fixture",
+  "version": "1.0.0",
+  "apiVersion": 25,
+  "qtVersion": "@Qt6Core_VERSION@",
+  "architecture": "@LITECODE_PLUGIN_ARCH@",
+  "activationEvents": ["onDebug"],
+  "contributes": {
+    "debuggers": [
+      {"type": "packaged", "label": "Packaged DAP", "program": "litecode_dap_adapter_fixture@CMAKE_EXECUTABLE_SUFFIX@", "args": ["--session"]},
+      {"type": "packagedFactory", "label": "Factory packaged DAP", "program": "litecode_dap_adapter_fixture@CMAKE_EXECUTABLE_SUFFIX@", "args": ["--session"]}
+    ]
+  }
+}

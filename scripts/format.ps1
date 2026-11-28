@@ -1,6 +1,10 @@
-param([switch]$Check)
+param([switch]$Check, [string]$FormatterPath)
 
-$formatter = Get-Command clang-format -ErrorAction SilentlyContinue
+$formatter = if ($FormatterPath) {
+    Get-Item -LiteralPath $FormatterPath -ErrorAction Stop
+} else {
+    Get-Command clang-format -ErrorAction SilentlyContinue
+}
 if (-not $formatter) {
     $bundled = Join-Path $env:LOCALAPPDATA `
         'LiteCodeToolchain\clang-format-20\clang_format\data\bin\clang-format.exe'
@@ -27,9 +31,15 @@ if ([string]::IsNullOrWhiteSpace($formatterPath)) {
 $files = @(Get-ChildItem src,tests,benchmarks -Recurse -File -Include *.cpp,*.h |
     Where-Object { $_.FullName -notmatch '[\\/]benchmarks[\\/]screenshots[\\/]' } |
     Sort-Object FullName | ForEach-Object FullName)
-if ($Check) {
-    & $formatterPath --dry-run --Werror $files
-} else {
-    & $formatterPath -i $files
+$fileList = [System.IO.Path]::GetTempFileName()
+try {
+    [System.IO.File]::WriteAllLines($fileList, [string[]]$files)
+    if ($Check) {
+        & $formatterPath --dry-run --Werror "--files=$fileList"
+    } else {
+        & $formatterPath -i "--files=$fileList"
+    }
+    if ($LASTEXITCODE -ne 0) { throw 'clang-format reported formatting differences.' }
+} finally {
+    Remove-Item -LiteralPath $fileList -Force
 }
-if ($LASTEXITCODE -ne 0) { throw 'clang-format reported formatting differences.' }

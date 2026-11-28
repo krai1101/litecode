@@ -1,6 +1,7 @@
 #include "editor/LanguageSupport.h"
 #include <QFileInfo>
 #include <QHash>
+#include <QStringList>
 
 namespace litecode::editor {
 namespace {
@@ -224,6 +225,42 @@ LanguageSupport languageSupportForFile(const QString& filePath) {
         {QStringLiteral("ninja"), {QStringLiteral("makefile"), QByteArrayLiteral("makefile")}},
     };
     return languages.value(info.suffix().toLower());
+}
+
+QString languageDisplayName(const QString& id) {
+    static const QHash<QString, QString> names{
+        {"plaintext", "Plain Text"},
+        {"cpp", "C++"},
+        {"csharp", "C#"},
+        {"fsharp", "F#"},
+        {"cuda-cpp", "CUDA C++"},
+        {"objective-c", "Objective-C"},
+        {"objective-cpp", "Objective-C++"},
+        {"javascript", "JavaScript"},
+        {"javascriptreact", "JavaScript React"},
+        {"typescript", "TypeScript"},
+        {"typescriptreact", "TypeScript React"},
+        {"powershell", "PowerShell"},
+        {"shellscript", "Shell Script"},
+        {"cmake", "CMake"},
+        {"coffeescript", "CoffeeScript"},
+        {"latex", "LaTeX"},
+        {"asciidoc", "AsciiDoc"},
+        {"bibtex", "BibTeX"},
+        {"bat", "Batch"},
+        {"jsonc", "JSON with Comments"},
+        {"vb", "Visual Basic"},
+    };
+    if (const auto it = names.constFind(id); it != names.cend())
+        return *it;
+    static const QStringList acronyms{"asm",  "css", "glsl", "hlsl", "html", "ini", "json", "php",
+                                      "scss", "sql", "tcl",  "toml", "vhdl", "xml", "yaml"};
+    if (acronyms.contains(id))
+        return id.toUpper();
+    auto title = id;
+    if (!title.isEmpty())
+        title[0] = title.at(0).toUpper();
+    return title;
 }
 
 } // namespace litecode::editor

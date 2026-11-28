@@ -1,0 +1,67 @@
+{
+  "id": "tests.native",
+  "displayName": "Native test fixture",
+  "version": "1.0.0",
+  "apiVersion": 25,
+  "qtVersion": "@Qt6Core_VERSION@",
+  "architecture": "@LITECODE_PLUGIN_ARCH@",
+  "activationEvents": ["onUri"],
+  "contributes": {
+    "commands": [
+      {"command": "tests.native.configuration", "title": "Native settings fixture"},
+      {"command": "tests.native.persistence", "title": "Native state persistence fixture"},
+      {"command": "tests.native.secrets", "title": "Native credentials fixture"},
+      {"command": "tests.native.debugStart", "title": "Extension-initiated debug start fixture"},
+      {"command": "tests.native.debugFactoryContext", "title": "Debug descriptor session context"},
+      {"command": "tests.native.editorContext", "title": "Editor context fixture"},
+      {"command": "tests.native.editorEdit", "title": "Editor edit fixture"},
+      {"command": "tests.native.inputBox", "title": "Input box fixture"},
+      {"command": "tests.native.quickPick", "title": "Quick Pick fixture"},
+      {"command": "tests.native.statusBar", "title": "Status bar fixture"},
+      {"command": "tests.native.statusBarInvoke", "title": "Status bar command fixture"},
+      {"command": "tests.native.primitives", "title": "Primitive lifecycle fixture"},
+      {"command": "tests.native.lifecycle", "title": "Extension shutdown fixture"},
+      {"command": "tests.native.receivedUris", "title": "URI delivery fixture"},
+      {"command": "tests.native.resolveUri", "title": "URI resolution fixture"},
+      {"command": "tests.native.environment", "title": "Test native environment"},
+      {"command": "tests.native.windowState", "title": "Window state fixture"},
+      {"command": "tests.native.participantProperties", "title": "Participant property fixture"},
+      {"command": "tests.native.clipboard", "title": "Test native clipboard"},
+      {"command": "tests.native.applyEdit", "title": "Workspace edit fixture"},
+      {"command": "tests.native.virtualChange", "title": "Virtual document update fixture"},
+      {"command": "tests.native.openDocument", "title": "Document opening fixture"},
+      {"command": "tests.native.fileDialog", "title": "File dialog fixture"},
+      {"command": "tests.native.message", "title": "Message fixture"},
+      {"command": "tests.native.output", "title": "Output channel fixture"},
+      {"command": "tests.native.progress", "title": "Progress fixture"},
+      {"command": "tests.native.hello", "title": "Say hello", "category": "Native test"},
+      {"command": "tests.native.bridge", "title": "Bridge to other host"},
+      {"command": "tests.native.commandList", "title": "List commands"},
+      {"command": "tests.native.commandListAll", "title": "List all commands"},
+      {"command": "tests.native.missingCommand", "title": "Invoke missing command"},
+      {"command": "tests.native.invokeWorkbench", "title": "Invoke workbench command"},
+      {"command": "tests.native.invokeWorkbenchWithArgs", "title": "Invoke workbench with args"}
+    ],
+    "configuration": {
+      "title": "Release settings fixture",
+      "properties": {"fixtureRelease.value": {"type": "string", "default": "default-value", "scope": "resource"}}
+    },
+    "chatParticipants": [{
+      "id": "tests.native.assistant",
+      "name": "test-assistant",
+      "fullName": "Test Assistant",
+      "description": "Fixture participant",
+      "isSticky": true,
+      "commands": [{"name": "explain", "description": "Explain the fixture"}],
+      "disambiguation": [{
+        "category": "fixture",
+        "description": "Requests about the test fixture",
+        "examples": ["Explain this fixture"]
+      }]
+    }],
+    "formatters": [{"language": "python"}],
+    "debuggers": [{"type": "fixture", "configurationAttributes": {"launch": {
+      "properties": {"interpreter": {"type": "string"}}
+    }}}]
+  }
+}

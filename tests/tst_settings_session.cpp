@@ -1,5 +1,6 @@
 #include "core/SettingsService.h"
 
+#include <QFile>
 #include <QSettings>
 #include <QTemporaryDir>
 #include <QTest>
@@ -10,9 +11,12 @@ class SettingsSessionTest final : public QObject {
     Q_OBJECT
 
   private slots:
+    void gitPreferencesHaveSafeDefaultsAndPersist();
     void emptyWindowDoesNotOverwriteSavedSession();
     void workspaceSessionCanClearOpenFiles();
+    void recentPathsCanBeRemovedWithoutChangingTheRestoredSession();
     void searchHistoryIsScopedAndPersists();
+    void debugBreakpointsAreWorkspaceScopedAndPersist();
     void fileEncodingDefaultsAndPersists();
     void autoGuessEncodingDefaultsAndPersists();
     void editorFontWeightDefaultsAndPersists();
@@ -22,6 +26,63 @@ class SettingsSessionTest final : public QObject {
     void reportsUnwritableSettings();
     void unsupportedEncodingIsReportedAndFallsBack();
 };
+
+void SettingsSessionTest::debugBreakpointsAreWorkspaceScopedAndPersist() {
+    QTemporaryDir directory;
+    const auto path = directory.filePath("settings.ini");
+    const QString first = directory.filePath("first");
+    const QString second = directory.filePath("second");
+    const QString source = directory.filePath("first/main.cpp");
+    {
+        core::SettingsService settings(path);
+        settings.saveDebugBreakpoints(first, {{source, QSet<int>{3, 8}}});
+        QVERIFY(settings.sync());
+    }
+    core::SettingsService reopened(path);
+    QCOMPARE(reopened.debugBreakpoints(first).value(source), (QSet<int>{3, 8}));
+    QVERIFY(reopened.debugBreakpoints(second).isEmpty());
+    reopened.saveDebugBreakpoints(first, {});
+    QVERIFY(reopened.sync());
+    QVERIFY(reopened.debugBreakpoints(first).isEmpty());
+}
+
+void SettingsSessionTest::gitPreferencesHaveSafeDefaultsAndPersist() {
+    QTemporaryDir directory;
+    const auto path = directory.filePath("settings.ini");
+    {
+        core::SettingsService settings(path);
+        auto options = settings.gitPreferences();
+        QVERIFY(!options.autoStash && !options.fetchOnPull && !options.pruneOnFetch &&
+                !options.randomBranchName);
+        QVERIFY(options.pullTags);
+        QVERIFY(!options.allowForcePush && options.useForcePushWithLease &&
+                options.useForcePushIfIncludes && options.confirmForcePush);
+        QCOMPARE(options.pullPolicy, core::GitPullPolicy::Repository);
+        QCOMPARE(options.branchWhitespace, QString("-"));
+        QVERIFY(options.branchPrefix.isEmpty());
+        options.autoStash = options.fetchOnPull = options.pruneOnFetch = options.randomBranchName =
+            true;
+        options.pullTags = false;
+        options.allowForcePush = true;
+        options.useForcePushWithLease = options.useForcePushIfIncludes = options.confirmForcePush =
+            false;
+        options.pullPolicy = core::GitPullPolicy::Rebase;
+        options.branchPrefix = "topic/";
+        options.branchWhitespace = "_";
+        settings.saveGitPreferences(options);
+        QVERIFY(settings.sync());
+    }
+    core::SettingsService reopened(path);
+    const auto options = reopened.gitPreferences();
+    QVERIFY(options.autoStash && options.fetchOnPull && options.pruneOnFetch &&
+            options.randomBranchName);
+    QVERIFY(!options.pullTags);
+    QVERIFY(options.allowForcePush && !options.useForcePushWithLease &&
+            !options.useForcePushIfIncludes && !options.confirmForcePush);
+    QCOMPARE(options.pullPolicy, core::GitPullPolicy::Rebase);
+    QCOMPARE(options.branchPrefix, QString("topic/"));
+    QCOMPARE(options.branchWhitespace, QString("_"));
+}
 
 void SettingsSessionTest::emptyWindowDoesNotOverwriteSavedSession() {
     QTemporaryDir temporaryDirectory;
@@ -37,6 +98,35 @@ void SettingsSessionTest::emptyWindowDoesNotOverwriteSavedSession() {
     QCOMPARE(settings.workspaceFolder(), workspace);
     QCOMPARE(settings.openFiles(), QStringList{file});
     QCOMPARE(settings.activeFile(), file);
+}
+
+void SettingsSessionTest::recentPathsCanBeRemovedWithoutChangingTheRestoredSession() {
+    QTemporaryDir workspace;
+    QVERIFY(workspace.isValid());
+    const QString filePath = workspace.filePath("a file.txt");
+    QFile file(filePath);
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    file.close();
+    const QString settingsPath = workspace.filePath("settings.ini");
+    {
+        core::SettingsService settings(settingsPath);
+        settings.saveSession(workspace.path(), {filePath}, filePath);
+        QCOMPARE(settings.recentWorkspaceFolders(), QStringList{workspace.path()});
+        QCOMPARE(settings.recentFiles(), QStringList{filePath});
+        settings.forgetRecentPath(workspace.path());
+        settings.forgetRecentPath(filePath);
+        QVERIFY(settings.sync());
+    }
+    core::SettingsService settings(settingsPath);
+    QVERIFY(settings.recentWorkspaceFolders().isEmpty());
+    QVERIFY(settings.recentFiles().isEmpty());
+    QCOMPARE(settings.workspaceFolder(), workspace.path());
+    QCOMPARE(settings.activeFile(), filePath);
+    settings.rememberWorkspaceFolder(workspace.path());
+    settings.rememberRecentFile(filePath);
+    settings.rememberRecentFile(filePath);
+    QCOMPARE(settings.recentWorkspaceFolders(), QStringList{workspace.path()});
+    QCOMPARE(settings.recentFiles(), QStringList{filePath});
 }
 
 void SettingsSessionTest::searchHistoryIsScopedAndPersists() {

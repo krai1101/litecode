@@ -1,6 +1,16 @@
 add_library(litecode_editor STATIC
+    DiffModel.cpp
+    DiffModel.h
     DocumentSession.cpp
     DocumentSession.h
+    TextDocumentModel.cpp
+    TextDocumentModel.h
+    TextEditTransaction.cpp
+    TextEditTransaction.h
+    DocumentModelStore.cpp
+    DocumentModelStore.h
+    BoundDocumentReferences.cpp
+    BoundDocumentReferences.h
     EditorBackend.h
     LanguageSupport.cpp
     LanguageSupport.h
@@ -8,6 +18,8 @@ add_library(litecode_editor STATIC
     LanguageStyleCatalog.h
     ScintillaEditor.cpp
     ScintillaEditor.h
+    ScintillaUndoBridge.h
+    ScintillaUndoBridge.cpp
     SyntaxTheme.cpp
     SyntaxTheme.h
     resources/themes/LiteCodeThemes.qrc
@@ -20,6 +32,7 @@ target_link_libraries(litecode_editor
         Qt6::Widgets
     PRIVATE
         Qt6::Concurrent
+        Qt6::Svg
         scintilla_qt
         lexilla
         litecode_project_options

@@ -26,6 +26,13 @@ LiteCode embeds no JavaScript runtime for encoding support. Binary packages incl
 Selected Visual Studio Code Codicons are Copyright Microsoft Corporation and
 contributors, licensed under CC BY 4.0. LiteCode vendors color-adapted copies from
 Codicons 0.0.45. See `licenses/CODICONS-CC-BY-4.0.txt` and `THIRD_PARTY.md`.
+The active-breakpoint stack-frame SVGs come from Microsoft's `vscode-icons`
+under the same CC BY 4.0 license; their original light/dark colors are retained.
+
+Theme-icon labels also embed the unmodified Codicons 0.0.46-40 font and glyph
+mapping from Microsoft. See `licenses/CODICONS-FONT-LICENSE.txt` (including
+Jason Long's Git-logo attribution), `licenses/VSCODE-MIT.txt`, `THIRD_PARTY.md`
+and `SBOM.spdx.json`.
 
 Explorer file icons use the Visual Studio Code Seti icon theme / Seti UI under the
 MIT License. See `licenses/SETI-UI-MIT.txt`, `THIRD_PARTY.md`, and `SBOM.spdx.json`.
@@ -40,6 +47,59 @@ Lucide Icons and Contributors, under the ISC License. Some Lucide icons are
 derived from Feather Icons under the MIT License. See
 `licenses/LUCIDE-ISC.txt` and `THIRD_PARTY.md`.
 
-Optional developer tools such as Git, clangd, Codex, and Claude Code are not
-bundled or integrated into LiteCode. They can be installed separately and run
-from LiteCode's terminal.
+The native extension SDK's snippet builders adapt Visual Studio Code's
+`snippetString.ts` behavior, Copyright Microsoft Corporation, under the MIT
+License. See `licenses/VSCODE-MIT.txt` and the pinned source in `THIRD_PARTY.md`.
+
+The Codex extension packages the unmodified OpenAI Codex native app-server and its
+companion tools, Copyright 2025 OpenAI, under Apache-2.0. See
+`licenses/CODEX-APACHE-2.0.txt`, `licenses/CODEX-NOTICE.txt`, and `THIRD_PARTY.md`.
+The macOS Codex runtime also includes zsh; its notices are in
+`licenses/CODEX-ZSH.txt`. Bundled Codex search resources retain ripgrep's MIT license.
+Other developer tools such as Git, clangd and Claude Code remain separate tools
+that can be installed and run from LiteCode's terminal.
+
+Native extension event delivery and cancellation primitives adapt behavior from
+Visual Studio Code's pinned `event.ts` and `cancellation.ts`, Copyright Microsoft
+Corporation, under the MIT License. See `licenses/VSCODE-MIT.txt` and the pinned
+sources in `THIRD_PARTY.md`.
+
+Native extension Quick Pick/input-box options and asynchronous validation adapt Visual
+Studio Code's pinned Quick Input behavior, Copyright Microsoft Corporation,
+under the MIT License. See `licenses/VSCODE-MIT.txt` and `THIRD_PARTY.md`.
+
+Native extension status-bar options, coalescing, message stacking and ordering
+adapt Visual Studio Code's pinned status-bar behavior, Copyright Microsoft
+Corporation, under the MIT License. See `licenses/VSCODE-MIT.txt` and `THIRD_PARTY.md`.
+
+Native extension URI validation, handler registration and buffered activation
+adapt Visual Studio Code's pinned URI behavior, Copyright Microsoft Corporation,
+under the MIT License. See `licenses/VSCODE-MIT.txt` and `THIRD_PARTY.md`.
+
+Native extension window-state delivery and input/progress activity timing adapt
+Visual Studio Code's pinned window/activity behavior, Copyright Microsoft
+Corporation, under the MIT License. See `licenses/VSCODE-MIT.txt` and `THIRD_PARTY.md`.
+
+Native chat participant properties, followup-provider contracts and queued
+metadata/disposal behavior adapt Visual Studio Code's pinned chat host behavior,
+Copyright Microsoft Corporation, under the MIT License. See
+`licenses/VSCODE-MIT.txt` and `THIRD_PARTY.md`.
+
+Native text-editor edit collection, marker-operation metadata, range-overlap
+validation and workbench surrogate-range adjustment adapt Visual Studio Code's pinned editor behavior, Copyright
+Microsoft Corporation, under the MIT License. See `licenses/VSCODE-MIT.txt`
+and `THIRD_PARTY.md`.
+
+Native editor selection recovery and UTF-16 marker adjustment adapt Visual
+Studio Code's pinned cursor and interval-tree behavior, Copyright Microsoft
+Corporation, under the MIT License. See `licenses/VSCODE-MIT.txt` and
+`THIRD_PARTY.md`.
+
+Native TCP and named-pipe/Unix-socket debug adapter transports and manifest
+executable selection follow Visual Studio Code's pinned implementation, Copyright Microsoft Corporation,
+under the MIT License. See `licenses/VSCODE-MIT.txt` and `THIRD_PARTY.md`.
+
+Native debug descriptor types, factory resolution, configuration-provider
+contracts, two-phase resolution and debugServer precedence
+adapt Visual Studio Code's pinned extension-host behavior, Copyright Microsoft
+Corporation, under the MIT License. See `licenses/VSCODE-MIT.txt` and `THIRD_PARTY.md`.

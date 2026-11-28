@@ -31,7 +31,16 @@ jobs:
         run: ./scripts/check-architecture.ps1
       - name: Check formatting
         shell: pwsh
-        run: ./scripts/format.ps1 -Check
+        run: |
+          python -m pip install clang-format==20.1.8
+          if ($LASTEXITCODE -ne 0) { throw 'Could not install clang-format.' }
+          $formatter = python -c "from pathlib import Path; import clang_format; print(Path(clang_format.__file__).parent / 'data' / 'bin' / 'clang-format.exe')"
+          ./scripts/format.ps1 -Check -FormatterPath $formatter
+      - name: Set up Java debugger test runtime
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '21'
       - name: Build and test
         shell: pwsh
         env:
@@ -46,6 +55,11 @@ jobs:
           $packageRoot = Join-Path (Resolve-Path build).Path 'package'
           cmake --install build/release --prefix $packageRoot
           ./scripts/verify-package.ps1 -PackageRoot $packageRoot
+          ./scripts/verify-extension-sdk.ps1 -PackageRoot $packageRoot -BuildRoot build/sdk-package-smoke -QtRoot "$env:QT_ROOT_DIR"
+          $env:LITECODE_PACKAGE_ROOT = $packageRoot
+          $env:LITECODE_PACKAGE_PLUGIN = (Get-Content -LiteralPath build/sdk-package-smoke/native-extension-path-Release.txt -Raw).Trim()
+          ctest --test-dir build/release -R '^litecode.extensions.package$' --output-on-failure
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged extension host check failed.' }
       - name: Build release archive
         shell: pwsh
         run: cmake --build build/release --target package --parallel 2
@@ -68,7 +82,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends cmake ninja-build g++
+          sudo apt-get install --no-install-recommends cmake ninja-build g++ pkg-config libssl-dev libsecret-1-dev libgl1-mesa-dev libxkbcommon-dev libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 xvfb xauth dbus gnome-keyring
       - name: Install Qt
         uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730
         with:
@@ -96,11 +110,28 @@ jobs:
           qt_lib="$(dirname "$qt_icu")"
           export LD_LIBRARY_PATH="$qt_lib:${LD_LIBRARY_PATH:-}"
           cmake --build --preset release
+      - name: Set up Java debugger test runtime
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '21'
       - name: Test
         env:
           QT_QPA_PLATFORM: offscreen
           LITECODE_REQUIRE_LINK_TESTS: '1'
-        run: ctest --preset release --parallel 2
+        run: |
+          dbus-run-session -- bash -e -c '
+            eval "$(printf "%s\n" "litecode-ci-test-keyring" | gnome-keyring-daemon --unlock --components=secrets)"
+            ctest --preset release --parallel 2
+          '
+      - name: Exercise extension UI through X11
+        env:
+          QT_QPA_PLATFORM: xcb
+          HISTFILE: /dev/null
+        run: |
+          xvfb-run -a ctest --test-dir build/release \
+            -R '^litecode[.](extensions[.](chat_ui|debug|edit_review|documents_ui)|ui[.]terminal_panel)$' \
+            --output-on-failure --parallel 1
       - name: Build release archive
         run: |
           qt_icu="$(find "$GITHUB_WORKSPACE/../Qt" -name 'libicui18n.so.*' -print -quit)"
@@ -108,6 +139,23 @@ jobs:
           qt_lib="$(dirname "$qt_icu")"
           export LD_LIBRARY_PATH="$qt_lib:${LD_LIBRARY_PATH:-}"
           cmake --build --preset release --target package
+      - name: Verify installed SDK and packaged extension host
+        run: |
+          stage="$RUNNER_TEMP/litecode-package-stage"
+          package="$RUNNER_TEMP/litecode-package"
+          cmake --install build/release --prefix "$stage"
+          test ! -e "$package"
+          mv -- "$stage" "$package"
+          xvfb-run -a bash scripts/verify-package-linux.sh "$package"
+          cmake -S tests/fixtures/installed-sdk -B build/sdk-package-smoke -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release "-DLiteCodeExtensionSDK_DIR=$package/sdk/lib/cmake/LiteCodeExtensionSDK"
+          cmake --build build/sdk-package-smoke --parallel 2
+          export LITECODE_PACKAGE_ROOT="$package"
+          export LITECODE_PACKAGE_PLUGIN="$(cat build/sdk-package-smoke/native-extension-path-Release.txt)"
+          dbus-run-session -- bash -e -c '
+            eval "$(printf "%s\n" "litecode-ci-test-keyring" | gnome-keyring-daemon --unlock --components=secrets)"
+            ctest --test-dir build/release -R "^litecode[.]extensions[.]package$" --output-on-failure
+          '
       - name: Upload Linux package
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -125,7 +173,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install build dependencies
-        run: brew install cmake ninja
+        run: brew install cmake ninja openssl@3
       - name: Install Qt
         uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730
         with:
@@ -134,16 +182,53 @@ jobs:
           archives: qtbase qtsvg
           cache: true
       - name: Configure
-        run: cmake --preset release
+        run: cmake --preset release -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)"
       - name: Build
         run: cmake --build --preset release
+      - name: Prepare isolated credential test keychain
+        run: |
+          keychain="$RUNNER_TEMP/litecode-test.keychain-db"
+          security create-keychain -p litecode-ci-test-keyring "$keychain"
+          security set-keychain-settings -lut 7200 "$keychain"
+          security unlock-keychain -p litecode-ci-test-keyring "$keychain"
+          security default-keychain -d user -s "$keychain"
+          security list-keychains -d user -s "$keychain"
+      - name: Set up Java debugger test runtime
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Prepare macOS test temporary directory
+        run: |
+          # Keep Unix socket paths short and avoid the /var symlink in file fixtures.
+          echo "TMPDIR=$(mktemp -d /private/tmp/lc.XXXXXX)" >> "$GITHUB_ENV"
       - name: Test
         env:
           QT_QPA_PLATFORM: offscreen
           LITECODE_REQUIRE_LINK_TESTS: '1'
-        run: ctest --preset release --parallel 2
+        run: ctest --preset release --parallel 2 -E '^litecode[.]extensions([.]editor_application)?$'
+      - name: Exercise extension editor and clipboard on Cocoa
+        if: ${{ !cancelled() }}
+        env:
+          QT_QPA_PLATFORM: cocoa
+          QT_LOGGING_RULES: 'litecode.extension.jsonTransfer.debug=true'
+          LITECODE_REQUIRE_LINK_TESTS: '1'
+        run: ctest --preset release --no-tests=error -R '^litecode[.]extensions([.]editor_application)?$'
       - name: Build release archive
         run: cmake --build --preset release --target package
+      - name: Verify installed SDK and packaged extension host
+        run: |
+          stage="$RUNNER_TEMP/litecode-package-stage"
+          package="$RUNNER_TEMP/litecode-package"
+          cmake --install build/release --prefix "$stage"
+          test ! -e "$package"
+          mv -- "$stage" "$package"
+          cmake -S tests/fixtures/installed-sdk -B build/sdk-package-smoke -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release "-DLiteCodeExtensionSDK_DIR=$package/sdk/lib/cmake/LiteCodeExtensionSDK"
+          cmake --build build/sdk-package-smoke --parallel 2
+          export LITECODE_PACKAGE_ROOT="$package"
+          export LITECODE_PACKAGE_PLUGIN="$(cat build/sdk-package-smoke/native-extension-path-Release.txt)"
+          ctest --test-dir build/release -R '^litecode.extensions.package$' --output-on-failure
       - name: Upload macOS package
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

@@ -1,5 +1,6 @@
 #include "core/TextEncoding.h"
 #include "editor/DocumentSession.h"
+#include "editor/TextDocumentModel.h"
 
 #include <QFile>
 #include <QTemporaryDir>
@@ -30,6 +31,40 @@ class DocumentEncodingTest final : public QObject {
     Q_OBJECT
 
   private slots:
+    void textEditBatchIsAtomicAndDerivesUnicodeRanges() {
+        litecode::editor::TextDocumentModel model(DocumentId(900), {});
+        QVERIFY(model.initializeUntitled(QString::fromUtf8("\xf0\x9f\x98\x80"
+                                                           " abc\r\nlast"),
+                                         TextEncoding::Utf8, litecode::core::LineEnding::CrLf));
+        const auto version = model.session().version();
+        litecode::core::DocumentEdit first, last;
+        first.position = 5;
+        first.removedLength = 3;
+        first.insertedText = "ABC";
+        last.position = 10;
+        last.removedLength = 4;
+        last.insertedText = "LAST";
+        QVector<litecode::core::DocumentEdit> edits{first, last};
+        QVERIFY(model.applyEdits(version, &edits));
+        QCOMPARE(model.session().version(), version + 1);
+        QCOMPARE(edits.size(), 2);
+        QCOMPARE(edits[0].range.start.line, 1);
+        QCOMPARE(edits[1].range.start.utf16Column, 3);
+        QCOMPARE(edits[0].version, edits[1].version);
+        const auto before = model.contents();
+        auto invalid = first;
+        invalid.position = 1; // inside the four-byte emoji
+        edits = {last, invalid};
+        QVERIFY(!model.applyEdits(version + 1, &edits));
+        QCOMPARE(model.contents(), before);
+        QCOMPARE(model.session().version(), version + 1);
+        edits = {first};
+        QVERIFY(!model.applyEdits(version, &edits));
+        QCOMPARE(model.contents(), before);
+    }
+    void untitledPreservesEmptyPathAndSavesOnlyToExplicitTarget();
+    void detachedTextModelValidatesEditsBeforeMutation();
+    void largeTextModelDoesNotSaveAnAbsentBuffer();
     void exposesVsCodeEncodingCatalog();
     void roundTripsRepresentativeEncodingFamilies();
     void detectsUnicodeByteOrderMarks();
@@ -57,6 +92,90 @@ class DocumentEncodingTest final : public QObject {
     void choosesPredominantLineEnding();
     void deletionDuringLoadRemainsVisible();
 };
+
+void DocumentEncodingTest::largeTextModelDoesNotSaveAnAbsentBuffer() {
+    litecode::editor::TextDocumentModel model(DocumentId(62), QStringLiteral("/large.txt"));
+    DocumentLoadResult load;
+    load.outcome = DocumentLoadResult::Outcome::Loaded;
+    load.storageMode = litecode::core::DocumentStorageMode::Large;
+    load.contents = QByteArrayLiteral("Large-mode content belongs to the existing editor backend.");
+    QVERIFY(model.acceptLoad(load));
+    QVERIFY(!model.hasTextBuffer());
+    QVERIFY(model.contents().isEmpty());
+    QString error;
+    QVERIFY(!model.save(&error));
+    QVERIFY(!error.isEmpty());
+    QVERIFY(!model.saveAs(QStringLiteral("/target.txt"), nullptr, &error));
+    litecode::core::DocumentEdit edit;
+    edit.insertedText = QByteArrayLiteral("replacement");
+    QVERIFY(!model.applyEdit(&edit));
+    QCOMPARE(model.session().version(), qint64(1));
+}
+
+void DocumentEncodingTest::detachedTextModelValidatesEditsBeforeMutation() {
+    litecode::editor::TextDocumentModel model(DocumentId(61), {}, QStringLiteral("python"));
+    QVERIFY(model.initializeUntitled(QString::fromUtf8("a\xf0\x9f\x98\x80z\n"), TextEncoding::Utf8,
+                                     litecode::core::LineEnding::Lf));
+    QCOMPARE(model.resource().scheme(), QStringLiteral("untitled"));
+    QCOMPARE(model.languageId(), QStringLiteral("python"));
+    const auto before = model.contents();
+    const auto version = model.session().version();
+    litecode::core::DocumentEdit invalid;
+    invalid.position = 2; // Inside a four-byte UTF-8 character.
+    invalid.removedLength = 1;
+    QVERIFY(!model.applyEdit(&invalid));
+    QCOMPARE(model.contents(), before);
+    QCOMPARE(model.session().version(), version);
+    invalid.position = 1;
+    invalid.removedLength = 4;
+    invalid.insertedText = QByteArray::fromHex("ff");
+    QVERIFY(!model.applyEdit(&invalid));
+    QCOMPARE(model.contents(), before);
+    litecode::core::DocumentEdit edit;
+    edit.position = 1;
+    edit.removedLength = 4;
+    edit.insertedText = QByteArrayLiteral("ok");
+    QVERIFY(model.applyEdit(&edit));
+    QCOMPARE(model.contents(), QByteArrayLiteral("aokz\n"));
+    QCOMPARE(model.session().version(), version + 1);
+    QCOMPARE(edit.documentId, DocumentId(61));
+    QVERIFY(edit.filePath.isEmpty());
+    QVERIFY(model.session().isModified());
+    model.session().close();
+    QVERIFY(!model.applyEdit(&edit));
+    QCOMPARE(model.contents(), QByteArrayLiteral("aokz\n"));
+}
+
+void DocumentEncodingTest::untitledPreservesEmptyPathAndSavesOnlyToExplicitTarget() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    DocumentSession session(DocumentId(51), {});
+    QVERIFY(session.filePath().isEmpty());
+    QCOMPARE(session.displayName(), QStringLiteral("Untitled-51"));
+    const auto contents = session.initializeUntitled(
+        QStringLiteral("one\ntwo\n"), TextEncoding::Utf16Le, litecode::core::LineEnding::CrLf);
+    QVERIFY(contents);
+    QCOMPARE(*contents, QByteArrayLiteral("one\r\ntwo\r\n"));
+    QVERIFY(session.isModified());
+    QCOMPARE(session.encoding(), TextEncoding::Utf16Le);
+    QString error;
+    QVERIFY(!session.save(*contents, &error));
+    QVERIFY(!error.isEmpty());
+    QVERIFY(!session.saveWithEncoding(*contents, TextEncoding::Utf8, &error));
+    QVERIFY(!session.saveAs({}, *contents, nullptr, &error));
+    QVERIFY(session.filePath().isEmpty());
+    QVERIFY(!session.initializeUntitled(QStringLiteral("replacement")));
+    const auto target = directory.filePath(QStringLiteral("saved.txt"));
+    litecode::core::DocumentPathChange change;
+    QVERIFY(session.saveAs(target, *contents, &change, &error));
+    QVERIFY(change.oldPath.isEmpty());
+    QCOMPARE(session.filePath(), target);
+    QVERIFY(!session.isModified());
+    QVERIFY(readBytes(target).startsWith(QByteArray::fromHex("fffe")));
+    DocumentSession blank(DocumentId(52), {});
+    QVERIFY(blank.initializeUntitled({}));
+    QVERIFY(!blank.isModified());
+}
 
 void DocumentEncodingTest::choosesPredominantLineEnding() {
     QTemporaryDir directory;

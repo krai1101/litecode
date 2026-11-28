@@ -1,5 +1,6 @@
 #include "core/DocumentTypes.h"
 #include "core/SettingsService.h"
+#include "ui/EditorArea.h"
 #include "ui/MainWindow.h"
 #include "ui/SettingsDialog.h"
 #include "ui/Theme.h"
@@ -26,6 +27,7 @@
 #include <QMouseEvent>
 #include <QPointer>
 #include <QPushButton>
+#include <QSaveFile>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSet>
@@ -565,12 +567,16 @@ void SettingsDialogTest::settingsAreGlobalAndDescriptionsAreSelectable() {
     QVERIFY(!dialog.findChild<QPushButton*>(QStringLiteral("settingsUserScope")));
     QWidget* row = settingRow(dialog, QStringLiteral("files.encoding"));
     QVERIFY(row);
-    const auto labels = row->findChildren<QLabel*>();
-    QVERIFY(!labels.isEmpty());
-    for (QLabel* label : labels) {
+    int selectableLabels = 0;
+    for (QLabel* label : row->findChildren<QLabel*>()) {
+        const auto role = label->property("uiRole").toString();
+        if (role != "settingTitle" && role != "description")
+            continue;
         QVERIFY(label->textInteractionFlags().testFlag(Qt::TextSelectableByMouse));
         QVERIFY(label->textInteractionFlags().testFlag(Qt::TextSelectableByKeyboard));
+        ++selectableLabels;
     }
+    QCOMPARE(selectableLabels, 2);
 }
 
 void SettingsDialogTest::topLevelMenusShareWidthAndKeepEncodingInStatusBar() {
@@ -600,9 +606,35 @@ void SettingsDialogTest::topLevelMenusShareWidthAndKeepEncodingInStatusBar() {
             }
         }
     }
-    QVERIFY(window.findChild<QToolButton*>(QStringLiteral("encodingStatusButton")));
+    auto* encoding = window.findChild<QToolButton*>(QStringLiteral("encodingStatusButton"));
+    auto* indent = window.findChild<QToolButton*>(QStringLiteral("indentStatusButton"));
+    auto* lineEnding = window.findChild<QLabel*>(QStringLiteral("lineEndingStatus"));
+    auto* language = window.findChild<QLabel*>(QStringLiteral("languageStatus"));
+    auto* editor = window.findChild<litecode::ui::EditorArea*>();
+    QVERIFY(encoding && indent && lineEnding && language && editor);
     QVERIFY(window.findChild<QAction*>(QStringLiteral("file.openFileWithEncoding")));
     QVERIFY(window.findChild<QAction*>(QStringLiteral("file.changeEncoding")));
+    QVERIFY(lineEnding->isHidden() && language->isHidden());
+
+    QFile plain(directory.filePath("example.txt"));
+    QVERIFY(plain.open(QIODevice::WriteOnly));
+    QCOMPARE(plain.write("one\r\ntwo\r\n"), 10);
+    plain.close();
+    QFile python(directory.filePath("example.py"));
+    QVERIFY(python.open(QIODevice::WriteOnly));
+    QCOMPARE(python.write("pass\n"), 5);
+    python.close();
+    window.resize(960, 600);
+    window.show();
+    QVERIFY(editor->openFile(plain.fileName()));
+    QTRY_COMPARE(lineEnding->text(), QString("CRLF"));
+    QCOMPARE(language->text(), QString("Plain Text"));
+    QVERIFY(lineEnding->isVisible() && language->isVisible());
+    QTRY_VERIFY(indent->x() < encoding->x() && encoding->x() < lineEnding->x() &&
+                lineEnding->x() < language->x());
+    QVERIFY(editor->openFile(python.fileName()));
+    QTRY_COMPARE(lineEnding->text(), QString("LF"));
+    QCOMPARE(language->text(), QString("Python"));
 }
 
 void SettingsDialogTest::externalUserSettingRefreshesOpenDialog() {
@@ -633,12 +665,12 @@ void SettingsDialogTest::externalUserSettingRefreshesOpenDialog() {
     QVERIFY(encoding);
     QVERIFY(warning);
 
-    QFile external(profile);
+    QSaveFile external(profile);
     QVERIFY(external.open(QIODevice::WriteOnly | QIODevice::Truncate));
     QVERIFY(external.write("[files]\nencoding=windows1252\n"
                            "[appearance]\ntheme=light\n"
                            "[shortcuts]\nfile.newWindow=Alt+9\n") > 0);
-    external.close();
+    QVERIFY(external.commit());
     QTRY_COMPARE_WITH_TIMEOUT(encoding->currentData().toString(), QStringLiteral("windows1252"),
                               5000);
     auto* newWindowAction = window.findChild<QAction*>(QStringLiteral("newWindowAction"));
@@ -649,7 +681,7 @@ void SettingsDialogTest::externalUserSettingRefreshesOpenDialog() {
 
     QVERIFY(external.open(QIODevice::WriteOnly | QIODevice::Truncate));
     QVERIFY(external.write("[files]\nencoding=ut8\n") > 0);
-    external.close();
+    QVERIFY(external.commit());
     QTRY_VERIFY_WITH_TIMEOUT(!warning->isHidden(), 5000);
     QTRY_COMPARE_WITH_TIMEOUT(encoding->currentData().toString(), QStringLiteral("utf8"), 5000);
     QTRY_VERIFY_WITH_TIMEOUT(newWindowAction->shortcut() != QKeySequence(QStringLiteral("Alt+9")),

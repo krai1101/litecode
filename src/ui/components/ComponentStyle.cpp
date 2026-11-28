@@ -34,12 +34,25 @@ QString componentStyleSheet(const ComponentTokens& tokens) {
         *[uiComponent="button"]:disabled {
             background: @buttonDisabledBackground; color: @buttonDisabledForeground;
         }
+        *[uiComponent="button"][uiDensity="compact"] {
+            min-height: 18px; padding: 2px @spacingMediumPx;
+        }
+        *[uiComponent="button"][uiVariant="ghost"] {
+            background: transparent; border-color: transparent;
+        }
+        *[uiComponent="button"][uiVariant="ghost"]:hover { background: @buttonHover; }
+        *[uiComponent="button"][uiVariant="ghost"]:pressed { background: @buttonPressed; }
+        *[uiComponent="button"][uiVariant="ghost"]:disabled { background: transparent; }
         *[uiComponent="button"][uiVariant="primary"] {
             background: @buttonPrimaryBackground; color: @buttonPrimaryForeground;
             border-color: @buttonPrimaryBackground;
         }
         *[uiComponent="button"][uiVariant="primary"]:hover {
             background: @buttonPrimaryHover; border-color: @buttonPrimaryHover;
+        }
+        *[uiComponent="button"][uiVariant="primary"]:disabled {
+            background: @buttonDisabledBackground; border-color: @buttonDisabledBackground;
+            color: @buttonDisabledForeground;
         }
         *[uiComponent="button"][uiVariant="danger"]:hover {
             background: @buttonDangerHover; color: @buttonDangerForeground;
@@ -70,6 +83,14 @@ QString componentStyleSheet(const ComponentTokens& tokens) {
             background: @inputDisabledBackground; color: @inputDisabledForeground;
         }
         *[uiComponent="input"][uiState="error"] { border-color: @inputErrorBorder; }
+        *[uiComponent="input"][uiState="warning"] { border-color: @inputWarningBorder; }
+        *[uiComponent="input"][uiState="info"] { border-color: @inputInfoBorder; }
+        QLabel#quickInputValidation[validationSeverity="3"] { color: @inputErrorBorder; }
+        QLabel#quickInputValidation[validationSeverity="2"] { color: @inputWarningBorder; }
+        QLabel#quickInputValidation[validationSeverity="1"] { color: @inputInfoBorder; }
+        *[uiComponent="pickerLabel"] { background: transparent; color: @inputForeground; border: 0; padding: 0; }
+        *[uiComponent="pickerDetail"] { background: transparent; color: @overlayMuted; border: 0; padding: 0; }
+        *[uiComponent="statusBarItem"] { border: 0; border-radius: 0; padding: 0 4px; font-size: 12px; }
 
         QKeySequenceEdit[uiComponent="input"] QLineEdit {
             min-height: 0; padding: 0; border: 0; border-radius: 0;
@@ -84,25 +105,44 @@ QString componentStyleSheet(const ComponentTokens& tokens) {
             background: @buttonHover; color: @buttonForeground;
         }
 
+        QLabel[uiComponent="choiceTitle"] { color: @inputFocusBorder; font-weight: 600; }
+        QLabel[uiComponent="choiceDescription"] { color: @overlayMuted; font-size: 12px; }
+        QSlider[uiComponent="choiceSlider"]::groove:horizontal {
+            height: 8px; background: @listHover; border-radius: 4px;
+        }
+        QSlider[uiComponent="choiceSlider"]::sub-page:horizontal {
+            background: @inputFocusBorder; border-radius: 4px;
+        }
+        QSlider[uiComponent="choiceSlider"]::handle:horizontal {
+            background: @inputBackground; border: 1px solid @inputBorder;
+            width: 20px; margin: -7px 0; border-radius: 10px;
+        }
         QComboBox[modernComboBox="true"] {
             background: @dropdownBackground; color: @dropdownForeground;
             border: 1px solid @dropdownBorder;
-            min-height: 26px; padding: 3px 34px 3px @spacingMediumPx;
+            min-height: 18px; padding: 2px 23px 2px 8px;
+            border-radius: 4px; font-size: 13px;
         }
         QComboBox[modernComboBox="true"]::drop-down {
             subcontrol-origin: padding; subcontrol-position: top right;
-            width: 30px; border: 0; background: transparent;
+            width: 23px; border: 0; background: transparent;
         }
         QComboBox[modernComboBox="true"]::down-arrow {
             image: none; width: 0; height: 0;
         }
-        QComboBox[modernComboBox="true"] QLineEdit {
+        QComboBox[modernComboBox="true"] > QLineEdit {
             min-height: 0; padding: 0; border: 0; border-radius: 0;
             background: transparent; color: @inputForeground;
         }
         QWidget[uiComponent="comboPopup"] QAbstractItemView[uiComponent="list"] {
-            background: @dropdownListBackground; color: @dropdownForeground;
+            background: transparent; color: @dropdownForeground;
             border: 0; border-radius: 0;
+        }
+        QWidget[uiComponent="comboPopup"] QAbstractItemView[uiComponent="list"]::item {
+            height: 22px; min-height: 22px; padding: 0 8px; border: 0; border-radius: 3px;
+        }
+        QWidget[uiComponent="comboPopup"] QAbstractItemView[uiComponent="list"]::item:selected {
+            background: @listHover; color: @dropdownForeground;
         }
 
         *[uiComponent="list"] {
@@ -140,11 +180,30 @@ QString componentStyleSheet(const ComponentTokens& tokens) {
 
         QMenu {
             background: @menuBackground; color: @overlayForeground;
-            border: 1px solid @menuBorder; padding: @spacingSmallPx 0;
+            border: 1px solid @menuBorder; border-radius: @surfaceRadiusPx; padding: 4px;
         }
-        QMenu::item { padding: 7px 30px 7px @horizontalPaddingPx; }
-        QMenu::item:selected { background: @listHover; }
-        QMenu::item:disabled { color: @overlayMuted; }
+        /* Workbench direct-child surfaces must not recolor top-level popup menus. */
+        QMainWindow#mainWindow > QMenu[uiComponent="menu"] {
+            background: @menuBackground; color: @overlayForeground;
+        }
+        QMenu::item, QWidget[uiComponent="comboPopup"] QAbstractItemView[menuRows="true"]::item {
+            height: @listRowHeightPx; min-height: @listRowHeightPx;
+            padding: 0 30px 0 @horizontalPaddingPx; border-radius: 3px;
+        }
+        QMenu[uiMenuStyle="popover"] { border-radius: 14px; padding: 4px 12px; }
+        QMenu::item:selected,
+        QWidget[uiComponent="comboPopup"] QAbstractItemView[menuRows="true"]::item:selected,
+        QPushButton[uiComponent="menuAction"]:hover,
+        QPushButton[uiComponent="menuAction"]:focus {
+            background: @menuSelectionBackground; color: @menuSelectionForeground;
+        }
+        QPushButton[uiComponent="menuAction"] {
+            background: transparent; color: @overlayForeground; border: 0; border-radius: 3px;
+            min-height: @listRowHeightPx; padding: 0 @horizontalPaddingPx; text-align: left;
+        }
+        QFrame[uiComponent="menuSeparator"] { background: @menuSeparatorBackground; border: 0; }
+        QMenu::item:disabled { color: @menuDisabledForeground; }
+        QMenu::indicator { width: 16px; height: 16px; }
         QMenu#themeMenu::item:checked { background: @listSelection; }
         QMenu#themeMenu::indicator { width: 0px; height: 0px; image: none; }
         QMenu::right-arrow {
@@ -152,7 +211,7 @@ QString componentStyleSheet(const ComponentTokens& tokens) {
             position: relative; right: 8px;
         }
         QMenu::separator {
-            height: 1px; background: @overlayBorder; margin: @spacingSmallPx 0;
+            height: 1px; background: @menuSeparatorBackground; margin: @spacingSmallPx 0;
         }
         QToolTip {
             background: @overlayBackground; color: @overlayForeground;
@@ -193,6 +252,8 @@ QString componentStyleSheet(const ComponentTokens& tokens) {
         {QStringLiteral("@inputDisabledForeground"), styleColor(tokens.input.disabledForeground)},
         {QStringLiteral("@inputDisabledBackground"), styleColor(tokens.input.disabledBackground)},
         {QStringLiteral("@inputErrorBorder"), styleColor(tokens.input.errorBorder)},
+        {QStringLiteral("@inputWarningBorder"), styleColor(tokens.input.warningBorder)},
+        {QStringLiteral("@inputInfoBorder"), styleColor(tokens.input.infoBorder)},
         {QStringLiteral("@listForeground"), styleColor(tokens.list.foreground)},
         {QStringLiteral("@listBackground"), styleColor(tokens.list.background)},
         {QStringLiteral("@listBorder"), styleColor(tokens.list.border)},
@@ -203,6 +264,10 @@ QString componentStyleSheet(const ComponentTokens& tokens) {
         {QStringLiteral("@dropdownBorder"), styleColor(tokens.dropdown.border)},
         {QStringLiteral("@dropdownListBackground"), styleColor(tokens.dropdown.listBackground)},
         {QStringLiteral("@menuBorder"), styleColor(tokens.menu.border)},
+        {QStringLiteral("@menuSelectionBackground"), styleColor(tokens.menu.selectionBackground)},
+        {QStringLiteral("@menuSelectionForeground"), styleColor(tokens.menu.selectionForeground)},
+        {QStringLiteral("@menuDisabledForeground"), styleColor(tokens.menu.disabledForeground)},
+        {QStringLiteral("@menuSeparatorBackground"), styleColor(tokens.menu.separatorBackground)},
         {QStringLiteral("@menuBackground"), styleColor(tokens.menu.background)},
         {QStringLiteral("@menuArrowIcon"), tokens.menu.arrowIcon},
         {QStringLiteral("@controlHeightPx"), px(tokens.metrics.controlHeight)},

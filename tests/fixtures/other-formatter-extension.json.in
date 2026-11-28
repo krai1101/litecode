@@ -1,0 +1,19 @@
+{
+  "id": "tests.otherFormatter",
+  "displayName": "Other formatter fixture",
+  "version": "1.0.0",
+  "apiVersion": 25,
+  "qtVersion": "@Qt6Core_VERSION@",
+  "architecture": "@LITECODE_PLUGIN_ARCH@",
+  "activationEvents": ["onLanguage:python"],
+  "contributes": {
+    "commands": [
+      {"command": "tests.otherFormatter.echo", "title": "Echo from other host"},
+      {"command": "tests.otherFormatter.configuration", "title": "Other-host settings fixture"},
+      {"command": "tests.otherFormatter.persistence", "title": "Other-host persistence fixture"},
+      {"command": "tests.otherFormatter.secrets", "title": "Other-host credentials fixture"}
+    ],
+    "formatters": [{"language": "python"}],
+    "debuggers": [{"type": "fixture", "configurationAttributes": {"launch": {}}}]
+  }
+}

@@ -1,6 +1,7 @@
 #include "core/FileSystemPath.h"
 #include "editor/DocumentSession.h"
 #include "ui/EditorArea.h"
+#include "ui/components/WorkbenchTabs.h"
 #include "ui/controllers/EditorSessionController.h"
 #include "ui/controllers/ExplorerController.h"
 #include "ui/explorer/ExplorerFileSystemModel.h"
@@ -48,6 +49,7 @@ class ExplorerModelTest final : public QObject {
     void externalDeletionMarksOpenEditorAsDeleted();
     void deletedStateRemainsIndependentFromUnsavedEdits();
     void saveAsRejectsPathOpenInAnotherTab();
+    void gitDecorationsColorFilesAndPropagateToFolders();
 };
 
 namespace {
@@ -63,6 +65,38 @@ QModelIndex startLoadingRoot(ExplorerFileSystemModel& model, const QString& path
 }
 
 } // namespace
+
+void ExplorerModelTest::gitDecorationsColorFilesAndPropagateToFolders() {
+    QTemporaryDir workspace;
+    QVERIFY(workspace.isValid());
+    QVERIFY(QDir(workspace.path()).mkpath(QStringLiteral("src/nested")));
+    createFile(workspace.filePath(QStringLiteral("src/nested/modified.txt")));
+    createFile(workspace.filePath(QStringLiteral("src/new.txt")));
+    ExplorerFileSystemModel model;
+    startLoadingRoot(model, workspace.path());
+    const auto modified = workspace.filePath(QStringLiteral("src/nested/modified.txt"));
+    const auto added = workspace.filePath(QStringLiteral("src/new.txt"));
+    QTRY_VERIFY_WITH_TIMEOUT(model.index(modified).isValid(), 3000);
+    QTRY_VERIFY_WITH_TIMEOUT(model.index(added).isValid(), 3000);
+    litecode::workspace::GitStatus status;
+    status.changes.append({QStringLiteral("src/nested/modified.txt"), {}, ' ', 'M', false});
+    status.changes.append({QStringLiteral("src/new.txt"), {}, '?', '?', false});
+    model.setGitStatus(workspace.path(), status);
+    QCOMPARE(model.index(modified).data(ExplorerFileSystemModel::GitBadgeRole).toString(),
+             QStringLiteral("M"));
+    QCOMPARE(model.index(added).data(ExplorerFileSystemModel::GitBadgeRole).toString(),
+             QStringLiteral("U"));
+    QCOMPARE(model.index(workspace.filePath(QStringLiteral("src")))
+                 .data(ExplorerFileSystemModel::GitBadgeRole)
+                 .toString(),
+             QStringLiteral("dot"));
+    QCOMPARE(model.index(workspace.filePath(QStringLiteral("src")))
+                 .data(ExplorerFileSystemModel::GitColorRole)
+                 .value<QColor>(),
+             QColor("#895503"));
+    model.setGitStatus({}, {});
+    QVERIFY(!model.index(modified).data(ExplorerFileSystemModel::GitBadgeRole).isValid());
+}
 
 void ExplorerModelTest::temporaryFileIsARealChildAfterDirectories() {
     QTemporaryDir workspace;
@@ -546,11 +580,12 @@ void ExplorerModelTest::deletingPathKeepsAffectedDocumentsAsDeleted() {
     QVERIFY(containsPath(affected));
     QVERIFY(containsPath(unaffected));
 
-    auto* tabs = editor.findChild<QTabWidget*>(QStringLiteral("editorTabs"));
+    auto* tabs =
+        editor.findChild<litecode::ui::components::WorkbenchTabs*>(QStringLiteral("editorTabs"));
     QVERIFY(tabs != nullptr);
     const int affectedTab = tabs->indexOf(tabs->widget(0));
     QCOMPARE(tabs->tabText(affectedTab), QStringLiteral("affected.txt"));
-    QVERIFY(tabs->tabBar()->tabData(affectedTab).toBool());
+    QVERIFY(tabs->tabBar()->tabData(affectedTab).toMap().value("deleted").toBool());
 
     // Navigation can still reactivate an already-open orphaned editor even though its file is
     // absent from disk.
@@ -559,7 +594,8 @@ void ExplorerModelTest::deletingPathKeepsAffectedDocumentsAsDeleted() {
 
     QVERIFY(QDir().mkpath(folder));
     createFile(affected);
-    QTRY_VERIFY_WITH_TIMEOUT(!tabs->tabBar()->tabData(affectedTab).toBool(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        !tabs->tabBar()->tabData(affectedTab).toMap().value("deleted").toBool(), 5000);
 }
 
 void ExplorerModelTest::externalDeletionMarksOpenEditorAsDeleted() {
@@ -574,9 +610,10 @@ void ExplorerModelTest::externalDeletionMarksOpenEditorAsDeleted() {
     QTRY_COMPARE_WITH_TIMEOUT(opened.size(), 1, 5000);
 
     QVERIFY(QFile::remove(path));
-    auto* tabs = editor.findChild<QTabWidget*>(QStringLiteral("editorTabs"));
+    auto* tabs =
+        editor.findChild<litecode::ui::components::WorkbenchTabs*>(QStringLiteral("editorTabs"));
     QVERIFY(tabs != nullptr);
-    QTRY_VERIFY_WITH_TIMEOUT(tabs->tabBar()->tabData(0).toBool(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(tabs->tabBar()->tabData(0).toMap().value("deleted").toBool(), 5000);
     QCOMPARE(tabs->tabText(0), QStringLiteral("removed.txt"));
     QVERIFY(!tabs->tabIcon(0).isNull());
     QVERIFY(tabs->tabBar()->tabButton(0, QTabBar::LeftSide) == nullptr);
@@ -584,7 +621,7 @@ void ExplorerModelTest::externalDeletionMarksOpenEditorAsDeleted() {
     QVERIFY(!QFileInfo::exists(path));
 
     createFile(path);
-    QTRY_VERIFY_WITH_TIMEOUT(!tabs->tabBar()->tabData(0).toBool(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(!tabs->tabBar()->tabData(0).toMap().value("deleted").toBool(), 5000);
 }
 
 void ExplorerModelTest::deletedStateRemainsIndependentFromUnsavedEdits() {
@@ -624,7 +661,7 @@ void ExplorerModelTest::saveAsRejectsPathOpenInAnotherTab() {
 
     QString error;
     QVERIFY(!editor.saveCurrentAs(first, &error));
-    QVERIFY(error.contains(QStringLiteral("already open"), Qt::CaseInsensitive));
+    QVERIFY(error.contains(QStringLiteral("open document"), Qt::CaseInsensitive));
 }
 
 QTEST_MAIN(ExplorerModelTest)

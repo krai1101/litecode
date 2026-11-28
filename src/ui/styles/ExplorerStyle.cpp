@@ -19,11 +19,6 @@ QString ComponentStyleSheets::explorer(const ThemeTokens& tokens) {
         }
         QToolButton#searchHeaderAction:hover { background: @hover; }
         QWidget#workspaceSearchRow, QWidget#workspaceReplaceRow { background: transparent; }
-        QWidget#workspaceSearchBox {
-            background: @input; border: 1px solid @inputBorder; border-radius: 3px;
-            min-height: 28px; max-height: 28px;
-        }
-        QWidget#workspaceSearchBox:focus-within { border-color: @searchFocusBorder; }
         QLineEdit#workspaceSearchInput, QLineEdit#workspaceReplaceInput {
             background: transparent; border: 0; border-radius: 0;
             color: @foreground; padding: 0 6px;
@@ -74,20 +69,12 @@ QString ComponentStyleSheets::explorer(const ThemeTokens& tokens) {
             background: transparent; border: 0;
         }
         QTreeView#fileTree::item { min-height: 24px; }
-        QLineEdit#explorerInlineEditor {
-            background: @input; color: @foreground; border: 1px solid @focus;
-            border-radius: 4px; padding: 1px 2px;
-        }
         QWidget#workspaceRootBar { background: @sidebar; min-height: 23px; }
         QWidget#workspaceRootBar[selected="true"] { background: @selection; }
         QToolButton#workspaceRootLabel {
-            background: transparent; border: 0; border-radius: 0; color: @foreground;
-            font-size: 13px; font-weight: 600; min-height: 23px; padding: 0; text-align: left;
+            font-weight: 600; min-height: 23px; padding: 0;
         }
         QToolButton#workspaceRootChevron { background: transparent; border: 0; padding: 0; }
-        QToolButton#workspaceRootLabel:hover,
-        QToolButton#workspaceRootLabel:checked,
-        QToolButton#workspaceRootLabel:checked:hover { background: transparent; }
         QToolButton#explorerActionButton {
             background: transparent; border: 0; border-radius: 3px; color: @muted;
             min-width: 22px; max-width: 22px; min-height: 23px; padding: 0;

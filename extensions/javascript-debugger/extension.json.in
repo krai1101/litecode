@@ -1,0 +1,122 @@
+{
+  "id": "litecode.javascript-debugger",
+  "displayName": "JavaScript Debugger",
+  "description": "Debug Node.js programs using Microsoft's JavaScript debugger.",
+  "icon": "javascript-debugger.svg",
+  "version": "1.0.0",
+  "apiVersion": 25,
+  "qtVersion": "@Qt6Core_VERSION@",
+  "architecture": "@DEBUGGER_ARCH@",
+  "activationEvents": [
+    "onDebug"
+  ],
+  "contributes": {
+    "breakpoints": [
+      {
+        "language": "javascript"
+      },
+      {
+        "language": "javascriptreact"
+      },
+      {
+        "language": "typescript"
+      },
+      {
+        "language": "typescriptreact"
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "node",
+        "label": "Node.js",
+        "languages": [
+          "javascript",
+          "javascriptreact",
+          "typescript",
+          "typescriptreact"
+        ],
+        "initialConfigurations": [
+          {
+            "name": "Launch Program",
+            "type": "node",
+            "request": "launch",
+            "program": "${file}"
+          }
+        ],
+        "configurationAttributes": {
+          "launch": {
+            "required": [
+              "name",
+              "type",
+              "request"
+            ],
+            "properties": {
+              "program": {
+                "type": "string"
+              },
+              "runtimeExecutable": {
+                "type": "string"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "runtimeArgs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "cwd": {
+                "type": "string"
+              },
+              "console": {
+                "enum": [
+                  "integratedTerminal",
+                  "internalConsole"
+                ]
+              },
+              "stopOnEntry": {
+                "type": "boolean"
+              },
+              "outFiles": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "sourceMaps": {
+                "type": "boolean"
+              }
+            }
+          },
+          "attach": {
+            "required": [
+              "name",
+              "type",
+              "request"
+            ],
+            "properties": {
+              "address": {
+                "type": "string"
+              },
+              "port": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
+              },
+              "localRoot": {
+                "type": "string"
+              },
+              "remoteRoot": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

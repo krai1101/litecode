@@ -47,9 +47,21 @@ core::OperationId TerminalSessionService::createSession(const QString& profileId
     if (!requested)
         requested = &profiles_.constFirst();
 
+    return createProcessSession(*requested, workingDirectory);
+}
+
+core::OperationId TerminalSessionService::createProcessSession(const TerminalProfile& process,
+                                                               const QString& workingDirectory) {
+    if (!process.isValid() || process.executable.contains(QChar('\0')) ||
+        workingDirectory.contains(QChar('\0')))
+        return {};
+    for (const auto& argument : process.arguments)
+        if (argument.contains(QChar('\0')))
+            return {};
+
     auto session = std::make_unique<Session>();
     session->id = operationIds_.next();
-    session->profile = *requested;
+    session->profile = process;
     session->workingDirectory = workingDirectory;
     session->state = TerminalState::Starting;
     session->backend = backendFactory_ ? backendFactory_() : createTerminalBackend();
@@ -129,6 +141,18 @@ bool TerminalSessionService::sendInput(core::OperationId id, const QByteArray& b
         return false;
     }
     return session->backend->enqueueInput(bytes);
+}
+qint64 TerminalSessionService::processId(core::OperationId id) const {
+    for (const auto& session : sessions_)
+        if (session->id == id)
+            return session->backend->processId();
+    return 0;
+}
+
+bool TerminalSessionService::shellIsIdle(core::OperationId id) {
+    const auto* session = find(id);
+    return session && !session->pendingRemoval && session->state == TerminalState::Running &&
+           session->backend->shellIsIdle();
 }
 
 void TerminalSessionService::resizeSession(core::OperationId id, const QSize& characters) {

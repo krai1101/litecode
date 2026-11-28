@@ -1,0 +1,4 @@
+@echo off
+set /p LITECODE_DEBUG_INPUT=Input:
+echo RESULT:%LITECODE_DEBUG_INPUT%:%LITECODE_DEBUG_ENV%
+exit /b 0

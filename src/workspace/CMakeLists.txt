@@ -1,4 +1,21 @@
 add_library(litecode_workspace STATIC
+    GitService.cpp
+    GitService.h
+    GitClone.cpp
+    GitWorktree.cpp
+    GitHistory.cpp
+    GitDivergence.cpp
+    GitBranchValidation.cpp
+    GitCheckoutRecovery.cpp
+    GitTagRecovery.cpp
+    GitTags.cpp
+    GitBranchOperations.cpp
+    GitStash.cpp
+    GitCommitOperations.cpp
+    GitDiscard.cpp
+    GitTransferOperations.cpp
+    GitRepositories.cpp
+    GitRepositories.h
     WorkspaceService.cpp
     WorkspaceService.h
     WorkspaceSearch.cpp

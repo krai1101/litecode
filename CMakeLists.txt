@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(LiteCode VERSION 0.1.0 LANGUAGES C CXX)
+project(LiteCode VERSION 0.2.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -10,7 +10,7 @@ set(CMAKE_AUTORCC ON)
 
 include(CTest)
 
-find_package(Qt6 6.11 REQUIRED COMPONENTS Core Core5Compat Concurrent Gui Widgets Svg)
+find_package(Qt6 6.11 REQUIRED COMPONENTS Core Core5Compat Concurrent Gui Widgets Svg Network)
 
 add_library(litecode_project_options INTERFACE)
 option(LITECODE_ENABLE_MSVC_ANALYZE "Enable MSVC native static analysis" OFF)
@@ -37,9 +37,15 @@ include(cmake/Ripgrep.cmake)
 include(cmake/EncodingDetector.cmake)
 
 add_subdirectory(src/core)
+add_subdirectory(src/extensions)
+add_subdirectory(src/debug)
 add_subdirectory(src/workspace)
 add_subdirectory(src/editor)
 add_subdirectory(src/terminal)
+add_subdirectory(extensions/codex)
+add_subdirectory(extensions/python-debugger)
+add_subdirectory(extensions/java-debugger)
+add_subdirectory(extensions/javascript-debugger)
 add_subdirectory(src/ui)
 add_subdirectory(src/app)
 

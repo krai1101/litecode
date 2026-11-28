@@ -12,6 +12,7 @@
 /install_manifest.txt
 /compile_commands.json
 /.cache/
+*.pdb
 
 # Per-user IDE and build configuration.
 /.idea/
@@ -44,6 +45,9 @@
 # Local development notes and visual references are not release inputs.
 /start_cmd.txt
 /vs code screnshots/
+/vscode-dts/
+/docs/
+/examples/
 
 # Operating-system metadata.
 .DS_Store

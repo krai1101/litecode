@@ -2,6 +2,7 @@
 
 #include "editor/LanguageStyleCatalog.h"
 #include "editor/LanguageSupport.h"
+#include "editor/ScintillaUndoBridge.h"
 #include "editor/SyntaxTheme.h"
 
 #include <ILexer.h>
@@ -13,17 +14,52 @@
 #include <ScintillaTypes.h>
 
 #include <QColor>
+#include <QCursor>
+#include <QEvent>
 #include <QFileInfo>
 #include <QFont>
 #include <QFutureWatcher>
+#include <QHoverEvent>
+#include <QKeyEvent>
+#include <QKeySequence>
+#include <QMouseEvent>
+#include <QPaintEvent>
+#include <QPainter>
+#include <QPointer>
+#include <QSvgRenderer>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QtConcurrentRun>
+#include <limits>
+#include <stdexcept>
 
 #include <algorithm>
+#include <functional>
 
 namespace litecode::editor {
 namespace {
+
+constexpr int breakpointHintMarker = 19;
+constexpr int breakpointMarker = 22;
+constexpr int executionMarker = 23;
+constexpr int executionArrowMarker = 24;
+
+class BreakpointScintillaControl final : public ScintillaEditBase {
+  public:
+    using ScintillaEditBase::ScintillaEditBase;
+    std::function<void(QPainter&)> paintBreakpointDots;
+
+  protected:
+    void paintEvent(QPaintEvent* event) override {
+        ScintillaEditBase::paintEvent(event);
+        if (paintBreakpointDots) {
+            QPainter painter(viewport());
+            painter.setClipRect(event->rect());
+            painter.setRenderHint(QPainter::Antialiasing);
+            paintBreakpointDots(painter);
+        }
+    }
+};
 
 unsigned int message(Scintilla::Message value) { return static_cast<unsigned int>(value); }
 
@@ -108,7 +144,10 @@ core::TextPosition removedEndPosition(core::TextPosition start, const QByteArray
     int lineBreaks = 0;
     qsizetype lastLineStart = 0;
     for (qsizetype index = 0; index < removedText.size(); ++index) {
-        if (removedText.at(index) == '\n') {
+        if (removedText.at(index) == '\r' || removedText.at(index) == '\n') {
+            if (removedText.at(index) == '\r' && index + 1 < removedText.size() &&
+                removedText.at(index + 1) == '\n')
+                ++index;
             ++lineBreaks;
             lastLineStart = index + 1;
         }
@@ -230,9 +269,34 @@ ScintillaEditor::ScintillaEditor(QWidget* parent) : EditorBackend(parent) {
     setObjectName(QStringLiteral("scintillaEditor"));
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
-    control_ = new ScintillaEditBase(this);
+    auto* breakpointControl = new BreakpointScintillaControl(this);
+    control_ = breakpointControl;
+    breakpointIcon_ =
+        new QSvgRenderer(QStringLiteral(":/litecode/editor/icons/debug-breakpoint.svg"), this);
+    activeBreakpointLightIcon_ = new QSvgRenderer(
+        QStringLiteral(":/litecode/editor/icons/debug-breakpoint-stackframe-active-light.svg"),
+        this);
+    activeBreakpointDarkIcon_ = new QSvgRenderer(
+        QStringLiteral(":/litecode/editor/icons/debug-breakpoint-stackframe-active-dark.svg"),
+        this);
+    breakpointControl->paintBreakpointDots = [this](QPainter& painter) {
+        paintBreakpointDots(painter);
+    };
     control_->setObjectName(QStringLiteral("scintillaControl"));
     control_->setContextMenuPolicy(Qt::CustomContextMenu);
+    control_->setMouseTracking(true);
+    control_->installEventFilter(this);
+    control_->viewport()->setMouseTracking(true);
+    control_->viewport()->installEventFilter(this);
+    breakpointHoverTimer_ = new QTimer(this);
+    breakpointHoverTimer_->setInterval(50);
+    connect(breakpointHoverTimer_, &QTimer::timeout, this, [this] {
+        if (!control_->isVisible() || !control_->underMouse()) {
+            setBreakpointHintLine(0);
+            return;
+        }
+        updateBreakpointHintAt(control_->mapFromGlobal(QCursor::pos()));
+    });
     layout->addWidget(control_);
     setFocusProxy(control_);
 
@@ -243,24 +307,82 @@ ScintillaEditor::ScintillaEditor(QWidget* parent) : EditorBackend(parent) {
         modified_ = dirty;
         emit modificationChanged(modified_);
     });
-    connect(control_, &ScintillaEditBase::updateUi, this, [this](Scintilla::Update) {
+    connect(control_, &ScintillaEditBase::updateUi, this, [this](Scintilla::Update updated) {
         updateBraceHighlight();
         const auto position = control_->send(message(Scintilla::Message::GetCurrentPos));
         const auto line =
             control_->send(message(Scintilla::Message::LineFromPosition), value(position));
         const auto column = control_->send(message(Scintilla::Message::GetColumn), value(position));
+        const QPointer<ScintillaEditor> alive(this);
         emit cursorPositionChanged(static_cast<int>(line) + 1, static_cast<int>(column) + 1);
+        if (alive &&
+            (static_cast<int>(updated) & static_cast<int>(Scintilla::Update::Selection)) != 0)
+            emit selectionChanged();
     });
     connect(control_, &ScintillaEditBase::notifyChange, this, [this] {
         ++contentRevision_;
+        const int lineCount =
+            static_cast<int>(control_->send(message(Scintilla::Message::GetLineCount)));
+        if (qMax(3, QString::number(lineCount).size()) != gutterDigits_)
+            updateGutterWidths();
         emit textChanged();
     });
+    connect(
+        control_, &ScintillaEditBase::notify, this,
+        [this](Scintilla::NotificationData* notification) {
+            // Paired container actions bracket the whole transaction. Wait for the
+            // final *post-step* notification: container notifications themselves
+            // arrive before Scintilla advances its undo cursor/save-point state.
+            if (notification->nmhdr.code != Scintilla::Notification::Modified)
+                return;
+            const auto flags = static_cast<unsigned int>(notification->modificationType);
+            if (replayingEol_ && pendingEolReplay_ &&
+                (flags &
+                 static_cast<unsigned int>(Scintilla::ModificationFlags::LastStepInUndoRedo))) {
+                const auto replay = *pendingEolReplay_;
+                pendingEolReplay_.reset();
+                replayingEol_ = false;
+                skipReplayCompletionEdit_ = true;
+                setLineEnding(replay.first);
+                const bool modified = control_->send(message(Scintilla::Message::GetModify)) != 0;
+                const bool changed = modified != modified_;
+                modified_ = modified;
+                const QPointer<ScintillaEditor> alive(this);
+                emit textReplacedWithLineEnding(text(), replay.first, replay.second);
+                if (alive && changed)
+                    emit modificationChanged(modified);
+                return;
+            }
+            if (!(flags & static_cast<unsigned int>(Scintilla::ModificationFlags::Container)))
+                return;
+            const auto action = eolUndoActions_.constFind(notification->token);
+            if (action == eolUndoActions_.cend())
+                return;
+            const bool undo = flags & static_cast<unsigned int>(Scintilla::ModificationFlags::Undo);
+            const bool redo = flags & static_cast<unsigned int>(Scintilla::ModificationFlags::Redo);
+            if (!undo && !redo)
+                return;
+            if ((undo && !action->start) || (redo && action->start)) {
+                replayingEol_ = true;
+                pendingEolReplay_.reset();
+            } else {
+                const auto eol = undo ? action->before : action->after;
+                pendingEolReplay_ = QPair(eol, undo ? core::DocumentEditReason::Undo
+                                                    : core::DocumentEditReason::Redo);
+            }
+        });
     connect(
         control_, &ScintillaEditBase::modified, this,
         [this](Scintilla::ModificationFlags flags, Scintilla::Position position,
                Scintilla::Position length, Scintilla::Position, const QByteArray& changedText,
                Scintilla::Position, Scintilla::FoldLevel, Scintilla::FoldLevel) {
             const auto rawFlags = static_cast<unsigned int>(flags);
+            if (skipReplayCompletionEdit_) {
+                skipReplayCompletionEdit_ = false;
+                return;
+            }
+            if (replayingEol_)
+                return;
             const bool inserted =
                 (rawFlags & static_cast<unsigned int>(Scintilla::ModificationFlags::InsertText)) !=
                 0;
@@ -289,9 +411,15 @@ ScintillaEditor::ScintillaEditor(QWidget* parent) : EditorBackend(parent) {
             }
             const core::TextPosition start = textPosition(control_, position);
             const core::TextPosition end = deleted ? removedEndPosition(start, changedText) : start;
+            const auto reason =
+                (rawFlags & static_cast<unsigned int>(Scintilla::ModificationFlags::Undo))
+                    ? core::DocumentEditReason::Undo
+                : (rawFlags & static_cast<unsigned int>(Scintilla::ModificationFlags::Redo))
+                    ? core::DocumentEditReason::Redo
+                    : core::DocumentEditReason::Other;
             emit textEdited(static_cast<qint64>(position),
                             deleted ? static_cast<qint64>(length) : 0,
-                            inserted ? changedText : QByteArray{}, {start, end});
+                            inserted ? changedText : QByteArray{}, {start, end}, reason);
         });
     connect(control_, &QWidget::customContextMenuRequested, this,
             &ScintillaEditor::contextMenuRequested);
@@ -319,7 +447,171 @@ ScintillaEditor::ScintillaEditor(QWidget* parent) : EditorBackend(parent) {
     configure();
 }
 
+bool ScintillaEditor::eventFilter(QObject* watched, QEvent* event) {
+    if (watched == control_ || watched == control_->viewport()) {
+        if (event->type() == QEvent::FocusOut || event->type() == QEvent::MouseButtonPress)
+            pushUndoStop();
+        if (event->type() == QEvent::KeyPress) {
+            const auto* key = static_cast<QKeyEvent*>(event);
+            if (key->matches(QKeySequence::Undo) || key->matches(QKeySequence::Redo) ||
+                key->matches(QKeySequence::Cut) || key->matches(QKeySequence::Paste) ||
+                key->key() == Qt::Key_Left || key->key() == Qt::Key_Right ||
+                key->key() == Qt::Key_Up || key->key() == Qt::Key_Down ||
+                key->key() == Qt::Key_Home || key->key() == Qt::Key_End ||
+                key->key() == Qt::Key_PageUp || key->key() == Qt::Key_PageDown)
+                pushUndoStop();
+        }
+        if (event->type() == QEvent::Leave) {
+            breakpointHoverTimer_->stop();
+            setBreakpointHintLine(0);
+            gutterPressHandled_ = false;
+            control_->unsetCursor();
+        } else if (event->type() == QEvent::Enter) {
+            breakpointHoverTimer_->start();
+            updateBreakpointHintAt(control_->mapFromGlobal(QCursor::pos()));
+        } else if (event->type() == QEvent::MouseButtonRelease && gutterPressHandled_) {
+            gutterPressHandled_ = false;
+            return true;
+        } else if (event->type() == QEvent::MouseMove ||
+                   event->type() == QEvent::MouseButtonPress ||
+                   event->type() == QEvent::HoverMove) {
+            const QPoint targetPoint = event->type() == QEvent::HoverMove
+                                           ? static_cast<QHoverEvent*>(event)->position().toPoint()
+                                           : static_cast<QMouseEvent*>(event)->position().toPoint();
+            const QPoint point = watched == control_
+                                     ? targetPoint
+                                     : control_->viewport()->mapTo(control_, targetPoint);
+            if (event->type() == QEvent::MouseButtonPress) {
+                const int line = gutterLineAtPoint(point);
+                if (line > 0 && static_cast<QMouseEvent*>(event)->button() == Qt::LeftButton) {
+                    gutterPressHandled_ = true;
+                    setBreakpointHintLine(0);
+                    emit breakpointToggleRequested(line);
+                    return true;
+                }
+            } else {
+                if (updateBreakpointHintAt(point))
+                    return true;
+            }
+        }
+    }
+    return EditorBackend::eventFilter(watched, event);
+}
+
+ScintillaEditor::~ScintillaEditor() { pushUndoStop(); }
+
+int ScintillaEditor::gutterLineAtPoint(const QPoint& point) const {
+    if (!breakpointEnabled_ || readOnly_ || largeFileMode_ || point.x() < 0 ||
+        control_->send(message(Scintilla::Message::GetMarginTypeN), 0) !=
+            static_cast<Scintilla::sptr_t>(Scintilla::MarginType::Symbol))
+        return 0;
+    const int glyphWidth =
+        static_cast<int>(control_->send(message(Scintilla::Message::GetMarginWidthN), 0));
+    const int numberWidth =
+        static_cast<int>(control_->send(message(Scintilla::Message::GetMarginWidthN), 1));
+    const int decorationsWidth =
+        static_cast<int>(control_->send(message(Scintilla::Message::GetMarginWidthN), 2));
+    const int textInset =
+        static_cast<int>(control_->send(message(Scintilla::Message::GetMarginLeft)));
+    // Scintilla keeps a blank text inset after its margins. Include that space
+    // in the breakpoint target, as the VS Code glyph margin does.
+    if (point.x() >= glyphWidth + numberWidth + decorationsWidth + qMax(16, textInset))
+        return 0;
+    return gutterLineAt(point.y());
+}
+
+bool ScintillaEditor::updateBreakpointHintAt(const QPoint& point) {
+    const int line = gutterLineAtPoint(point);
+    const auto markers =
+        line > 0 ? control_->send(message(Scintilla::Message::MarkerGet), value(line - 1)) : 0;
+    setBreakpointHintLine(line > 0 && !(markers & (1 << breakpointMarker)) ? line : 0);
+    if (line > 0) {
+        control_->setCursor(Qt::PointingHandCursor);
+        return true;
+    }
+    control_->unsetCursor();
+    return false;
+}
+
+int ScintillaEditor::gutterLineAt(int y) const {
+    if (y < 0)
+        return 0;
+    const int lineHeight =
+        static_cast<int>(control_->send(message(Scintilla::Message::TextHeight), 0));
+    const int visibleLine =
+        static_cast<int>(control_->send(message(Scintilla::Message::GetFirstVisibleLine))) +
+        y / qMax(1, lineHeight);
+    const int lineCount =
+        static_cast<int>(control_->send(message(Scintilla::Message::GetLineCount)));
+    const int lastLine = lineCount - 1;
+    const int visibleEnd = static_cast<int>(
+        control_->send(message(Scintilla::Message::VisibleFromDocLine), value(lastLine)) +
+        control_->send(message(Scintilla::Message::WrapCount), value(lastLine)));
+    if (visibleLine < 0 || visibleLine >= visibleEnd)
+        return 0;
+    return static_cast<int>(control_->send(message(Scintilla::Message::DocLineFromVisible),
+                                           value(visibleLine))) +
+           1;
+}
+
+void ScintillaEditor::setBreakpointHintLine(int line) {
+    if (breakpointHintLine_ == line)
+        return;
+    control_->send(message(Scintilla::Message::MarkerDeleteAll), breakpointHintMarker);
+    breakpointHintLine_ = line;
+    if (line > 0)
+        control_->send(message(Scintilla::Message::MarkerAdd), value(line - 1),
+                       breakpointHintMarker);
+    control_->viewport()->update();
+}
+
+void ScintillaEditor::paintBreakpointDots(QPainter& painter) {
+    if (!breakpointIcon_->isValid())
+        return;
+    const int glyphWidth =
+        static_cast<int>(control_->send(message(Scintilla::Message::GetMarginWidthN), 0));
+    if (glyphWidth <= 0)
+        return;
+    const int lineHeight =
+        qMax(1, static_cast<int>(control_->send(message(Scintilla::Message::TextHeight), 0)));
+    const int firstVisible =
+        static_cast<int>(control_->send(message(Scintilla::Message::GetFirstVisibleLine)));
+    const int lineCount =
+        static_cast<int>(control_->send(message(Scintilla::Message::GetLineCount)));
+    const int visibleRows = control_->viewport()->height() / lineHeight + 2;
+    for (int row = 0; row < visibleRows; ++row) {
+        const int visibleLine = firstVisible + row;
+        const int documentLine = static_cast<int>(
+            control_->send(message(Scintilla::Message::DocLineFromVisible), value(visibleLine)));
+        if (documentLine < 0 || documentLine >= lineCount)
+            break;
+        if (control_->send(message(Scintilla::Message::VisibleFromDocLine), value(documentLine)) !=
+            visibleLine)
+            continue;
+        const auto markers =
+            control_->send(message(Scintilla::Message::MarkerGet), value(documentLine));
+        const bool breakpoint = (markers & (1 << breakpointMarker)) != 0;
+        const bool hint = (markers & (1 << breakpointHintMarker)) != 0;
+        if (!breakpoint && !hint)
+            continue;
+        const QRectF iconRect((glyphWidth - 16) / 2.0, row * lineHeight + (lineHeight - 16) / 2.0,
+                              16, 16);
+        if (breakpoint && documentLine + 1 == debugExecutionLine_) {
+            auto* activeIcon = darkTheme_ ? activeBreakpointDarkIcon_ : activeBreakpointLightIcon_;
+            if (activeIcon->isValid()) {
+                activeIcon->render(&painter, iconRect);
+                continue;
+            }
+        }
+        painter.save();
+        painter.setOpacity(breakpoint ? 1.0 : 0.4);
+        breakpointIcon_->render(&painter, iconRect);
+        painter.restore();
+    }
+}
+
 void ScintillaEditor::setText(const QByteArray& text) {
+    pushUndoStop();
     const bool restoreReadOnly = readOnly_;
     if (restoreReadOnly)
         control_->send(message(Scintilla::Message::SetReadOnly), false);
@@ -330,13 +622,21 @@ void ScintillaEditor::setText(const QByteArray& text) {
     // SetText is recorded by Scintilla as an edit. A document loaded from disk must instead
     // become the undo baseline; otherwise repeated Ctrl+Z eventually removes the entire file.
     control_->send(message(Scintilla::Message::EmptyUndoBuffer));
+    eolUndoActions_.clear();
+    nextEolUndoToken_ = 0;
+    replayingEol_ = false;
+    skipReplayCompletionEdit_ = false;
+    pendingEolReplay_.reset();
     markSaved();
     if (restoreReadOnly)
         control_->send(message(Scintilla::Message::SetReadOnly), true);
     ++contentRevision_;
+    if (debugExecutionLine_ > 0)
+        setDebugExecutionLine(debugExecutionLine_);
 }
 
 void ScintillaEditor::reloadText(const QByteArray& text) {
+    pushUndoStop();
     const bool restoreReadOnly = readOnly_;
     if (restoreReadOnly)
         control_->send(message(Scintilla::Message::SetReadOnly), false);
@@ -360,10 +660,15 @@ void ScintillaEditor::reloadText(const QByteArray& text) {
     if (restoreReadOnly)
         control_->send(message(Scintilla::Message::SetReadOnly), true);
     ++contentRevision_;
+    if (debugExecutionLine_ > 0)
+        setDebugExecutionLine(debugExecutionLine_);
 }
 
 void ScintillaEditor::setReadOnly(bool readOnly) {
+    pushUndoStop();
     readOnly_ = readOnly;
+    if (readOnly)
+        setBreakpointHintLine(0);
     control_->send(message(Scintilla::Message::SetReadOnly), readOnly);
 }
 
@@ -398,6 +703,7 @@ void ScintillaEditor::setLargeFileMode(bool enabled) {
         return;
     largeFileMode_ = enabled;
     if (largeFileMode_) {
+        setBreakpointHintLine(0);
         diagnostics_.clear();
         clearSemanticIndicators();
     }
@@ -419,18 +725,22 @@ QByteArray ScintillaEditor::text() const {
     return contents;
 }
 
-void ScintillaEditor::markSaved() { sendCommand(message(Scintilla::Message::SetSavePoint)); }
+void ScintillaEditor::markSaved() {
+    pushUndoStop();
+    sendCommand(message(Scintilla::Message::SetSavePoint));
+}
 
 bool ScintillaEditor::isModified() const { return modified_; }
 
 void ScintillaEditor::goToLine(int line) {
+    pushUndoStop();
     control_->send(message(Scintilla::Message::GotoLine), value(std::max(0, line - 1)));
     control_->send(message(Scintilla::Message::ScrollCaret));
     control_->setFocus();
 }
 
 void ScintillaEditor::goToMatch(int line, int column, int length) {
-    if (line <= 0 || column <= 0 || length <= 0) {
+    if (line <= 0 || column <= 0 || length < 0) {
         goToLine(line);
         return;
     }
@@ -452,15 +762,63 @@ void ScintillaEditor::goToMatch(int line, int column, int length) {
 }
 
 void ScintillaEditor::selectByteRange(qint64 start, qint64 end) {
+    pushUndoStop();
     const qint64 length = control_->send(message(Scintilla::Message::GetLength));
     control_->send(message(Scintilla::Message::SetSel), value(qBound<qint64>(0, start, length)),
                    value(qBound<qint64>(0, end, length)));
     control_->send(message(Scintilla::Message::ScrollCaret));
+    emit selectionChanged();
 }
 
 QPair<qint64, qint64> ScintillaEditor::selectionByteRange() const {
     return {control_->send(message(Scintilla::Message::GetSelectionStart)),
             control_->send(message(Scintilla::Message::GetSelectionEnd))};
+}
+
+EditorSelectionState ScintillaEditor::selectionState() const {
+    EditorSelectionState result;
+    const auto count = control_->send(message(Scintilla::Message::GetSelections));
+    result.mainSelection =
+        static_cast<int>(control_->send(message(Scintilla::Message::GetMainSelection)));
+    result.selections.reserve(count);
+    for (Scintilla::sptr_t index = 0; index < count; ++index)
+        result.selections.append(
+            {control_->send(message(Scintilla::Message::GetSelectionNAnchor), value(index)),
+             control_->send(message(Scintilla::Message::GetSelectionNCaret), value(index))});
+    return result;
+}
+bool ScintillaEditor::restoreExtensionSelections(const EditorSelectionState& state) {
+    const auto length = control_->send(message(Scintilla::Message::GetLength));
+    if (state.selections.isEmpty() || state.mainSelection < 0 ||
+        state.mainSelection >= state.selections.size())
+        return false;
+    for (const auto& selection : state.selections)
+        if (selection.anchor < 0 || selection.active < 0 || selection.anchor > length ||
+            selection.active > length)
+            return false;
+    const auto& first = state.selections.first();
+    control_->send(message(Scintilla::Message::SetSelection), value(first.active),
+                   value(first.anchor));
+    for (qsizetype index = 1; index < state.selections.size(); ++index) {
+        const auto& selection = state.selections[index];
+        control_->send(message(Scintilla::Message::AddSelection), value(selection.active),
+                       value(selection.anchor));
+    }
+    // Scintilla merges identical selections. Find the requested primary by its
+    // coordinates rather than assuming its original index survived the merge.
+    const auto count = control_->send(message(Scintilla::Message::GetSelections));
+    const auto& primary = state.selections[state.mainSelection];
+    for (Scintilla::sptr_t index = 0; index < count; ++index) {
+        if (control_->send(message(Scintilla::Message::GetSelectionNAnchor), value(index)) ==
+                primary.anchor &&
+            control_->send(message(Scintilla::Message::GetSelectionNCaret), value(index)) ==
+                primary.active) {
+            control_->send(message(Scintilla::Message::SetMainSelection), value(index));
+            break;
+        }
+    }
+    emit selectionChanged();
+    return true;
 }
 
 void ScintillaEditor::setDiagnostics(const QVector<DiagnosticRange>& diagnostics) {
@@ -550,6 +908,7 @@ void ScintillaEditor::setEditorFont(const QString& family, int pixelSize, int we
     control_->send(message(Scintilla::Message::SetExtraDescent), 1);
     control_->send(message(Scintilla::Message::StyleClearAll));
     applyEditorChromeStyles();
+    updateGutterWidths();
     applyLanguageStyles();
     applySemanticTokens();
     control_->send(message(Scintilla::Message::Colourise), 0, -1);
@@ -652,6 +1011,7 @@ bool ScintillaEditor::replaceNext(const QString& needle, const QString& replacem
 
 int ScintillaEditor::replaceAll(const QString& needle, const QString& replacement, bool matchCase,
                                 bool wholeWord, bool regularExpression) {
+    pushUndoStop();
     const QByteArray encodedNeedle = needle.toUtf8();
     const QByteArray encodedReplacement =
         regularExpression ? regexReplacement(replacement) : replacement.toUtf8();
@@ -850,12 +1210,27 @@ void ScintillaEditor::clearFindHighlights() {
     highlightedCurrentIndex_ = -1;
 }
 
-void ScintillaEditor::undo() { sendCommand(message(Scintilla::Message::Undo)); }
-void ScintillaEditor::redo() { sendCommand(message(Scintilla::Message::Redo)); }
-void ScintillaEditor::cut() { sendCommand(message(Scintilla::Message::Cut)); }
+void ScintillaEditor::undo() {
+    pushUndoStop();
+    sendCommand(message(Scintilla::Message::Undo));
+}
+void ScintillaEditor::redo() {
+    pushUndoStop();
+    sendCommand(message(Scintilla::Message::Redo));
+}
+void ScintillaEditor::cut() {
+    pushUndoStop();
+    sendCommand(message(Scintilla::Message::Cut));
+}
 void ScintillaEditor::copy() { sendCommand(message(Scintilla::Message::Copy)); }
-void ScintillaEditor::paste() { sendCommand(message(Scintilla::Message::Paste)); }
-void ScintillaEditor::selectAll() { sendCommand(message(Scintilla::Message::SelectAll)); }
+void ScintillaEditor::paste() {
+    pushUndoStop();
+    sendCommand(message(Scintilla::Message::Paste));
+}
+void ScintillaEditor::selectAll() {
+    pushUndoStop();
+    sendCommand(message(Scintilla::Message::SelectAll));
+}
 
 void ScintillaEditor::configure() {
     const auto theme = SyntaxTheme::palette(true);
@@ -881,6 +1256,10 @@ void ScintillaEditor::configure() {
                    value(Scintilla::IndentView::None));
     control_->send(message(Scintilla::Message::SetMultipleSelection), true);
     control_->send(message(Scintilla::Message::SetAdditionalSelectionTyping), true);
+    // Preserve the full directional/primary selection state on undo and redo,
+    // rather than Scintilla's default single-caret recovery from edited bytes.
+    control_->send(message(Scintilla::Message::SetUndoSelectionHistory),
+                   value(Scintilla::UndoSelectionHistoryOption::Enabled));
     control_->send(message(Scintilla::Message::SetMultiPaste), value(Scintilla::MultiPaste::Each));
 
     const auto defaultStyle = value(Scintilla::StylesCommon::Default);
@@ -895,9 +1274,28 @@ void ScintillaEditor::configure() {
     control_->send(message(Scintilla::Message::SetExtraDescent), 1);
     control_->send(message(Scintilla::Message::StyleClearAll));
     applyEditorChromeStyles();
-    control_->send(message(Scintilla::Message::SetMarginTypeN), 0,
+    control_->send(message(Scintilla::Message::SetMarginTypeN), 1,
                    value(Scintilla::MarginType::Number));
-    control_->send(message(Scintilla::Message::SetMarginWidthN), 0, 48);
+    // Scintilla reserves marker IDs 25-31 for folding and paints their margin
+    // with a selection pattern. Debug markers must stay below that range.
+    control_->send(message(Scintilla::Message::SetMarginTypeN), 0,
+                   value(Scintilla::MarginType::Symbol));
+    updateGutterWidths();
+    control_->send(message(Scintilla::Message::SetMarginMaskN), 0, (1 << executionArrowMarker));
+    control_->send(message(Scintilla::Message::SetMarginMaskN), 1, 0);
+    control_->send(message(Scintilla::Message::SetMarginTypeN), 2,
+                   value(Scintilla::MarginType::Back));
+    control_->send(message(Scintilla::Message::SetMarginMaskN), 2, 0);
+    control_->send(message(Scintilla::Message::SetMarginSensitiveN), 0, true);
+    control_->send(message(Scintilla::Message::SetMarginSensitiveN), 1, true);
+    // Keep Scintilla's line-tracking markers, but paint the Codicon as a vector
+    // after its viewport paint. Its RGBA marker path rasterizes unevenly under
+    // fractional Windows display scaling.
+    control_->send(message(Scintilla::Message::MarkerDefine), breakpointHintMarker,
+                   value(Scintilla::MarkerSymbol::Empty));
+    control_->send(message(Scintilla::Message::MarkerDefine), breakpointMarker,
+                   value(Scintilla::MarkerSymbol::Empty));
+    applyDebugExecutionMarkerStyle();
     control_->send(message(Scintilla::Message::SetCaretWidth), 2);
     control_->send(message(Scintilla::Message::SetCaretLineVisible), true);
     control_->send(message(Scintilla::Message::SetMouseDwellTime), 500);
@@ -909,9 +1307,76 @@ void ScintillaEditor::configure() {
         control_->send(message(Scintilla::Message::IndicSetFore), value(indicator), colour(color));
     }
 }
+void ScintillaEditor::updateGutterWidths() {
+    // VS Code sizes its glyph lane to the line height. Use a compact three-
+    // digit minimum for line numbers while still growing for larger files.
+    const int glyphWidth =
+        qMax(16, static_cast<int>(control_->send(message(Scintilla::Message::TextHeight), 0)));
+    const int lineCount =
+        static_cast<int>(control_->send(message(Scintilla::Message::GetLineCount)));
+    const int digits = qMax(3, QString::number(lineCount).size());
+    gutterDigits_ = digits;
+    const QByteArray widest(digits, '9');
+    const int numberWidth = static_cast<int>(
+        control_->sends(message(Scintilla::Message::TextWidth),
+                        value(Scintilla::StylesCommon::LineNumber), widest.constData()));
+    control_->send(message(Scintilla::Message::SetMarginWidthN), 0, glyphWidth);
+    control_->send(message(Scintilla::Message::SetMarginWidthN), 1, qMax(1, numberWidth));
+    // Monaco reserves 10px for line decorations and 16px for folding controls.
+    control_->send(message(Scintilla::Message::SetMarginWidthN), 2, diffView_ ? 0 : 26);
+    control_->viewport()->update();
+}
+void ScintillaEditor::setBreakpointEnabled(bool enabled) {
+    breakpointEnabled_ = enabled;
+    if (!enabled)
+        setBreakpointHintLine(0);
+}
+void ScintillaEditor::setDebugBreakpoints(const QSet<int>& lines) {
+    control_->send(message(Scintilla::Message::MarkerDeleteAll), breakpointMarker);
+    for (int line : lines)
+        if (line > 0)
+            control_->send(message(Scintilla::Message::MarkerAdd), value(line - 1),
+                           breakpointMarker);
+    if (breakpointHintLine_ > 0 && lines.contains(breakpointHintLine_))
+        setBreakpointHintLine(0);
+    updateDebugExecutionArrow();
+    control_->viewport()->update();
+}
+void ScintillaEditor::applyDebugExecutionMarkerStyle() {
+    const auto theme = SyntaxTheme::palette(darkTheme_);
+    control_->send(message(Scintilla::Message::MarkerDefine), executionMarker,
+                   value(Scintilla::MarkerSymbol::Background));
+    control_->send(message(Scintilla::Message::MarkerSetBack), executionMarker,
+                   colour(blendedOver(theme.debugStackFrame, theme.background)));
+    control_->send(message(Scintilla::Message::MarkerDefine), executionArrowMarker,
+                   value(Scintilla::MarkerSymbol::Arrow));
+    control_->send(message(Scintilla::Message::MarkerSetBack), executionArrowMarker,
+                   colour(QColor(QStringLiteral("#e2b340"))));
+}
+void ScintillaEditor::setDebugExecutionLine(int line) {
+    control_->send(message(Scintilla::Message::MarkerDeleteAll), executionMarker);
+    debugExecutionLine_ = line > 0 ? line : 0;
+    if (debugExecutionLine_ > 0)
+        control_->send(message(Scintilla::Message::MarkerAdd), value(debugExecutionLine_ - 1),
+                       executionMarker);
+    updateDebugExecutionArrow();
+    control_->viewport()->update();
+}
+void ScintillaEditor::updateDebugExecutionArrow() {
+    control_->send(message(Scintilla::Message::MarkerDeleteAll), executionArrowMarker);
+    if (debugExecutionLine_ > 0 &&
+        !(control_->send(message(Scintilla::Message::MarkerGet), value(debugExecutionLine_ - 1)) &
+          (1 << breakpointMarker)))
+        control_->send(message(Scintilla::Message::MarkerAdd), value(debugExecutionLine_ - 1),
+                       executionArrowMarker);
+}
 
 void ScintillaEditor::applyEditorChromeStyles() {
     const auto theme = SyntaxTheme::palette(darkTheme_);
+    applyDebugExecutionMarkerStyle();
+    for (int margin : {0, 1, 2})
+        control_->send(message(Scintilla::Message::SetMarginBackN), margin,
+                       colour(theme.background));
     const auto defaultStyle = value(Scintilla::StylesCommon::Default);
     control_->send(message(Scintilla::Message::StyleSetFore), defaultStyle,
                    colour(theme.foreground));
@@ -1183,4 +1648,187 @@ void ScintillaEditor::updateBraceHighlight() {
 
 void ScintillaEditor::sendCommand(unsigned int command) const { control_->send(command); }
 
+void ScintillaEditor::configureDiffView() {
+    diffView_ = true;
+    control_->send(message(Scintilla::Message::SetCaretLineVisible), false);
+    control_->send(message(Scintilla::Message::SetWrapMode), value(Scintilla::Wrap::None));
+    control_->send(message(Scintilla::Message::SetVScrollBar), false);
+    control_->send(message(Scintilla::Message::SetEndAtLastLine), false);
+    control_->send(message(Scintilla::Message::SetMarginWidthN), 2, 0);
+    connect(control_, &ScintillaEditBase::updateUi, this, [this](Scintilla::Update updated) {
+        if ((static_cast<int>(updated) & 12) != 0)
+            emit diffScrolled(displayLine(), static_cast<int>(control_->send(
+                                                 message(Scintilla::Message::GetXOffset))));
+    });
+}
+int ScintillaEditor::displayLine() const {
+    return static_cast<int>(control_->send(message(Scintilla::Message::GetFirstVisibleLine)));
+}
+int ScintillaEditor::diffLineHeight() const {
+    return static_cast<int>(control_->send(message(Scintilla::Message::TextHeight), 0));
+}
+int ScintillaEditor::diffLineY(int line) const {
+    const auto position =
+        control_->send(message(Scintilla::Message::PositionFromLine), value(line));
+    return static_cast<int>(
+        control_->send(message(Scintilla::Message::PointYFromPosition), 0, position));
+}
+void ScintillaEditor::setDisplayLine(int line) {
+    control_->send(message(Scintilla::Message::SetFirstVisibleLine), value(qMax(0, line)));
+}
+void ScintillaEditor::setHorizontalOffset(int offset) {
+    control_->send(message(Scintilla::Message::SetXOffset), value(offset));
+}
+void ScintillaEditor::replaceBytes(qint64 position, qint64 length, const QByteArray& replacement) {
+    if (readOnly_)
+        return;
+    control_->send(message(Scintilla::Message::BeginUndoAction));
+    control_->send(message(Scintilla::Message::SetTargetStart), value(position));
+    control_->send(message(Scintilla::Message::SetTargetEnd), value(position + length));
+    control_->send(message(Scintilla::Message::ReplaceTarget), value(replacement.size()),
+                   reinterpret_cast<Scintilla::sptr_t>(replacement.constData()));
+    control_->send(message(Scintilla::Message::EndUndoAction));
+}
+void ScintillaEditor::beginUndoGroup() {
+    pushUndoStop();
+    control_->send(message(Scintilla::Message::BeginUndoAction));
+}
+void ScintillaEditor::endUndoGroup() { control_->send(message(Scintilla::Message::EndUndoAction)); }
+bool ScintillaEditor::beginExtensionEdit(bool undoStopBefore) {
+    if (readOnly_ || largeFileMode_)
+        return false;
+    if (undoStopBefore)
+        pushUndoStop();
+    if (!extensionUndoOpen_)
+        extensionUndoOpen_ = detail::beginCoalescingUndoAction(*control_, !undoStopBefore);
+    return extensionUndoOpen_;
+}
+void ScintillaEditor::endExtensionEdit(bool undoStopAfter) {
+    if (undoStopAfter)
+        pushUndoStop();
+}
+void ScintillaEditor::pushUndoStop() {
+    if (!extensionUndoOpen_)
+        return;
+    extensionUndoOpen_ = false;
+    detail::endCoalescingUndoAction(*control_);
+}
+int ScintillaEditor::beginLineEndingUndo(core::LineEnding before, core::LineEnding after) {
+    if (nextEolUndoToken_ > std::numeric_limits<int>::max() - 2)
+        throw std::length_error("EOL undo token space exhausted.");
+    const auto start = ++nextEolUndoToken_, end = ++nextEolUndoToken_;
+    eolUndoActions_.insert(start, {before, after, true});
+    eolUndoActions_.insert(end, {before, after, false});
+    control_->send(message(Scintilla::Message::AddUndoAction), value(start), 0);
+    return end;
+}
+void ScintillaEditor::endLineEndingUndo(int token) {
+    control_->send(message(Scintilla::Message::AddUndoAction), value(token), 0);
+    const bool changed = control_->send(message(Scintilla::Message::GetModify)) != 0;
+    if (changed != modified_) {
+        modified_ = changed;
+        emit modificationChanged(changed);
+    }
+}
+void ScintillaEditor::convertLineEndings(core::LineEnding eol) {
+    if (readOnly_)
+        return;
+    const auto mode =
+        eol == core::LineEnding::CrLf ? Scintilla::EndOfLine::CrLf : Scintilla::EndOfLine::Lf;
+    control_->send(message(Scintilla::Message::ConvertEOLs), value(mode));
+    setLineEnding(eol);
+}
+void ScintillaEditor::setDiffDecorations(const QVector<int>& changedLines,
+                                         const QVector<QPair<int, int>>& gaps,
+                                         const QVector<QPair<qint64, qint64>>& /*spans*/,
+                                         bool added) {
+    constexpr int marker = 20, indicator = 24, gapStyle = 250;
+    const auto palette = SyntaxTheme::palette(darkTheme_);
+    const QColor lineColor =
+        blendedOver(added ? palette.diffInsertedLine : palette.diffRemovedLine, palette.background);
+    control_->send(message(Scintilla::Message::MarkerDeleteAll), marker);
+    control_->send(message(Scintilla::Message::MarkerDefine), marker,
+                   value(Scintilla::MarkerSymbol::Background));
+    control_->send(message(Scintilla::Message::MarkerSetBack), marker, colour(lineColor));
+    for (int line : changedLines)
+        control_->send(message(Scintilla::Message::MarkerAdd), value(line), marker);
+    control_->send(message(Scintilla::Message::AnnotationClearAll));
+    control_->send(message(Scintilla::Message::AnnotationSetVisible),
+                   value(Scintilla::AnnotationVisible::Standard));
+    control_->send(message(Scintilla::Message::StyleSetBack), gapStyle,
+                   colour(palette.diffPadding));
+    control_->send(message(Scintilla::Message::StyleSetSizeFractional), gapStyle,
+                   control_->send(message(Scintilla::Message::StyleGetSizeFractional),
+                                  value(Scintilla::StylesCommon::Default)));
+    for (const auto& [line, count] : gaps) {
+        const QByteArray padding(qMax(0, count - 1), '\n');
+        control_->sends(message(Scintilla::Message::AnnotationSetText), value(line),
+                        padding.constData());
+        control_->send(message(Scintilla::Message::AnnotationSetStyle), value(line), gapStyle);
+    }
+    // Keep only the row fill; clear any previous character-level emphasis.
+    control_->send(message(Scintilla::Message::SetIndicatorCurrent), indicator);
+    control_->send(message(Scintilla::Message::IndicatorClearRange), 0,
+                   control_->send(message(Scintilla::Message::GetLength)));
+}
+
+void ScintillaEditor::setInlineDiffDecorations(
+    const QStringList& labels, const QVector<int>& removed, const QVector<int>& added,
+    const QVector<QPair<qint64, qint64>>& /*removedSpans*/,
+    const QVector<QPair<qint64, qint64>>& /*addedSpans*/) {
+    const auto palette = SyntaxTheme::palette(darkTheme_);
+    constexpr int marginStyle = 251;
+    control_->send(message(Scintilla::Message::SetMarginTypeN), 0,
+                   value(Scintilla::MarginType::Text));
+    control_->send(message(Scintilla::Message::SetMarginWidthN), 1, 0);
+    control_->send(message(Scintilla::Message::SetMarginLeft), 0, 0);
+    control_->send(message(Scintilla::Message::StyleSetFore), marginStyle,
+                   colour(palette.lineNumber));
+    control_->send(message(Scintilla::Message::StyleSetBack), marginStyle,
+                   colour(palette.background));
+    control_->send(message(Scintilla::Message::StyleSetSizeFractional), marginStyle,
+                   control_->send(message(Scintilla::Message::StyleGetSizeFractional),
+                                  value(Scintilla::StylesCommon::Default)));
+    for (int style : {252, 253}) {
+        control_->send(message(Scintilla::Message::StyleSetFore), style,
+                       colour(palette.foreground));
+        control_->send(
+            message(Scintilla::Message::StyleSetBack), style,
+            colour(blendedOver(style == 252 ? palette.diffInsertedLine : palette.diffRemovedLine,
+                               palette.background)));
+        control_->send(message(Scintilla::Message::StyleSetSizeFractional), style,
+                       control_->send(message(Scintilla::Message::StyleGetSizeFractional),
+                                      value(Scintilla::StylesCommon::Default)));
+    }
+    control_->send(message(Scintilla::Message::MarginTextClearAll));
+    int marginWidth = 0;
+    for (int row = 0; row < labels.size(); ++row) {
+        const auto label = labels[row].toUtf8() + "   ";
+        marginWidth = qMax(marginWidth,
+                           static_cast<int>(control_->sends(message(Scintilla::Message::TextWidth),
+                                                            marginStyle, label.constData())));
+        control_->sends(message(Scintilla::Message::MarginSetText), row, label.constData());
+        control_->send(message(Scintilla::Message::MarginSetStyle), row, marginStyle);
+        if (added.contains(row) || removed.contains(row)) {
+            const bool inserted = added.contains(row);
+            control_->send(message(Scintilla::Message::MarginSetStyle), row, inserted ? 252 : 253);
+        }
+    }
+    control_->send(message(Scintilla::Message::SetMarginWidthN), 0, marginWidth);
+    auto decorate = [&](int marker, int indicator, const QVector<int>& lines, bool inserted) {
+        const auto lineColor = blendedOver(
+            inserted ? palette.diffInsertedLine : palette.diffRemovedLine, palette.background);
+        control_->send(message(Scintilla::Message::MarkerDeleteAll), marker);
+        control_->send(message(Scintilla::Message::MarkerDefine), marker,
+                       value(Scintilla::MarkerSymbol::Background));
+        control_->send(message(Scintilla::Message::MarkerSetBack), marker, colour(lineColor));
+        for (int line : lines)
+            control_->send(message(Scintilla::Message::MarkerAdd), line, marker);
+        control_->send(message(Scintilla::Message::SetIndicatorCurrent), indicator);
+        control_->send(message(Scintilla::Message::IndicatorClearRange), 0,
+                       control_->send(message(Scintilla::Message::GetLength)));
+    };
+    decorate(20, 24, removed, false);
+    decorate(21, 25, added, true);
+}
 } // namespace litecode::editor

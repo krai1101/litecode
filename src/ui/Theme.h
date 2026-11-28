@@ -77,6 +77,25 @@ struct ThemeTokens final {
     QColor terminalSessionActionHover;
     QColor windowOutline;
     QColor popupShadow;
+    QColor inactiveTabForeground;
+    QColor activeTabForeground;
+    QColor placeholderForeground;
+    QColor primaryButtonHover;
+    QColor menuSelectionBackground;
+    QColor menuSelectionForeground;
+    QColor activityForeground;
+    QColor activityInactiveForeground;
+    QColor badgeBackground;
+    QColor badgeForeground;
+    QColor secondaryButtonBackground;
+    QColor secondaryButtonHover;
+    QColor textSelectionBackground;
+    QColor gitAdded;
+    QColor gitModified;
+    QColor gitDeleted;
+    QColor gitUntracked;
+    QColor gitRenamed;
+    QColor gitConflict;
 };
 
 class Theme final {

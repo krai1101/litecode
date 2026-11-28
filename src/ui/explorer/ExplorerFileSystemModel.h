@@ -1,6 +1,8 @@
 #pragma once
 
+#include "workspace/GitService.h"
 #include <QAbstractProxyModel>
+#include <QColor>
 #include <QFileInfo>
 #include <QFileSystemModel>
 #include <QHash>
@@ -11,12 +13,17 @@
 
 namespace litecode::ui {
 
+struct GitFileDecoration {
+    QString badge;
+    QColor color;
+};
+
 // A filesystem proxy that can inject one transient child for New File/New Folder.
 class ExplorerFileSystemModel final : public QAbstractProxyModel {
     Q_OBJECT
 
   public:
-    enum Role { TemporaryEntryRole = Qt::UserRole + 1, DirectoryRole };
+    enum Role { TemporaryEntryRole = Qt::UserRole + 1, DirectoryRole, GitBadgeRole, GitColorRole };
 
     explicit ExplorerFileSystemModel(QObject* parent = nullptr);
     QModelIndex mapToSource(const QModelIndex& proxyIndex) const override;
@@ -47,10 +54,13 @@ class ExplorerFileSystemModel final : public QAbstractProxyModel {
     void removeTemporaryEntry();
     [[nodiscard]] QModelIndex temporaryEntry() const;
     [[nodiscard]] bool isTemporaryEntry(const QModelIndex& index) const;
+    void setGitStatus(const QString& repository, const workspace::GitStatus& status);
+    [[nodiscard]] GitFileDecoration gitDecoration(const QString& path, bool dark) const;
 
   signals:
     void directoryLoaded(const QString& path);
     void temporaryEntryInvalidated();
+    void gitDecorationsChanged();
 
   private:
     struct Node {
@@ -76,6 +86,7 @@ class ExplorerFileSystemModel final : public QAbstractProxyModel {
     QString temporaryName_;
     QModelIndexList layoutPersistentIndexes_;
     int pendingTemporaryRowDelta_{};
+    QHash<QString, char> gitDecorations_;
 };
 
 } // namespace litecode::ui

@@ -35,7 +35,11 @@ class TerminalSessionService final : public QObject {
     [[nodiscard]] QVector<TerminalSessionSnapshot> sessions() const;
     [[nodiscard]] core::OperationId createSession(const QString& profileId,
                                                   const QString& workingDirectory);
+    [[nodiscard]] core::OperationId createProcessSession(const TerminalProfile& process,
+                                                         const QString& workingDirectory);
     [[nodiscard]] bool sendInput(core::OperationId id, const QByteArray& bytes);
+    [[nodiscard]] qint64 processId(core::OperationId id) const;
+    [[nodiscard]] bool shellIsIdle(core::OperationId id);
     void resizeSession(core::OperationId id, const QSize& characters);
     void requestRemove(core::OperationId id);
     void requestStopAll();

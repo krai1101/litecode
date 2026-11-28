@@ -3,6 +3,7 @@
 #include "editor/ScintillaEditor.h"
 #include "ui/EditorArea.h"
 #include "ui/components/FindTextInput.h"
+#include "ui/components/WorkbenchTabs.h"
 
 #include <SciLexer.h>
 #include <ScintillaEditBase.h>
@@ -13,6 +14,7 @@
 #include <QFrame>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMouseEvent>
 #include <QSignalSpy>
 #include <QTabBar>
 #include <QTabWidget>
@@ -69,7 +71,107 @@ class EditorBehaviorTest final : public QObject {
     void pathIdentityFollowsFileSystemCaseSensitivity();
     void cppLexerUsesConfiguredLexillaCapabilities();
     void nativeLexersReceiveConfiguredKeywords();
+    void debugExecutionLineHighlightsAndClears();
+    void breakpointGutterHoverAndClick();
 };
+
+void EditorBehaviorTest::debugExecutionLineHighlightsAndClears() {
+    litecode::editor::ScintillaEditor editor;
+    editor.setText(QByteArrayLiteral("first\nsecond\nthird\n"));
+    auto* control = editor.findChild<ScintillaEditBase*>(QStringLiteral("scintillaControl"));
+    QVERIFY(control);
+    QVERIFY(control->send(scintillaMessage(Scintilla::Message::GetMarginWidthN), 0) >= 16);
+    QVERIFY(control->send(scintillaMessage(Scintilla::Message::GetMarginWidthN), 1) > 0);
+    QCOMPARE(control->send(scintillaMessage(Scintilla::Message::GetMarginWidthN), 2),
+             Scintilla::sptr_t{26});
+    QVERIFY(!(control->send(scintillaMessage(Scintilla::Message::GetMarginMaskN), 0) &
+              Scintilla::MaskFolders));
+    const auto editorBackground =
+        control->send(scintillaMessage(Scintilla::Message::StyleGetBack),
+                      static_cast<Scintilla::uptr_t>(Scintilla::StylesCommon::Default));
+    QCOMPARE(control->send(scintillaMessage(Scintilla::Message::GetMarginBackN), 0),
+             editorBackground);
+    QCOMPARE(control->send(scintillaMessage(Scintilla::Message::GetMarginBackN), 1),
+             editorBackground);
+    QCOMPARE(control->send(scintillaMessage(Scintilla::Message::GetMarginBackN), 2),
+             editorBackground);
+    QCOMPARE(control->send(scintillaMessage(Scintilla::Message::MarkerSymbolDefined), 22),
+             static_cast<Scintilla::sptr_t>(Scintilla::MarkerSymbol::Empty));
+    editor.setDebugBreakpoints(QSet<int>{2});
+    QVERIFY(control->send(scintillaMessage(Scintilla::Message::MarkerGet), 1) & (1 << 22));
+    constexpr int executionMask = 1 << 23;
+    constexpr int arrowMask = 1 << 24;
+    editor.setDebugExecutionLine(2);
+    QVERIFY(control->send(scintillaMessage(Scintilla::Message::MarkerGet), 1) & executionMask);
+    QVERIFY(!(control->send(scintillaMessage(Scintilla::Message::MarkerGet), 1) & arrowMask));
+    editor.setDarkTheme(false);
+    QVERIFY(control->send(scintillaMessage(Scintilla::Message::MarkerGet), 1) & executionMask);
+    editor.setDebugExecutionLine(3);
+    QVERIFY(!(control->send(scintillaMessage(Scintilla::Message::MarkerGet), 1) & executionMask));
+    QVERIFY(!(control->send(scintillaMessage(Scintilla::Message::MarkerGet), 1) & arrowMask));
+    QVERIFY(control->send(scintillaMessage(Scintilla::Message::MarkerGet), 2) & executionMask);
+    editor.setDebugExecutionLine(0);
+    QVERIFY(!(control->send(scintillaMessage(Scintilla::Message::MarkerGet), 2) & executionMask));
+}
+
+void EditorBehaviorTest::breakpointGutterHoverAndClick() {
+    litecode::editor::ScintillaEditor editor;
+    editor.setText(QByteArrayLiteral("first\nsecond\nthird\n"));
+    editor.resize(400, 200);
+    editor.show();
+    auto* control = editor.findChild<ScintillaEditBase*>(QStringLiteral("scintillaControl"));
+    QVERIFY(control);
+    const int glyphWidth =
+        static_cast<int>(control->send(scintillaMessage(Scintilla::Message::GetMarginWidthN), 0));
+    const int numberWidth =
+        static_cast<int>(control->send(scintillaMessage(Scintilla::Message::GetMarginWidthN), 1));
+    const int decorationsWidth =
+        static_cast<int>(control->send(scintillaMessage(Scintilla::Message::GetMarginWidthN), 2));
+    const int lineHeight =
+        static_cast<int>(control->send(scintillaMessage(Scintilla::Message::TextHeight), 0));
+    QVERIFY(glyphWidth >= lineHeight);
+    QVERIFY2(numberWidth < 60, qPrintable(QStringLiteral("numberWidth=%1").arg(numberWidth)));
+    const int y = lineHeight + lineHeight / 2;
+    constexpr int hintMask = 1 << 19;
+    const auto moveMouse = [control](const QPoint& point) {
+        QMouseEvent move(QEvent::MouseMove, QPointF(point), QPointF(point),
+                         QPointF(control->mapToGlobal(point)), Qt::NoButton, Qt::NoButton,
+                         Qt::NoModifier);
+        QCoreApplication::sendEvent(control, &move);
+    };
+    moveMouse(QPoint(glyphWidth + numberWidth / 2, y));
+    QTRY_VERIFY(control->send(scintillaMessage(Scintilla::Message::MarkerGet), 1) & hintMask);
+    const QString capturePath = qEnvironmentVariable("LITECODE_GUTTER_CAPTURE");
+    if (!capturePath.isEmpty())
+        QVERIFY(control->grab().save(capturePath + QStringLiteral(".hover.png")));
+    moveMouse(QPoint(glyphWidth + numberWidth + decorationsWidth + 20, y));
+    QTRY_VERIFY(!(control->send(scintillaMessage(Scintilla::Message::MarkerGet), 1) & hintMask));
+    QSignalSpy breakpointSpy(&editor,
+                             &litecode::editor::ScintillaEditor::breakpointToggleRequested);
+    QTest::mouseClick(control, Qt::LeftButton, Qt::NoModifier,
+                      QPoint(glyphWidth + numberWidth / 2, y));
+    QCOMPARE(breakpointSpy.size(), 1);
+    QCOMPARE(breakpointSpy.takeFirst().at(0).toInt(), 2);
+    moveMouse(QPoint(glyphWidth + numberWidth + decorationsWidth / 2, y));
+    QTRY_VERIFY(control->send(scintillaMessage(Scintilla::Message::MarkerGet), 1) & hintMask);
+    QTest::mouseClick(control, Qt::LeftButton, Qt::NoModifier,
+                      QPoint(glyphWidth + numberWidth + decorationsWidth / 2, y));
+    QCOMPARE(breakpointSpy.size(), 1);
+    QCOMPARE(breakpointSpy.takeFirst().at(0).toInt(), 2);
+    moveMouse(QPoint(glyphWidth / 2, y));
+    QTRY_VERIFY(control->send(scintillaMessage(Scintilla::Message::MarkerGet), 1) & hintMask);
+    QTest::mouseClick(control, Qt::LeftButton, Qt::NoModifier, QPoint(glyphWidth / 2, y));
+    QCOMPARE(breakpointSpy.size(), 1);
+    QCOMPARE(breakpointSpy.takeFirst().at(0).toInt(), 2);
+    editor.setDebugBreakpoints(QSet<int>{2});
+    moveMouse(QPoint(glyphWidth + numberWidth + decorationsWidth + 20, y));
+    moveMouse(QPoint(glyphWidth / 2, y));
+    QVERIFY(!(control->send(scintillaMessage(Scintilla::Message::MarkerGet), 1) & hintMask));
+    QTest::mouseClick(control, Qt::RightButton, Qt::NoModifier, QPoint(glyphWidth / 2, y));
+    QCOMPARE(breakpointSpy.size(), 0);
+    if (!capturePath.isEmpty())
+        QVERIFY(control->grab().save(capturePath + QStringLiteral(".set.png")));
+}
 
 void EditorBehaviorTest::cppLexerUsesConfiguredLexillaCapabilities() {
     const QByteArray contents = QByteArrayLiteral("/** @param value description */\n"
@@ -365,7 +467,7 @@ void EditorBehaviorTest::failedAutomaticReloadIsReported() {
     auto* editor = area.findChild<litecode::editor::ScintillaEditor*>();
     QVERIFY(editor);
     QCOMPARE(editor->text(), QByteArrayLiteral("safe text"));
-    auto* tabs = area.findChild<QTabWidget*>();
+    auto* tabs = area.findChild<litecode::ui::components::WorkbenchTabs*>();
     QVERIFY(tabs);
     QVERIFY(tabs->tabToolTip(0).contains(QStringLiteral("Reload failed")));
     auto* banner = area.findChild<QFrame*>(QStringLiteral("editorReloadErrorBanner"));
@@ -584,7 +686,7 @@ void EditorBehaviorTest::findCountFollowsEditsAndActiveTab() {
     QTRY_VERIFY_WITH_TIMEOUT(result->text().contains(QStringLiteral("of 3")) ||
                                  result->text() == QStringLiteral("3 results"),
                              5000);
-    auto* tabs = area.findChild<QTabWidget*>();
+    auto* tabs = area.findChild<litecode::ui::components::WorkbenchTabs*>();
     QVERIFY(tabs);
     tabs->setCurrentIndex(0);
     QTRY_VERIFY_WITH_TIMEOUT(result->text().contains(QStringLiteral("of 1")) ||
@@ -604,10 +706,10 @@ void EditorBehaviorTest::transientDeletionDoesNotOrphanTab() {
     QTRY_COMPARE_WITH_TIMEOUT(opened.size(), 1, 5000);
     QVERIFY(QFile::remove(path));
     QVERIFY(writeBytes(path, QByteArrayLiteral("restored")));
-    auto* tabs = area.findChild<QTabWidget*>();
+    auto* tabs = area.findChild<litecode::ui::components::WorkbenchTabs*>();
     QVERIFY(tabs);
     QTest::qWait(250);
-    QVERIFY(!tabs->tabBar()->tabData(0).toBool());
+    QVERIFY(!tabs->tabBar()->tabData(0).toMap().value("deleted").toBool());
 }
 
 void EditorBehaviorTest::pathIdentityFollowsFileSystemCaseSensitivity() {

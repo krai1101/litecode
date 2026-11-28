@@ -1,18 +1,28 @@
 #include "ui/EditorArea.h"
 #include "core/FileSystemPath.h"
 #include "core/SettingsService.h"
+#include "core/TextEncoding.h"
+#include "editor/LanguageSupport.h"
+#include "ui/DiffEditorWidget.h"
+#include "ui/extensions/DetachedDocumentWatcher.h"
+#include "ui/extensions/EditorSelectionPreparation.h"
 
 #include "editor/DocumentSession.h"
+#include "editor/LanguageSupport.h"
 #include "editor/ScintillaEditor.h"
+#include "editor/TextDocumentModel.h"
 #include "ui/FileIconTheme.h"
 #include "ui/PopupPositioner.h"
+#include "ui/Theme.h"
 #include "ui/ThemedIcon.h"
 #include "ui/TransientScrollBars.h"
 #include "ui/components/Controls.h"
 #include "ui/components/EditorBreadcrumb.h"
 #include "ui/components/EditorFindReplaceController.h"
 #include "ui/components/FindTextInput.h"
+#include "ui/explorer/ExplorerFileSystemModel.h"
 
+#include "ui/components/WorkbenchTabs.h"
 #include <QAbstractButton>
 #include <QApplication>
 #include <QClipboard>
@@ -48,18 +58,58 @@
 #include <QTextDocument>
 #include <QTimer>
 #include <QToolButton>
+#include <QUuid>
 #include <QVBoxLayout>
 #include <QWheelEvent>
 #include <QtConcurrentRun>
 
 #include <algorithm>
 #include <cstdlib>
+#include <limits>
 #include <utility>
 
 namespace litecode::ui {
 namespace {
 
 QIcon editorFileIcon(const QString& path) { return fileIconForPath(path); }
+
+struct EditorTabActions {
+    QToolButton* close;
+    QLabel* dirty;
+};
+
+EditorTabActions installEditorTabActions(QTabBar& bar, int index, const QString& closeLabel,
+                                         bool canBeDirty) {
+    auto* actions = new QWidget(&bar);
+    actions->setObjectName(QStringLiteral("editorTabActions"));
+    actions->setFixedSize(26, 24);
+    auto* layout = new QHBoxLayout(actions);
+    layout->setContentsMargins(0, 0, 2, 0);
+    layout->setSpacing(0);
+    layout->setAlignment(Qt::AlignCenter);
+
+    QLabel* dirty = nullptr;
+    if (canBeDirty) {
+        dirty = new QLabel(QStringLiteral("\u25CF"), actions);
+        dirty->setObjectName(QStringLiteral("editorTabDirtyIndicator"));
+        dirty->setAlignment(Qt::AlignCenter);
+        dirty->setFixedSize(16, 24);
+        dirty->hide();
+        layout->addWidget(dirty);
+    }
+
+    auto* close = new components::IconButton(actions);
+    close->setObjectName(QStringLiteral("editorTabClose"));
+    close->setAutoRaise(true);
+    close->setFixedSize(24, 24);
+    close->setIconSize(QSize(16, 16));
+    close->setToolTip(closeLabel);
+    close->setAccessibleName(closeLabel);
+    setThemedIcon(close, QStringLiteral(":/icons/close.svg"));
+    layout->addWidget(close);
+    bar.setTabButton(index, QTabBar::RightSide, actions);
+    return {close, dirty};
+}
 
 struct BackgroundFindCount final {
     int total{};
@@ -130,40 +180,95 @@ QString nearestExistingDirectory(const QString& filePath) {
 
 class EditorTabBar final : public QTabBar {
   public:
-    explicit EditorTabBar(QWidget* parent = nullptr) : QTabBar(parent) {}
+    explicit EditorTabBar(QWidget* parent = nullptr) : QTabBar(parent) {
+        // QScrollArea shows/polishes its child during construction. Assign the
+        // existing editor style identity before the tab strip reparents it.
+        setObjectName(QStringLiteral("editorTabBar"));
+    }
 
-    void setDeleted(int index, bool deleted) {
-        setTabData(index, deleted);
-        update(tabRect(index));
+    void setFileDecoration(int index, const QString& path, const GitFileDecoration& git,
+                           bool deleted) {
+        const auto previous = tabData(index).toMap();
+        const QVariantMap decoration{
+            {"path", path}, {"badge", git.badge}, {"color", git.color}, {"deleted", deleted}};
+        if (previous == decoration)
+            return;
+        setTabData(index, decoration);
+        if (previous.isEmpty() || previous.value("badge") != git.badge)
+            setTabText(index, tabText(index));
+        else
+            update(tabRect(index));
     }
 
   protected:
+    QSize tabSizeHint(int index) const override {
+        auto size = QTabBar::tabSizeHint(index);
+        const auto decoration = tabData(index).toMap();
+        if (decoration.isEmpty())
+            return size;
+        const QFontMetrics metrics(font());
+        const auto* actions = tabButton(index, RightSide);
+        size.setWidth(LabelInset + metrics.horizontalAdvance(tabText(index)) +
+                      badgeWidth(decoration, metrics) + (actions ? actions->width() : 0) + 10);
+        return size;
+    }
+
     void paintEvent(QPaintEvent*) override {
         QStylePainter painter(this);
         const QFont baseFont = font();
         for (int index = 0; index < count(); ++index) {
             QStyleOptionTab option;
             initStyleOption(&option, index);
-            QFont font = baseFont;
-            if (tabData(index).toBool())
-                font.setStrikeOut(true);
-            painter.setFont(font);
-            painter.drawControl(QStyle::CE_TabBarTab, option);
+            const auto decoration = tabData(index).toMap();
+            if (decoration.isEmpty()) {
+                painter.drawControl(QStyle::CE_TabBarTab, option);
+                continue;
+            }
+            painter.drawControl(QStyle::CE_TabBarTabShape, option);
+            painter.save();
+            painter.setClipRect(option.rect);
+            const QRect icon(option.rect.left() + IconInset, option.rect.center().y() - 9, 18, 18);
+            (void)paintFileIcon(painter, icon, decoration.value("path").toString());
+            QFont labelFont = baseFont;
+            labelFont.setStrikeOut(decoration.value("deleted").toBool());
+            painter.setFont(labelFont);
+            const QFontMetrics metrics(labelFont);
+            const auto theme = Theme::tokens(qApp->property("litecodeDarkTheme").toBool());
+            const auto color = decoration.value("color").value<QColor>();
+            painter.setPen(color.isValid() ? color
+                           : (option.state & (QStyle::State_Selected | QStyle::State_MouseOver))
+                               ? theme.foreground
+                               : theme.mutedForeground);
+            const int x = option.rect.left() + LabelInset;
+            const int baseline =
+                option.rect.center().y() + (metrics.ascent() - metrics.descent()) / 2;
+            painter.drawText(QPoint(x, baseline), option.text);
+            painter.setFont(baseFont);
+            painter.drawText(
+                QPoint(x + metrics.horizontalAdvance(option.text) + BadgeGap, baseline),
+                decoration.value("badge").toString());
+            painter.restore();
         }
     }
-};
 
-class EditorTabWidget final : public QTabWidget {
-  public:
-    explicit EditorTabWidget(QWidget* parent = nullptr) : QTabWidget(parent) {
-        setTabBar(new EditorTabBar(this));
+  private:
+    static constexpr int IconInset = 3;
+    static constexpr int LabelInset = IconInset + 18 + 4;
+    static constexpr int BadgeGap = 5;
+    static int badgeWidth(const QVariantMap& data, const QFontMetrics& metrics) {
+        const QString badge = data.value("badge").toString();
+        return badge.isEmpty() ? 0 : BadgeGap + metrics.horizontalAdvance(badge);
     }
 };
 
 } // namespace
 
 struct EditorArea::Page {
-    std::unique_ptr<editor::DocumentSession> document;
+    QString editorIdentity;
+    std::shared_ptr<editor::TextDocumentModel> model;
+    // Aliasing ownership keeps existing session consumers on the same model;
+    // it does not allocate a second session or duplicate version/dirty state.
+    std::shared_ptr<editor::DocumentSession> document;
     QWidget* container{};
     QWidget* breadcrumb{};
     QHBoxLayout* breadcrumbLayout{};
@@ -181,6 +286,19 @@ struct EditorArea::Page {
 };
 
 EditorArea::EditorArea(QWidget* parent) : QWidget(parent) {
+    // Publish editor state after synchronous document notifications have
+    // updated host mirrors. Raw widget events can precede model updates.
+    connect(this, &EditorArea::currentFileChanged, this, &EditorArea::scheduleEditorStateChanged);
+    connect(this, &EditorArea::openFilesChanged, this, &EditorArea::scheduleEditorStateChanged);
+    connect(this, &EditorArea::documentOpened, this, &EditorArea::scheduleEditorStateChanged);
+    connect(this, &EditorArea::documentClosed, this, &EditorArea::scheduleEditorStateChanged);
+    connect(this, &EditorArea::documentEdited, this, &EditorArea::scheduleEditorStateChanged);
+    connect(this, &EditorArea::documentEditsApplied, this, &EditorArea::scheduleEditorStateChanged);
+    connect(this, &EditorArea::documentSnapshotChanged, this,
+            &EditorArea::scheduleEditorStateChanged);
+    connect(this, &EditorArea::documentSaved, this, [this](core::DocumentId id) {
+        QTimer::singleShot(0, this, [this, id] { disposeUnusedDocument(id); });
+    });
     setObjectName(QStringLiteral("editorArea"));
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -273,6 +391,7 @@ EditorArea::EditorArea(QWidget* parent) : QWidget(parent) {
     findBar_->hide();
     editorStack_ = new QStackedWidget(this);
     welcomePage_ = new QWidget(editorStack_);
+    welcomePage_->setObjectName(QStringLiteral("welcomePage"));
     auto* welcomeLayout = new QVBoxLayout(welcomePage_);
     welcomeLayout->setAlignment(Qt::AlignCenter);
     auto* brand = new QLabel(QStringLiteral("LiteCode"), welcomePage_);
@@ -302,7 +421,8 @@ EditorArea::EditorArea(QWidget* parent) : QWidget(parent) {
     welcomeLayout->addWidget(tagline);
     welcomeLayout->addWidget(shortcuts, 0, Qt::AlignHCenter);
 
-    tabs_ = new EditorTabWidget(editorStack_);
+    tabs_ = new components::WorkbenchTabs(components::TabOverflow::Scroll, editorStack_,
+                                          new EditorTabBar);
     tabs_->setObjectName(QStringLiteral("editorTabs"));
     tabs_->setAccessibleName(tr("Open editors"));
     // Qt's native tab close button is platform styled (and becomes an orange
@@ -312,15 +432,8 @@ EditorArea::EditorArea(QWidget* parent) : QWidget(parent) {
     tabs_->setMovable(true);
     tabs_->setDocumentMode(true);
     tabs_->setIconSize(QSize(17, 17));
-    tabs_->tabBar()->setObjectName(QStringLiteral("editorTabBar"));
-    tabs_->tabBar()->setUsesScrollButtons(true);
     tabs_->tabBar()->setMouseTracking(true);
     tabs_->tabBar()->installEventFilter(this);
-    tabOverflowScroll_ = new QScrollBar(Qt::Horizontal, tabs_->tabBar());
-    tabOverflowScroll_->setObjectName(QStringLiteral("editorTabOverflowScroll"));
-    tabOverflowScroll_->setFocusPolicy(Qt::NoFocus);
-    tabOverflowScroll_->setSingleStep(1);
-    tabOverflowScroll_->hide();
     editorStack_->addWidget(welcomePage_);
     editorStack_->addWidget(tabs_);
     editorStack_->setCurrentWidget(welcomePage_);
@@ -346,6 +459,7 @@ EditorArea::EditorArea(QWidget* parent) : QWidget(parent) {
             [this](const QString&) { handleExternalDirectoryChange(); });
     connect(externalReloadTimer_, &QTimer::timeout, this,
             &EditorArea::reloadPendingExternalChanges);
+    new DetachedDocumentWatcher(this, this);
     connect(findCountTimer_, &QTimer::timeout, this, &EditorArea::refreshFindCount);
     connect(matchCase_, &QToolButton::toggled, this, [this] { handleFindInputChanged(); });
     connect(wholeWord_, &QToolButton::toggled, this, [this] { handleFindInputChanged(); });
@@ -359,11 +473,11 @@ EditorArea::EditorArea(QWidget* parent) : QWidget(parent) {
         }
     });
 
-    connect(tabs_, &QTabWidget::tabCloseRequested, this, [this](int index) {
+    connect(tabs_, &components::WorkbenchTabs::tabCloseRequested, this, [this](int index) {
         if (const Page* page = pageAt(index))
             emit documentCloseRequested(page->document->id());
     });
-    connect(tabs_, &QTabWidget::currentChanged, this, [this](int index) {
+    connect(tabs_, &components::WorkbenchTabs::currentChanged, this, [this](int index) {
         const auto* page = pageAt(index);
         {
             const QSignalBlocker blocker(findSelectionButton_);
@@ -378,37 +492,55 @@ EditorArea::EditorArea(QWidget* parent) : QWidget(parent) {
             }
         }
         updateTabOverflowScrollBar();
-        tabOverflowPosition_ =
-            qBound(tabOverflowScroll_->minimum(), index, tabOverflowScroll_->maximum());
-        const QSignalBlocker blocker(tabOverflowScroll_);
-        tabOverflowScroll_->setValue(tabOverflowPosition_);
         updateTabCloseButtons();
-        emit currentFileChanged(page ? page->document->filePath() : QString{});
-        emit currentEncodingChanged(page ? page->document->encoding() : core::TextEncoding::Utf8);
+        emit currentFileChanged(currentFile());
+        emit currentEncodingChanged(currentEncoding());
         const bool canReplace = page && page->editor && !page->document->isReadOnly();
         replaceToggle_->setEnabled(canReplace);
         if (!canReplace && replaceVisible_)
             setReplaceVisible(false);
         scheduleFindRefresh();
     });
-    connect(tabOverflowScroll_, &QScrollBar::valueChanged, this, [this](int position) {
-        const int steps = position - tabOverflowPosition_;
-        if (steps == 0)
-            return;
-
-        cacheTabScrollButtons();
-        QToolButton* scrollButton = steps < 0 ? tabScrollLeft_ : tabScrollRight_;
-        if (scrollButton) {
-            for (int step = 0; step < std::abs(steps); ++step)
-                scrollButton->click();
-        }
-        tabOverflowPosition_ = position;
-    });
     connect(tabs_->tabBar(), &QTabBar::tabMoved, this,
             [this](int, int) { updateTabOverflowScrollBar(); });
 }
 
 EditorArea::~EditorArea() = default;
+void EditorArea::openAuxiliaryTab(const QString& key, const QString& title, QWidget* content,
+                                  bool replaceExisting, const QString& iconResource) {
+    for (int i = 0; i < tabs_->count(); ++i)
+        if (tabs_->widget(i)->property("auxiliaryKey").toString() == key) {
+            if (replaceExisting) {
+                auto* previous = tabs_->widget(i);
+                if (auto* close = tabs_->tabBar()->tabButton(i, QTabBar::RightSide))
+                    close->deleteLater();
+                tabs_->removeTab(i);
+                previous->deleteLater();
+                break;
+            }
+            delete content;
+            tabs_->setCurrentIndex(i);
+            return;
+        }
+    content->setProperty("auxiliaryKey", key);
+    const int index = tabs_->addTab(
+        content,
+        themedIcon(iconResource.isEmpty() ? QString(":/icons/diff-document.svg") : iconResource,
+                   darkTheme_),
+        title);
+    const auto actions =
+        installEditorTabActions(*tabs_->tabBar(), index, tr("Close %1").arg(title), false);
+    connect(actions.close, &QToolButton::clicked, this, [this, content] {
+        const int index = tabs_->indexOf(content);
+        if (index >= 0)
+            tabs_->removeTab(index);
+        content->deleteLater();
+        if (!tabs_->count())
+            editorStack_->setCurrentWidget(welcomePage_);
+    });
+    editorStack_->setCurrentWidget(tabs_);
+    tabs_->setCurrentIndex(index);
+}
 
 bool EditorArea::eventFilter(QObject* watched, QEvent* event) {
     if (watched == findInput_ &&
@@ -465,19 +597,6 @@ bool EditorArea::eventFilter(QObject* watched, QEvent* event) {
             updateTabCloseButtons(tabs_->tabBar()->tabAt(mouse->position().toPoint()));
         } else if (event->type() == QEvent::Leave) {
             updateTabCloseButtons();
-        } else if (event->type() == QEvent::Wheel) {
-            const auto* wheel = static_cast<QWheelEvent*>(event);
-            const int delta =
-                !wheel->angleDelta().isNull() ? wheel->angleDelta().y() : wheel->pixelDelta().y();
-            if (delta == 0 || !tabOverflowScroll_->isVisible())
-                return false;
-
-            const int next =
-                qBound(tabOverflowScroll_->minimum(), tabOverflowPosition_ + (delta > 0 ? -1 : 1),
-                       tabOverflowScroll_->maximum());
-            if (next != tabOverflowPosition_)
-                tabOverflowScroll_->setValue(next);
-            return true;
         } else if (event->type() == QEvent::ContextMenu) {
             const auto* context = static_cast<QContextMenuEvent*>(event);
             const int index = tabs_->tabBar()->tabAt(context->pos());
@@ -572,45 +691,7 @@ void EditorArea::resizeEvent(QResizeEvent* event) {
     updateTabOverflowScrollBar();
 }
 
-void EditorArea::updateTabOverflowScrollBar() {
-    QTabBar* tabBar = tabs_->tabBar();
-    cacheTabScrollButtons();
-    int totalWidth = 0;
-    for (int index = 0; index < tabBar->count(); ++index)
-        totalWidth += tabBar->tabRect(index).width();
-
-    const bool overflow = totalWidth > tabBar->width();
-    tabOverflowScroll_->setVisible(overflow);
-    if (!overflow)
-        return;
-
-    const int maximum = qMax(0, tabBar->count() - 1);
-    const int visibleTabs = qMax(1, (tabBar->width() * tabBar->count()) / totalWidth);
-    tabOverflowScroll_->setGeometry(0, tabBar->height() - 4, tabBar->width(), 4);
-    tabOverflowScroll_->setRange(0, maximum);
-    tabOverflowScroll_->setPageStep(visibleTabs);
-    tabOverflowPosition_ = qBound(0, tabOverflowPosition_, maximum);
-    const QSignalBlocker blocker(tabOverflowScroll_);
-    tabOverflowScroll_->setValue(tabOverflowPosition_);
-    tabOverflowScroll_->raise();
-}
-
-void EditorArea::cacheTabScrollButtons() {
-    for (QToolButton* button : tabs_->tabBar()->findChildren<QToolButton*>()) {
-        if (button->arrowType() == Qt::LeftArrow)
-            tabScrollLeft_ = button;
-        else if (button->arrowType() == Qt::RightArrow)
-            tabScrollRight_ = button;
-    }
-
-    for (QToolButton* button : {tabScrollLeft_, tabScrollRight_}) {
-        if (!button)
-            continue;
-        button->setArrowType(Qt::NoArrow);
-        button->setFixedSize(0, 0);
-        button->hide();
-    }
-}
+void EditorArea::updateTabOverflowScrollBar() { tabs_->refreshTabs(); }
 
 bool EditorArea::openFile(const QString& filePath, QString* errorMessage,
                           std::optional<core::TextEncoding> requestedEncoding) {
@@ -640,13 +721,15 @@ bool EditorArea::openFile(const QString& filePath, QString* errorMessage,
     }
 
     auto page = std::make_unique<Page>();
-    const core::DocumentId documentId = documentIds_.next();
-    if (!documentId.isValid()) {
+    try {
+        page->model = documentModels_.createFile(resolvedPath);
+    } catch (const std::exception& error) {
         if (errorMessage)
-            *errorMessage = tr("LiteCode exhausted its document identifier space.");
+            *errorMessage = QString::fromUtf8(error.what());
         return false;
     }
-    page->document = std::make_unique<editor::DocumentSession>(documentId, resolvedPath);
+    const core::DocumentId documentId = page->model->session().id();
+    page->document = std::shared_ptr<editor::DocumentSession>(page->model, &page->model->session());
     page->container = new QWidget(tabs_);
     auto* pageLayout = new QVBoxLayout(page->container);
     pageLayout->setContentsMargins(0, 0, 0, 0);
@@ -657,40 +740,31 @@ bool EditorArea::openFile(const QString& filePath, QString* errorMessage,
     pageLayout->addWidget(page->loadingLabel, 1);
     const int tabIndex =
         tabs_->addTab(page->container, editorFileIcon(resolvedPath), info.fileName());
-    auto* tabActions = new QWidget(tabs_->tabBar());
-    tabActions->setObjectName(QStringLiteral("editorTabActions"));
-    tabActions->setFixedSize(24, 24);
-    auto* tabActionsLayout = new QHBoxLayout(tabActions);
-    tabActionsLayout->setContentsMargins(0, 0, 0, 0);
-    tabActionsLayout->setSpacing(0);
-    tabActionsLayout->setAlignment(Qt::AlignCenter);
-    auto* dirtyIndicator = new QLabel(QStringLiteral("\u25CF"), tabActions);
-    dirtyIndicator->setObjectName(QStringLiteral("editorTabDirtyIndicator"));
-    dirtyIndicator->setAlignment(Qt::AlignCenter);
-    dirtyIndicator->setFixedSize(16, 24);
-    dirtyIndicator->hide();
-    auto* tabClose = new components::IconButton(tabActions);
-    tabClose->setObjectName(QStringLiteral("editorTabClose"));
-    tabClose->setAutoRaise(true);
-    tabClose->setFixedSize(24, 24);
-    tabClose->setIconSize(QSize(19, 19));
-    const QString closeLabel = tr("Close %1").arg(info.fileName());
-    tabClose->setToolTip(closeLabel);
-    tabClose->setAccessibleName(closeLabel);
-    setThemedIcon(tabClose, QStringLiteral(":/icons/close.svg"));
-    tabActionsLayout->addWidget(dirtyIndicator);
-    tabActionsLayout->addWidget(tabClose);
-    tabs_->tabBar()->setTabButton(tabIndex, QTabBar::RightSide, tabActions);
-    page->dirtyIndicator = dirtyIndicator;
-    page->tabClose = tabClose;
-    connect(tabClose, &QToolButton::clicked, this,
+    const auto actions = installEditorTabActions(*tabs_->tabBar(), tabIndex,
+                                                 tr("Close %1").arg(info.fileName()), true);
+    page->dirtyIndicator = actions.dirty;
+    page->tabClose = actions.close;
+    connect(actions.close, &QToolButton::clicked, this,
             [this, documentId] { emit documentCloseRequested(documentId); });
     pages_.push_back(std::move(page));
+    updateTabDecoration(*pages_.back(), tabIndex);
     tabs_->setCurrentIndex(tabIndex);
     updateTabCloseButtons();
     editorStack_->setCurrentWidget(tabs_);
     emit currentFileChanged(resolvedPath);
     emit openFilesChanged();
+
+    if (auto* attached = pageForDocument(documentId);
+        attached->document->state() != editor::DocumentState::Loading &&
+        attached->model->hasTextBuffer()) {
+        initializeEditor(*attached, attached->model->contents());
+        attached->documentAnnounced = true;
+        watch(*attached);
+        updateTabTitle(*attached);
+        if (requestedEncoding && *requestedEncoding != attached->document->encoding())
+            return reopenCurrentWithEncoding(*requestedEncoding, errorMessage);
+        return true;
+    }
 
     auto* loadWatcher = new QFutureWatcher<editor::DocumentLoadResult>(this);
     connect(loadWatcher, &QFutureWatcher<editor::DocumentLoadResult>::finished, this,
@@ -713,9 +787,13 @@ void EditorArea::finishOpen(core::DocumentId documentId, const editor::DocumentL
     Page* page = pageForDocument(documentId);
     if (!page)
         return;
+    // A detached load can attach/initialize this page before its own reader
+    // finishes. Never load a model twice or discard edits made in between.
+    if (page->editor)
+        return;
 
     if (!editor::DocumentSession::matchesDiskSnapshot(page->document->filePath(), load) ||
-        !page->document->acceptLoad(load)) {
+        !page->model->acceptLoad(load)) {
         const QString failedPath = page->document->filePath();
         const QString diagnostic = load.outcome == editor::DocumentLoadResult::Outcome::Loaded
                                        ? tr("The file changed while it was opening. Open it again.")
@@ -742,7 +820,7 @@ void EditorArea::finishOpen(core::DocumentId documentId, const editor::DocumentL
     if (page == pageAt(tabs_->currentIndex()))
         scheduleFindRefresh();
     if (page->pendingLine >= 0) {
-        if (page->pendingColumn > 0 && page->pendingLength > 0)
+        if (page->pendingColumn > 0 && page->pendingLength >= 0)
             page->editor->goToMatch(page->pendingLine, page->pendingColumn, page->pendingLength);
         else
             page->editor->goToLine(page->pendingLine);
@@ -753,6 +831,7 @@ void EditorArea::finishOpen(core::DocumentId documentId, const editor::DocumentL
 }
 
 void EditorArea::initializeEditor(Page& page, const QByteArray& contents) {
+    page.editorIdentity = QUuid::createUuid().toString(QUuid::WithoutBraces);
     auto* pageLayout = qobject_cast<QVBoxLayout*>(page.container->layout());
     if (page.loadingLabel) {
         pageLayout->removeWidget(page.loadingLabel);
@@ -769,11 +848,23 @@ void EditorArea::initializeEditor(Page& page, const QByteArray& contents) {
     TransientScrollBars::installIn(page.editor, true);
     page.editor->setLargeFileMode(page.document->storageMode() == core::DocumentStorageMode::Large);
     page.editor->setFilePath(page.document->filePath());
+    page.editor->setBreakpointEnabled(
+        !breakpointLanguages_ || breakpointLanguages_->contains(
+                                     editor::languageSupportForFile(page.document->filePath()).id));
+    connect(page.editor, &editor::ScintillaEditor::breakpointToggleRequested, this,
+            [this, document = page.document.get()](int line) {
+                emit breakpointToggleRequested(document->filePath(), line);
+            });
     page.editor->setLineEnding(page.document->lineEnding());
     page.editor->setEditorFont(fontFamily_, fontPixelSize_, fontWeight_);
     page.editor->setIndentWidth(indentWidth_);
     page.editor->setDarkTheme(darkTheme_);
     page.editor->setText(contents);
+    page.editor->setDebugBreakpoints(
+        debugBreakpoints_.value(QDir::cleanPath(page.document->filePath())));
+    if (!debugExecutionPath_.isEmpty() &&
+        core::pathsReferToSameEntry(page.document->filePath(), debugExecutionPath_))
+        page.editor->setDebugExecutionLine(debugExecutionLine_);
     page.editor->setFindMode(findBar_->isVisible() && &page == pageAt(tabs_->currentIndex()));
     page.editor->setReadOnly(page.document->isReadOnly());
     connect(page.editor, &editor::ScintillaEditor::contextMenuRequested, this,
@@ -814,12 +905,15 @@ void EditorArea::initializeEditor(Page& page, const QByteArray& contents) {
         emit largeFileModeActivated(page.document->filePath());
 
     const core::DocumentId documentId = page.document->id();
+    connect(page.editor, &editor::ScintillaEditor::selectionChanged, this,
+            &EditorArea::scheduleEditorStateChanged);
     connect(page.editor, &editor::EditorBackend::modificationChanged, this,
             [this, documentId](bool modified) {
                 Page* current = pageForDocument(documentId);
                 if (!current)
                     return;
                 current->document->setModified(modified);
+                emit documentMetadataChanged(documentId);
                 updateTabTitle(*current);
             });
     connect(page.editor, &editor::EditorBackend::textChanged, this, [this, documentId] {
@@ -829,14 +923,39 @@ void EditorArea::initializeEditor(Page& page, const QByteArray& contents) {
     });
     connect(page.editor, &editor::EditorBackend::textEdited, this,
             [this, documentId](qint64 position, qint64 removedLength,
-                               const QByteArray& insertedText, const core::TextRange& range) {
+                               const QByteArray& insertedText, const core::TextRange& range,
+                               core::DocumentEditReason reason) {
                 Page* current = pageForDocument(documentId);
                 if (!current)
                     return;
                 core::DocumentEdit edit{documentId,   {},    position, removedLength,
-                                        insertedText, range, 0};
-                if (current->document->applyEdit(&edit))
+                                        insertedText, range, 0,        reason};
+                const bool applied = current->model->hasTextBuffer()
+                                         ? current->model->applyEdit(&edit)
+                                         : current->document->applyEdit(&edit);
+                if (applied) {
+                    current->document->setModified(current->editor->isModified());
                     emit documentEdited(edit);
+                }
+            });
+    connect(page.editor, &editor::EditorBackend::textReplacedWithLineEnding, this,
+            [this, documentId](const QByteArray& text, core::LineEnding eol,
+                               core::DocumentEditReason reason) {
+                auto* current = pageForDocument(documentId);
+                if (!current || !current->editor)
+                    return;
+                std::optional<core::DocumentEdit> applied;
+                if (!current->model->replaceWithLineEnding(text, eol, reason, &applied))
+                    return;
+                current->document->setModified(current->editor->isModified());
+                const QPointer<EditorArea> alive(this);
+                updateTabTitle(*current);
+                if (!alive)
+                    return;
+                if (applied)
+                    emit documentSnapshotChanged(documentId, reason);
+                if (alive)
+                    scheduleFindRefresh();
             });
     connect(page.editor, &editor::EditorBackend::cursorPositionChanged, this,
             [this, documentId](int line, int column) {
@@ -847,8 +966,36 @@ void EditorArea::initializeEditor(Page& page, const QByteArray& contents) {
 }
 
 bool EditorArea::saveCurrentAs(const QString& filePath, QString* errorMessage) {
-    Page* page = pageAt(tabs_->currentIndex());
+    const auto* page = pageAt(tabs_->currentIndex());
+    return !page || saveDocumentAs(page->document->id(), filePath, errorMessage);
+}
+bool EditorArea::saveDocumentAs(core::DocumentId id, const QString& filePath,
+                                QString* errorMessage) {
+    Page* page = pageForDocument(id);
+    if (filePath.isEmpty()) {
+        if (errorMessage)
+            *errorMessage = tr("A save target is required.");
+        return false;
+    }
+    const auto target =
+        documentModels_.find(QUrl::fromLocalFile(QFileInfo(filePath).absoluteFilePath()));
+    if (target && target->session().id() != id) {
+        if (errorMessage)
+            *errorMessage = tr("That file already has an open document.");
+        return false;
+    }
     if (!page) {
+        const auto model = documentModels_.find(id);
+        if (!model) {
+            if (errorMessage)
+                *errorMessage = tr("The document is no longer open.");
+            return false;
+        }
+        core::DocumentPathChange change;
+        if (!model->saveAs(filePath, &change, errorMessage))
+            return false;
+        emit documentPathChanged(change);
+        emit documentSaved(id);
         return true;
     }
     if (!page->editor) {
@@ -879,15 +1026,20 @@ bool EditorArea::saveCurrentAs(const QString& filePath, QString* errorMessage) {
     refreshDeletedDirectoryWatches();
     updateTabTitle(*page);
     updateBreadcrumb(*page);
-    emit currentFileChanged(page->document->filePath());
+    if (page == pageAt(tabs_->currentIndex()))
+        emit currentFileChanged(page->document->filePath());
     emit documentPathChanged(pathChange);
     emit openFilesChanged();
+    emit documentSaved(page->document->id());
     return true;
 }
 
 void EditorArea::rebindPaths(const QString& previousPath, const QString& path) {
+    if (previousPath.isEmpty() || path.isEmpty())
+        return;
     const QString previous = core::normalizedFileSystemPath(previousPath);
     const QString replacement = core::normalizedFileSystemPath(path);
+    emit documentResourceRemoved(QUrl::fromLocalFile(previous));
     bool changed = false;
     for (const auto& ownedPage : pages_) {
         Page& page = *ownedPage;
@@ -905,12 +1057,34 @@ void EditorArea::rebindPaths(const QString& previousPath, const QString& path) {
         watcher_->removePath(page.document->filePath());
         core::DocumentPathChange pathChange;
         page.document->rebindPath(rebound, &pathChange);
-        if (page.editor)
+        if (page.editor) {
             page.editor->setFilePath(page.document->filePath());
+            page.editor->setBreakpointEnabled(
+                !breakpointLanguages_ ||
+                breakpointLanguages_->contains(
+                    editor::languageSupportForFile(page.document->filePath()).id));
+        }
         watch(page);
         updateTabTitle(page);
         updateBreadcrumb(page);
         emit documentPathChanged(pathChange);
+        changed = true;
+    }
+    for (const auto& model : documentModels_.models()) {
+        if (pageForDocument(model->session().id()) || model->session().filePath().isEmpty())
+            continue;
+        const auto current = core::normalizedFileSystemPath(model->session().filePath());
+        const auto sensitivity = core::fileSystemCaseSensitivity(current);
+        QString rebound;
+        if (core::pathsReferToSameEntry(current, previous))
+            rebound = replacement;
+        else if (current.startsWith(previous + QLatin1Char('/'), sensitivity))
+            rebound = replacement + current.sliced(previous.size());
+        else
+            continue;
+        core::DocumentPathChange change;
+        model->session().rebindPath(rebound, &change);
+        emit documentPathChanged(change);
         changed = true;
     }
     if (!changed)
@@ -919,17 +1093,42 @@ void EditorArea::rebindPaths(const QString& previousPath, const QString& path) {
     emit openFilesChanged();
 }
 
-bool EditorArea::saveDocument(core::DocumentId documentId, QString* errorMessage) {
+bool EditorArea::saveDocument(core::DocumentId documentId, QString* errorMessage, bool force) {
     Page* page = pageForDocument(documentId);
     if (!page) {
+        const auto model = documentModels_.find(documentId);
+        if (!model) {
+            if (errorMessage)
+                *errorMessage = tr("The document is no longer open.");
+            return false;
+        }
+        if (!force && !model->session().isModified())
+            return true;
+        if (!model->save(errorMessage))
+            return false;
+        emit documentSaved(documentId);
+        return true;
+    }
+    if (!page->editor) {
         if (errorMessage)
-            *errorMessage = tr("The document is no longer open.");
+            *errorMessage = tr("The document is still loading.");
         return false;
     }
-    const int index = tabs_->indexOf(page->container);
-    if (index >= 0)
-        tabs_->setCurrentIndex(index);
-    return saveCurrent(errorMessage);
+    if (!force && !page->document->isModified() && !page->editor->isModified())
+        return true;
+    watcher_->removePath(page->document->filePath());
+    if (!page->document->save(page->editor->text(), errorMessage)) {
+        watch(*page);
+        return false;
+    }
+    page->editor->markSaved();
+    page->editor->setReadOnly(page->document->isReadOnly());
+    page->document->setModified(false);
+    watch(*page);
+    refreshDeletedDirectoryWatches();
+    updateTabTitle(*page);
+    emit documentSaved(page->document->id());
+    return true;
 }
 
 bool EditorArea::reloadDocument(core::DocumentId documentId, QString* errorMessage) {
@@ -967,7 +1166,7 @@ bool EditorArea::reopenCurrentWithEncoding(core::TextEncoding encoding, QString*
 bool EditorArea::finishReload(Page& page, const editor::DocumentLoadResult& load,
                               QString* errorMessage) {
     if (!editor::DocumentSession::matchesDiskSnapshot(page.document->filePath(), load) ||
-        !page.document->acceptReload(load)) {
+        !page.model->acceptReload(load)) {
         if (errorMessage)
             *errorMessage = load.outcome == editor::DocumentLoadResult::Outcome::Loaded
                                 ? tr("The file changed again while it was reloading. Try again.")
@@ -979,7 +1178,10 @@ bool EditorArea::finishReload(Page& page, const editor::DocumentLoadResult& load
     const core::DocumentId documentId = page.document->id();
     const QString filePath = page.document->filePath();
     const qint64 version = page.document->version();
-    if (page.documentAnnounced)
+    // Re-decoding/reloading an existing normal model changes its contents and
+    // metadata, not its identity. Only leaving the synchronized size class
+    // removes its host mirror.
+    if (page.documentAnnounced && load.storageMode != core::DocumentStorageMode::Normal)
         emit documentClosed(documentId, filePath, version - 1);
     const QSignalBlocker blocker(page.editor);
     page.editor->setLargeFileMode(page.document->storageMode() == core::DocumentStorageMode::Large);
@@ -1005,12 +1207,25 @@ bool EditorArea::finishReload(Page& page, const editor::DocumentLoadResult& load
 
 bool EditorArea::closeDocument(core::DocumentId documentId) {
     Page* page = pageForDocument(documentId);
-    return page ? closePage(tabs_->indexOf(page->container)) : true;
+    if (page)
+        return closePage(tabs_->indexOf(page->container));
+    const auto model = documentModels_.find(documentId);
+    if (!model)
+        return true;
+    const auto path = model->session().filePath();
+    const auto version = model->session().version();
+    documentModels_.remove(documentId);
+    emit documentClosed(documentId, path, version);
+    return true;
 }
 
 void EditorArea::markDocumentDeleted(core::DocumentId documentId) {
+    if (const auto model = documentModels_.find(documentId))
+        emit documentResourceRemoved(model->resource());
     if (Page* page = pageForDocument(documentId))
         markExternallyDeleted(*page);
+    else if (const auto model = documentModels_.find(documentId))
+        model->session().markDeleted();
 }
 
 void EditorArea::resumeWatching(core::DocumentId documentId) {
@@ -1020,17 +1235,359 @@ void EditorArea::resumeWatching(core::DocumentId documentId) {
 
 QVector<EditorDocumentInfo> EditorArea::documents() const {
     QVector<EditorDocumentInfo> result;
-    result.reserve(static_cast<qsizetype>(pages_.size()));
-    for (const auto& page : pages_) {
-        result.push_back({page->document->id(), page->document->filePath(),
-                          page->document->displayName(), page->document->version(),
-                          page->document->isModified(), page->editor != nullptr,
-                          page->document->encoding()});
+    for (const auto& model : documentModels_.models()) {
+        const auto& document = model->session();
+        result.push_back({document.id(), document.filePath(), document.displayName(),
+                          document.version(), document.isModified(),
+                          document.state() != editor::DocumentState::Loading, document.encoding()});
     }
     return result;
 }
 
+std::optional<extensions::TextDocumentSnapshot>
+EditorArea::extensionDocumentSnapshot(core::DocumentId id) const {
+    const auto model = documentModels_.find(id);
+    if (!model || !model->hasTextBuffer() ||
+        model->session().state() == editor::DocumentState::Loading)
+        return {};
+    const auto& document = model->session();
+    const auto text = QString::fromUtf8(model->contents());
+    return extensions::TextDocumentSnapshot{QString::number(id.value()),
+                                            model->resource(),
+                                            model->languageId(),
+                                            core::textEncodingKey(document.encoding()),
+                                            text,
+                                            qMax<qint64>(1, document.version() + 1),
+                                            document.isModified(),
+                                            document.lineEnding() == core::LineEnding::CrLf
+                                                ? extensions::EndOfLine::CRLF
+                                                : extensions::EndOfLine::LF};
+}
+std::optional<extensions::TextDocumentMetadata>
+EditorArea::extensionDocumentMetadata(core::DocumentId id) const {
+    const auto model = documentModels_.find(id);
+    if (!model || !model->hasTextBuffer() ||
+        model->session().state() == editor::DocumentState::Loading)
+        return {};
+    return extensions::TextDocumentMetadata{QString::number(id.value()), model->languageId(),
+                                            core::textEncodingKey(model->session().encoding()),
+                                            model->session().isModified()};
+}
+
+void EditorArea::announceDocument(core::DocumentId id) {
+    const auto model = documentModels_.find(id);
+    if (!model || model->session().state() == editor::DocumentState::Loading)
+        return;
+    emit documentOpened(id, model->session().filePath(), model->contents(),
+                        model->session().version(), model->session().storageMode());
+}
+void EditorArea::releaseDocumentReference(core::DocumentId id) {
+    documentModels_.release(id);
+    disposeUnusedDocument(id);
+}
+void EditorArea::disposeUnusedDocument(core::DocumentId id) {
+    const auto model = documentModels_.find(id);
+    if (!model || pageForDocument(id) || documentModels_.references(id) != 0 ||
+        model->session().isModified() || model->resource().scheme() == QStringLiteral("untitled") ||
+        model->session().state() == editor::DocumentState::Loading)
+        return;
+    closeDocument(id);
+}
+bool EditorArea::applyVirtualDocumentEdit(core::DocumentId id, core::DocumentEdit edit) {
+    const auto model = documentModels_.find(id);
+    if (!model || !model->applyProviderEdit(&edit))
+        return false;
+    if (auto* page = pageForDocument(id); page && page->editor) {
+        const QSignalBlocker blocker(page->editor);
+        page->editor->setReadOnly(false);
+        page->editor->replaceBytes(edit.position, edit.removedLength, edit.insertedText);
+        page->editor->markSaved();
+        page->editor->setReadOnly(true);
+    }
+    emit documentEdited(edit);
+    return true;
+}
+bool EditorArea::applyVirtualDocumentEdits(core::DocumentId id, qint64 expectedVersion,
+                                           QVector<core::DocumentEdit> edits) {
+    const auto model = documentModels_.find(id);
+    if (!model || !model->applyEdits(expectedVersion, &edits, true))
+        return false;
+    if (edits.isEmpty())
+        return true;
+    if (auto* page = pageForDocument(id); page && page->editor) {
+        const QSignalBlocker blocker(page->editor);
+        page->editor->setReadOnly(false);
+        for (const auto& edit : edits)
+            page->editor->replaceBytes(edit.position, edit.removedLength, edit.insertedText);
+        page->editor->markSaved();
+        page->editor->setReadOnly(true);
+    }
+    emit documentEditsApplied(id, edits);
+    return true;
+}
+extensions::WindowEditorState EditorArea::extensionEditorState() const {
+    extensions::WindowEditorState state;
+    const auto* page = pageAt(tabs_->currentIndex());
+    if (!page || !page->editor || page->editorIdentity.isEmpty() || !page->model->hasTextBuffer() ||
+        page->document->isClosed() ||
+        page->document->version() == std::numeric_limits<qint64>::max())
+        return state;
+    const auto selections = readEditorSelections(
+        page->model->contents(), page->document->lineEnding(), page->editor->selectionState());
+    if (!selections)
+        return state;
+    state.editors.append({page->editorIdentity, QString::number(page->document->id().value()),
+                          page->document->version() + 1, *selections});
+    state.activeEditorId = page->editorIdentity;
+    return state;
+}
+void EditorArea::scheduleEditorStateChanged() {
+    if (editorStateUpdatePending_)
+        return;
+    editorStateUpdatePending_ = true;
+    QTimer::singleShot(0, this, [this] {
+        editorStateUpdatePending_ = false;
+        emit extensionEditorStateChanged(extensionEditorState());
+    });
+}
+bool EditorArea::applyTextEditorEdit(const QString& editorId,
+                                     const extensions::TextEditorEditData& transaction,
+                                     QString* error) {
+    const auto* page = pageAt(tabs_->currentIndex());
+    if (!page || !page->editor || page->editorIdentity != editorId || editorId.isEmpty()) {
+        if (error)
+            *error = tr("The requested editor is no longer visible or attached.");
+        return false;
+    }
+    return applyTextEditorEdit(page->document->id(), transaction, error);
+}
+bool EditorArea::applyTextEditorEdit(core::DocumentId id,
+                                     const extensions::TextEditorEditData& transaction,
+                                     QString* error) {
+    if (error)
+        error->clear();
+    const auto model = documentModels_.find(id);
+    auto* page = pageForDocument(id);
+    if (!model || !page || !page->editor || page->model != model || page->editor->isReadOnly() ||
+        page->editor->isLargeFileMode() || page->editor->text() != model->contents()) {
+        if (error)
+            *error =
+                tr("The editor is unavailable, read-only or no longer attached to this document.");
+        return false;
+    }
+    auto prepared = prepareTextEditorEdit(*model, transaction, error);
+    if (!prepared)
+        return false;
+    const auto selections = prepareEditorSelections(
+        model->contents(), page->editor->selectionState(), *prepared, error);
+    if (!selections)
+        return false;
+    if (prepared->eolEdit && !page->editor->canRecordLineEndingUndo()) {
+        if (error)
+            *error = tr("EOL undo history is full.");
+        return false;
+    }
+    std::optional<extensions::TextDocumentSnapshot> eolSnapshot;
+    if (prepared->eolEdit) {
+        eolSnapshot = extensionDocumentSnapshot(id);
+        eolSnapshot->text = QString::fromUtf8(prepared->eolEdit->insertedText);
+        eolSnapshot->version = prepared->eolEdit->version + 1;
+        eolSnapshot->eol = prepared->replacement.session().lineEnding() == core::LineEnding::CrLf
+                               ? extensions::EndOfLine::CRLF
+                               : extensions::EndOfLine::LF;
+        eolSnapshot->dirty = true;
+    }
+    const auto finalVersion = prepared->replacement.session().version();
+    const auto beforeEol = model->session().lineEnding() == core::LineEnding::CrLf
+                               ? core::LineEnding::CrLf
+                               : core::LineEnding::Lf;
+    const auto& operationBuffer =
+        prepared->eolEdit ? prepared->eolEdit->insertedText : model->contents();
+    const QPointer<EditorArea> alive(this);
+    {
+        const QSignalBlocker blocker(page->editor);
+        // pushEOL precedes undoStopBefore upstream. With default stops this
+        // intentionally creates a separate EOL undo action before the text edit.
+        if (prepared->eolEdit) {
+            if (!page->editor->beginExtensionEdit(false))
+                return false;
+            const auto token = page->editor->beginLineEndingUndo(
+                beforeEol, prepared->replacement.session().lineEnding());
+            page->editor->convertLineEndings(prepared->replacement.session().lineEnding());
+            page->editor->endLineEndingUndo(token);
+        }
+        if (!page->editor->beginExtensionEdit(prepared->undoStopBefore))
+            return false;
+        for (const auto& operation : prepared->operations) {
+            const auto& edit = operation.edit;
+            // Identical replacements still move markers/selections, but must
+            // not invent document changes, dirty state or native undo actions.
+            if (operationBuffer.mid(edit.position, edit.removedLength) != edit.insertedText)
+                page->editor->replaceBytes(edit.position, edit.removedLength, edit.insertedText);
+        }
+        page->editor->restoreExtensionSelections(*selections);
+        page->editor->endExtensionEdit(prepared->undoStopAfter);
+        *model = std::move(prepared->replacement);
+    }
+    updateTabTitle(*page);
+    if (!alive)
+        return true;
+    if (eolSnapshot)
+        emit documentSnapshotApplied(*eolSnapshot);
+    if (!alive)
+        return true;
+    const auto current = documentModels_.find(id);
+    if (current != model || current->session().version() != finalVersion)
+        announceDocument(id);
+    else if (!prepared->contentChanges.isEmpty())
+        emit documentEditsApplied(id, prepared->contentChanges);
+    if (!alive)
+        return true;
+    emit openFilesChanged();
+    if (alive)
+        scheduleFindRefresh();
+    return true;
+}
+
+bool EditorArea::applyDocumentEditPlans(const QVector<DocumentEditPlan>& plans, QString* error) {
+    if (error)
+        error->clear();
+    struct Staged {
+        std::shared_ptr<editor::TextDocumentModel> original;
+        editor::TextDocumentModel replacement;
+        QVector<core::DocumentEdit> edits;
+        std::optional<core::DocumentEdit> eolEdit;
+        core::LineEnding beforeEol;
+        qint64 finalVersion{};
+    };
+    std::vector<Staged> staged;
+    staged.reserve(plans.size());
+    QSet<quint64> ids;
+    for (const auto& plan : plans) {
+        const auto model = documentModels_.find(plan.id);
+        if (!model || ids.contains(plan.id.value())) {
+            if (error)
+                *error = tr("An edit document is unavailable or duplicated.");
+            return false;
+        }
+        ids.insert(plan.id.value());
+        auto replacement = *model;
+        auto edits = plan.edits;
+        if (!replacement.applyEdits(plan.expectedVersion, &edits, false, error))
+            return false;
+        std::optional<core::DocumentEdit> eolEdit;
+        if (plan.newEol &&
+            !replacement.replaceWithLineEnding(replacement.contents(), *plan.newEol,
+                                               core::DocumentEditReason::Other, &eolEdit, error))
+            return false;
+        if (eolEdit)
+            if (const auto* page = pageForDocument(plan.id);
+                page && page->editor && !page->editor->canRecordLineEndingUndo()) {
+                if (error)
+                    *error = tr("EOL undo history is full.");
+                return false;
+            }
+        const auto finalVersion = replacement.session().version();
+        const auto beforeEol = model->session().lineEnding() == core::LineEnding::CrLf
+                                   ? core::LineEnding::CrLf
+                                   : core::LineEnding::Lf;
+        staged.push_back(
+            {model, std::move(replacement), std::move(edits), eolEdit, beforeEol, finalVersion});
+    }
+    // A nonempty, fully validated batch can be an intentional no-op (for
+    // example setting the EOL it already has). That is success, with no model
+    // mutation, change events or undo entries. An absent batch is not an edit.
+    if (std::none_of(staged.begin(), staged.end(), [](const auto& entry) {
+            return !entry.edits.isEmpty() || entry.eolEdit.has_value();
+        }))
+        return !staged.empty();
+    // No callbacks or writes happen until every resource is validated. The
+    // session remains at its existing address for aliasing editor ownership.
+    for (auto& entry : staged)
+        *entry.original = std::move(entry.replacement);
+    const QPointer<EditorArea> alive(this);
+    for (const auto& entry : staged) {
+        if (entry.edits.isEmpty() && !entry.eolEdit)
+            continue;
+        if (auto* page = pageForDocument(entry.original->session().id()); page && page->editor) {
+            {
+                const QSignalBlocker blocker(page->editor);
+                page->editor->beginUndoGroup();
+                const auto eolToken =
+                    entry.eolEdit ? page->editor->beginLineEndingUndo(
+                                        entry.beforeEol, entry.original->session().lineEnding())
+                                  : 0;
+                for (const auto& edit : entry.edits)
+                    page->editor->replaceBytes(edit.position, edit.removedLength,
+                                               edit.insertedText);
+                if (entry.eolEdit) {
+                    page->editor->convertLineEndings(entry.original->session().lineEnding());
+                    page->editor->endLineEndingUndo(eolToken);
+                }
+                page->editor->endUndoGroup();
+            }
+            updateTabTitle(*page);
+            if (!alive)
+                return true;
+        }
+    }
+    for (const auto& entry : staged) {
+        if (entry.edits.isEmpty() && !entry.eolEdit)
+            continue;
+        const auto id = entry.original->session().id();
+        const auto current = documentModels_.find(id);
+        if (!current)
+            continue;
+        if (current->session().version() == entry.finalVersion) {
+            if (!entry.edits.isEmpty())
+                emit documentEditsApplied(id, entry.edits);
+            if (!alive)
+                return true;
+            if (entry.eolEdit)
+                announceDocument(id);
+        } else
+            announceDocument(id); // a reentrant listener already changed it
+        if (!alive)
+            return true;
+    }
+    emit openFilesChanged();
+    if (alive)
+        scheduleFindRefresh();
+    return true;
+}
+
+bool EditorArea::acceptDocumentLoad(core::DocumentId id, const editor::DocumentLoadResult& load,
+                                    QString* errorMessage) {
+    const auto model = documentModels_.find(id);
+    if (!model) {
+        if (errorMessage)
+            *errorMessage = tr("The document is no longer open.");
+        return false;
+    }
+    if (auto* page = pageForDocument(id)) {
+        if (page->editor)
+            return finishReload(*page, load, errorMessage);
+        finishOpen(id, load);
+        return documentModels_.find(id) != nullptr;
+    }
+    if (!editor::DocumentSession::matchesDiskSnapshot(model->session().filePath(), load) ||
+        !(model->session().state() == editor::DocumentState::Loading ? model->acceptLoad(load)
+                                                                     : model->acceptReload(load))) {
+        if (errorMessage)
+            *errorMessage = load.diagnostic.isEmpty()
+                                ? tr("The file could not be loaded or changed during loading.")
+                                : load.diagnostic;
+        return false;
+    }
+    announceDocument(id);
+    return true;
+}
+
 void EditorArea::showFindReplace(bool replaceVisible) {
+    if (auto* diff = qobject_cast<DiffEditorWidget*>(tabs_->currentWidget())) {
+        diff->showFind(replaceVisible);
+        return;
+    }
     const Page* page = pageAt(tabs_->currentIndex());
     if (page && page->editor) {
         if (!findBar_->isVisible()) {
@@ -1093,6 +1650,108 @@ void EditorArea::updateFindBarGeometry() {
     findBar_->move(qMax(8, width() - findBar_->width() - 14), 38);
 }
 
+void EditorArea::openGitComparison(const workspace::GitComparison& input) {
+    const auto key = "git-diff:" + input.repository + ':' + input.path +
+                     (input.historical ? ":" + input.originalRevision + ":" + input.modifiedRevision
+                      : input.staged   ? ":staged"
+                                       : ":working");
+    openComparison(input, key);
+}
+
+void EditorArea::openResourceComparison(const QUrl& left, const QUrl& right, const QString& before,
+                                        const QString& after, const QString& title,
+                                        bool preserveFocus) {
+    workspace::GitComparison input;
+    input.path = right.path();
+    input.originalPath = left.path();
+    input.original = before.toUtf8();
+    input.modified = after.toUtf8();
+    input.staged = true; // Immutable provider snapshots, never the live working file.
+    input.historical = true;
+    input.originalRevision = tr("Before");
+    input.modifiedRevision = tr("After");
+    openComparison(input, "resource-diff:" + left.toString() + ':' + right.toString(),
+                   title.isEmpty() ? QFileInfo(right.path()).fileName() + tr(" (Changes)") : title,
+                   preserveFocus, false, right.isLocalFile());
+}
+
+void EditorArea::openComparison(const workspace::GitComparison& input, const QString& key,
+                                const QString& titleOverride, bool preserveFocus,
+                                bool replaceExisting, bool openFileAvailable) {
+    const QPointer<QWidget> previous = tabs_->currentWidget();
+    const QPointer<QWidget> previousFocus = QApplication::focusWidget();
+    auto comparison = input;
+    bool decodedSafely = true;
+    // Reuse the same decoder as normal documents, including BOM and user fallback.
+    for (auto* bytes : {&comparison.original, &comparison.modified}) {
+        QByteArray decoded;
+        core::TextEncoding encoding{};
+        bool errors = false;
+        if (!core::decodeText(*bytes, defaultEncoding_, true, &decoded, &encoding, nullptr, nullptr,
+                              autoGuessEncoding_, &errors) ||
+            errors) {
+            comparison.binary = true;
+            decodedSafely = false;
+            break;
+        }
+        decoded.replace("\r\n", "\n");
+        decoded.replace('\r', '\n');
+        *bytes = decoded;
+    }
+    if (decodedSafely && !comparison.original.contains('\0') && !comparison.modified.contains('\0'))
+        comparison.binary = false;
+    const auto path = QDir(comparison.repository).filePath(comparison.path);
+    auto* diff = new DiffEditorWidget(comparison, nullptr, openFileAvailable);
+    diff->setInlineMode(true);
+    const auto fileName = QFileInfo(comparison.path).fileName();
+    const auto title =
+        !titleOverride.isEmpty() ? titleOverride
+        : comparison.historical
+            ? fileName + " (" +
+                  (comparison.originalRevision.isEmpty() ? tr("Empty tree")
+                                                         : comparison.originalRevision.left(7)) +
+                  " → " + comparison.modifiedRevision.left(7) + ")"
+            : fileName + (comparison.staged ? tr(" (Index)") : tr(" (Working Tree)"));
+    connect(diff, &DiffEditorWidget::modificationChanged, this, [this, diff, title](bool modified) {
+        const int index = tabs_->indexOf(diff);
+        if (index >= 0)
+            tabs_->setTabText(index, title + (modified ? " •" : ""));
+    });
+    diff->setEditorFont(fontFamily_, fontPixelSize_, fontWeight_);
+    diff->setDarkTheme(darkTheme_);
+    if (!comparison.staged && comparison.modifiedExists && !comparison.binary) {
+        // Normal document lifecycle owns encoding, save, file watching and undo.
+        connect(this, &EditorArea::documentOpened, diff,
+                [this, diff, path](core::DocumentId, const QString& opened, const QByteArray&,
+                                   qint64, core::DocumentStorageMode) {
+                    if (core::normalizedFileSystemPath(opened) ==
+                        core::normalizedFileSystemPath(path))
+                        if (auto* page = pageAt(indexOfPath(path)))
+                            diff->bindWorkingEditor(page->editor);
+                });
+        QString diagnostic;
+        if (openFile(path, &diagnostic)) {
+            if (auto* page = pageAt(indexOfPath(path)); page && page->editor)
+                diff->bindWorkingEditor(page->editor);
+        } else {
+            emit fileOpenFailed(path, diagnostic);
+        }
+    }
+    connect(diff, &DiffEditorWidget::openFileRequested, this,
+            [this](const QString& file) { openFile(file); });
+    connect(diff, &DiffEditorWidget::saveRequested, this, [this] {
+        QString diagnostic;
+        if (!saveCurrent(&diagnostic))
+            emit fileOpenFailed(currentFile(), diagnostic);
+    });
+    openAuxiliaryTab(key, title, diff, replaceExisting);
+    if (preserveFocus && previous) {
+        tabs_->setCurrentWidget(previous);
+        if (previousFocus)
+            previousFocus->setFocus(Qt::OtherFocusReason);
+    }
+}
+
 void EditorArea::setEditorFont(const QString& family, int pixelSize, int weight) {
     fontFamily_ = family;
     fontPixelSize_ = qBound(6, pixelSize, 72);
@@ -1101,6 +1760,8 @@ void EditorArea::setEditorFont(const QString& family, int pixelSize, int weight)
         if (page->editor)
             page->editor->setEditorFont(fontFamily_, fontPixelSize_, fontWeight_);
     }
+    for (auto* diff : findChildren<DiffEditorWidget*>())
+        diff->setEditorFont(fontFamily_, fontPixelSize_, fontWeight_);
 }
 
 void EditorArea::resetEditorZoom() {
@@ -1125,40 +1786,85 @@ void EditorArea::setAutoGuessEncoding(bool enabled) { autoGuessEncoding_ = enabl
 void EditorArea::setDarkTheme(bool dark) {
     darkTheme_ = dark;
     for (const auto& page : pages_) {
+        updateTabDecoration(*page, tabs_->indexOf(page->container));
         if (page->editor) {
             page->editor->setDarkTheme(dark);
             updateBreadcrumb(*page);
         }
     }
+    for (auto* diff : findChildren<DiffEditorWidget*>())
+        diff->setDarkTheme(dark);
+}
+void EditorArea::setGitDecorationModel(ExplorerFileSystemModel& model) {
+    gitDecorationModel_ = &model;
+    const auto refresh = [this] {
+        for (const auto& page : pages_)
+            updateTabDecoration(*page, tabs_->indexOf(page->container));
+        updateTabOverflowScrollBar();
+    };
+    connect(&model, &ExplorerFileSystemModel::gitDecorationsChanged, this, refresh);
+    refresh();
+}
+void EditorArea::setBreakpointLanguages(const QSet<QString>& languages) {
+    breakpointLanguages_ = languages;
+    for (const auto& page : pages_)
+        if (page->editor)
+            page->editor->setBreakpointEnabled(
+                languages.contains(editor::languageSupportForFile(page->document->filePath()).id));
+}
+void EditorArea::setDebugBreakpoints(const QMap<QString, QSet<int>>& breakpoints) {
+    debugBreakpoints_ = breakpoints;
+    for (const auto& page : pages_) {
+        if (page->editor)
+            page->editor->setDebugBreakpoints(
+                debugBreakpoints_.value(QDir::cleanPath(page->document->filePath())));
+    }
+}
+void EditorArea::setDebugExecutionLocation(const QString& path, int line) {
+    debugExecutionPath_ = path.isEmpty() ? QString() : QDir::cleanPath(path);
+    debugExecutionLine_ = line > 0 ? line : 0;
+    for (const auto& page : pages_) {
+        if (page->editor)
+            page->editor->setDebugExecutionLine(
+                !debugExecutionPath_.isEmpty() &&
+                        core::pathsReferToSameEntry(page->document->filePath(), debugExecutionPath_)
+                    ? debugExecutionLine_
+                    : 0);
+    }
 }
 
 bool EditorArea::saveCurrent(QString* errorMessage) {
+    if (auto* diff = qobject_cast<DiffEditorWidget*>(tabs_->currentWidget())) {
+        if (!diff->workingEditor())
+            return true;
+        const int index = indexOfPath(diff->workingPath());
+        auto* page = pageAt(index);
+        if (!page)
+            return false;
+        const auto id = page->document->id();
+        const bool saved = saveDocument(id, errorMessage);
+        tabs_->setCurrentWidget(diff);
+        return saved;
+    }
     Page* page = pageAt(tabs_->currentIndex());
     if (!page) {
         return true;
     }
-    if (!page->editor) {
-        if (errorMessage)
-            *errorMessage = tr("The document is still loading.");
-        return false;
-    }
-    if (!page->document->isModified() && !page->editor->isModified())
-        return true;
-    watcher_->removePath(page->document->filePath());
-    if (!page->document->save(page->editor->text(), errorMessage)) {
-        watch(*page);
-        return false;
-    }
-    page->editor->markSaved();
-    page->editor->setReadOnly(page->document->isReadOnly());
-    page->document->setModified(false);
-    watch(*page);
-    refreshDeletedDirectoryWatches();
-    updateTabTitle(*page);
-    return true;
+    return saveDocument(page->document->id(), errorMessage);
 }
 
 bool EditorArea::saveCurrentWithEncoding(core::TextEncoding encoding, QString* errorMessage) {
+    if (auto* diff = qobject_cast<DiffEditorWidget*>(tabs_->currentWidget())) {
+        if (!diff->workingEditor())
+            return true;
+        const int index = indexOfPath(diff->workingPath());
+        if (index < 0)
+            return false;
+        tabs_->setCurrentIndex(index);
+        const bool saved = saveCurrentWithEncoding(encoding, errorMessage);
+        tabs_->setCurrentWidget(diff);
+        return saved;
+    }
     Page* page = pageAt(tabs_->currentIndex());
     if (!page || !page->editor) {
         if (errorMessage)
@@ -1177,6 +1883,7 @@ bool EditorArea::saveCurrentWithEncoding(core::TextEncoding encoding, QString* e
     refreshDeletedDirectoryWatches();
     updateTabTitle(*page);
     emit currentEncodingChanged(page->document->encoding());
+    emit documentSaved(page->document->id());
     return true;
 }
 
@@ -1190,21 +1897,75 @@ QStringList EditorArea::openFiles() const {
 }
 
 QString EditorArea::currentFile() const {
+    if (auto* diff = qobject_cast<DiffEditorWidget*>(tabs_->currentWidget()))
+        return diff->workingPath();
     const Page* page = pageAt(tabs_->currentIndex());
     return page ? page->document->filePath() : QString{};
 }
 
 core::TextEncoding EditorArea::currentEncoding() const {
+    if (auto* diff = qobject_cast<DiffEditorWidget*>(tabs_->currentWidget())) {
+        const auto* page = pageAt(indexOfPath(diff->workingPath()));
+        return page ? page->document->encoding() : core::TextEncoding::Utf8;
+    }
     const Page* page = pageAt(tabs_->currentIndex());
     return page ? page->document->encoding() : core::TextEncoding::Utf8;
 }
 
+core::LineEnding EditorArea::currentLineEnding() const {
+    const auto* page = pageAt(tabs_->currentIndex());
+    return page ? page->document->lineEnding() : core::LineEnding::None;
+}
+
+QString EditorArea::currentLanguageId() const {
+    const auto* page = pageAt(tabs_->currentIndex());
+    if (!page)
+        return {};
+    const auto path = page->document->filePath();
+    const auto id =
+        path.isEmpty() ? page->model->languageId() : editor::languageSupportForFile(path).id;
+    return id.isEmpty() ? QStringLiteral("plaintext") : id;
+}
+
 QString EditorArea::selectedText() const {
+    if (auto* diff = qobject_cast<DiffEditorWidget*>(tabs_->currentWidget()))
+        return diff->selectedText();
     const Page* page = pageAt(tabs_->currentIndex());
     return page && page->editor ? page->editor->selectedText() : QString{};
 }
 
+std::optional<FormatDocumentSnapshot> EditorArea::currentFormatSnapshot() const {
+    const Page* page = pageAt(tabs_->currentIndex());
+    if (!page || !page->editor || page->editor->isReadOnly() || page->editor->isLargeFileMode())
+        return std::nullopt;
+    const auto bytes = page->editor->text();
+    return FormatDocumentSnapshot{page->document->id(),
+                                  editor::languageSupportForFile(page->document->filePath()).id,
+                                  QString::fromUtf8(bytes), page->editor->contentRevision()};
+}
+
+bool EditorArea::applyFormattedDocument(const FormatDocumentSnapshot& snapshot,
+                                        const QString& text) {
+    Page* page = pageForDocument(snapshot.documentId);
+    if (!page || !page->editor || page->editor->isReadOnly() ||
+        page->editor->contentRevision() != snapshot.revision)
+        return false;
+    const auto original = page->editor->text();
+    const auto replacement = text.toUtf8();
+    if (replacement == original)
+        return true;
+    page->editor->beginUndoGroup();
+    page->editor->replaceBytes(0, original.size(), replacement);
+    page->editor->endUndoGroup();
+    return true;
+}
+
 void EditorArea::goToLine(int line) {
+    if (auto* diff = qobject_cast<DiffEditorWidget*>(tabs_->currentWidget())) {
+        if (auto* editor = diff->activeEditor())
+            editor->goToLine(line);
+        return;
+    }
     if (Page* page = pageAt(tabs_->currentIndex())) {
         if (page->editor)
             page->editor->goToLine(line);
@@ -1229,6 +1990,11 @@ void EditorArea::goToMatch(int line, int column, int length) {
 }
 
 void EditorArea::selectAll() {
+    if (auto* diff = qobject_cast<DiffEditorWidget*>(tabs_->currentWidget())) {
+        if (auto* editor = diff->activeEditor())
+            editor->selectAll();
+        return;
+    }
     if (Page* page = pageAt(tabs_->currentIndex())) {
         if (page->editor)
             page->editor->selectAll();
@@ -1326,12 +2092,36 @@ void EditorArea::updateTabTitle(Page& page) {
         return;
     }
     QTabBar* tabBar = tabs_->tabBar();
-    const bool deleted = page.document->isDeleted();
     tabBar->setTabText(index, page.document->displayName());
-    static_cast<EditorTabBar*>(tabBar)->setDeleted(index, deleted);
+    updateTabDecoration(page, index);
     updateTabCloseButtons();
     updateTabOverflowScrollBar();
-    QString toolTip = page.document->filePath();
+}
+
+void EditorArea::updateTabDecoration(const Page& page, int index) {
+    if (index < 0)
+        return;
+    const auto path = page.document->filePath();
+    const auto decoration = gitDecorationModel_
+                                ? gitDecorationModel_->gitDecoration(path, darkTheme_)
+                                : GitFileDecoration{};
+    static_cast<EditorTabBar*>(tabs_->tabBar())
+        ->setFileDecoration(index, path, decoration, page.document->isDeleted());
+    QString toolTip = QDir::toNativeSeparators(path);
+    const QString badge = decoration.badge;
+    QString status;
+    if (badge == "M")
+        status = tr("Modified");
+    else if (badge == "A")
+        status = tr("Added");
+    else if (badge == "D")
+        status = tr("Deleted");
+    else if (badge == "R")
+        status = tr("Renamed");
+    else if (badge == "!")
+        status = tr("Merge conflict");
+    if (!status.isEmpty())
+        toolTip += QStringLiteral(" \u2022 ") + status;
     if (page.document->isReadOnly())
         toolTip += tr("\nRead-only");
     if (!page.reloadError.isEmpty())
@@ -1376,11 +2166,12 @@ bool EditorArea::closePage(int index) {
     const core::DocumentId documentId = page->document->id();
     const QString closedPath = page->document->filePath();
     const qint64 finalVersion = page->document->version();
-    const bool documentAnnounced = page->documentAnnounced;
+    const bool retained = documentModels_.references(documentId) > 0;
     watcher_->removePath(closedPath);
     if (page->editor)
         disconnect(page->editor, nullptr, this, nullptr);
-    page->document->close();
+    if (!retained)
+        documentModels_.remove(documentId);
     tabs_->removeTab(index);
     updateTabOverflowScrollBar();
     const auto found = std::find_if(pages_.begin(), pages_.end(), [page](const auto& candidate) {
@@ -1391,7 +2182,7 @@ bool EditorArea::closePage(int index) {
     }
     refreshDeletedDirectoryWatches();
     widget->deleteLater();
-    if (documentAnnounced)
+    if (!retained)
         emit documentClosed(documentId, closedPath, finalVersion);
     emit openFilesChanged();
     if (tabs_->count() == 0) {
@@ -1602,11 +2393,19 @@ void EditorArea::closeFindReplace() {
 }
 
 void EditorArea::undo() {
+    if (auto* diff = qobject_cast<DiffEditorWidget*>(tabs_->currentWidget())) {
+        diff->undo();
+        return;
+    }
     if (Page* page = pageAt(tabs_->currentIndex()); page && page->editor)
         page->editor->undo();
 }
 
 void EditorArea::redo() {
+    if (auto* diff = qobject_cast<DiffEditorWidget*>(tabs_->currentWidget())) {
+        diff->redo();
+        return;
+    }
     if (Page* page = pageAt(tabs_->currentIndex()); page && page->editor)
         page->editor->redo();
 }

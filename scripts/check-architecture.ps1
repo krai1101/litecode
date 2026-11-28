@@ -165,7 +165,7 @@ foreach ($entry in $observed.GetEnumerator()) {
 }
 
 if ($unexpected.Count -gt 0) {
-    $unexpected | ForEach-Object { Write-Error $_ }
+    $unexpected | ForEach-Object { Write-Error $_ -ErrorAction Continue }
     throw "Architecture check found new forbidden production code."
 }
 

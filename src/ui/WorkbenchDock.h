@@ -9,10 +9,13 @@ class WorkbenchDock final : public QDockWidget {
 
   public:
     WorkbenchDock(const QString& title, bool showRightBorder, QWidget* parent = nullptr);
+  signals:
+    void closedByUser();
 
   protected:
     void resizeEvent(QResizeEvent* event) override;
     void showEvent(QShowEvent* event) override;
+    void closeEvent(QCloseEvent* event) override;
 
   private:
     void positionRightBorder();

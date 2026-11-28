@@ -4,13 +4,14 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 LiteCode is a lightweight native desktop IDE built with C++ and Qt Widgets. It
-provides the everyday editing loop—files, editing, search, and an integrated
-terminal—without Electron, Chromium, a web view, or an embedded AI client.
+combines editing, search, Git source control, debugging, and an integrated
+terminal in a native workbench. Optional native extensions include Codex and
+debuggers for Python, JavaScript, and Java.
+
+![LiteCode on Windows with the Explorer, Python editor, integrated terminal, and Codex sidebar](assets/litecode-workbench.png)
 
 > **Beta software:** LiteCode is still in beta. Use it cautiously, keep backups
 > of important work, and report problems you encounter.
-
-<img width="1920" height="1031" alt="Capture" src="https://github.com/user-attachments/assets/c5894a72-b2f7-4d76-966a-92fa9e9bb758" />
 
 ## The repository
 
@@ -26,27 +27,48 @@ needed to build and redistribute LiteCode.
 - Quick Open, command palette, and cancellable workspace text search.
 - Multiple native terminal sessions: ConPTY on Windows and PTY on Unix-like
   systems.
-- Optional external Git and `clangd` integration.
+- Git Source Control with staging, inline diffs,
+  commits, history, branches, and fetch, pull, and push. Requires Git on PATH.
+- Run and Debug with breakpoints, stepping, variables,
+  watches, and a debug console.
+- Native C++/Qt extensions with an Extensions view for importing, enabling,
+  disabling, and uninstalling packages.
+- Optional `clangd` integration.
 - Native Light Modern and Dark Modern themes.
 
 Settings for editor font and file encoding apply across all folders. Resetting a setting
 restores its default. Existing `<workspace>/.litecode/settings.ini` files are ignored.
-
-Developer tools such as Codex, Claude Code, Git, and language servers remain
-separate processes. Install and run them normally from LiteCode's terminal.
 
 ## Downloads
 
 Prebuilt packages for Windows, Linux, and macOS are published on the
 [Releases page](https://github.com/krai1101/litecode/releases).
 
-Windows receives the complete package smoke test. Linux and macOS packages are
-built and tested for pull requests, manual checks, and versioned releases.
+The release workflow builds and checks packages for all three platforms before
+publishing. On Linux, the package uses X11 or XWayland and the system's XCB,
+graphics, and font libraries.
+
+## Bundled extensions
+
+Starting with LiteCode 0.2.0, each release ZIP includes native extension
+packages for its platform under `extensions/`:
+
+| Extension | Setup |
+| --- | --- |
+| [Codex](extensions/codex/README.md) | Open the Codex sidebar after enabling and sign in with ChatGPT or use an OpenAI API key. |
+| [Python Debugger](extensions/python-debugger/README.md) | Install Python. The package supplies debugpy. |
+| [JavaScript Debugger](extensions/javascript-debugger/README.md) | Install Node.js and make it available on PATH. |
+| [Java Debugger](extensions/java-debugger/README.md) | Install a JDK 21 or newer. |
+
+Open **Extensions → … → Install Extension from Folder…**, select the extension's
+folder from the extracted ZIP, then choose **Enable**. Each extension runs from
+the installed copy. To remove an extension, right-click it and choose
+**Uninstall**.
 
 ## Build from source
 
 LiteCode requires CMake 3.24+, Ninja, a C++20 compiler, and Qt 6.11.2 with the
-Core, Core5Compat, Concurrent, GUI, Widgets, SVG, and Test modules.
+Core, Core5Compat, Concurrent, GUI, Widgets, SVG, Network, and Test modules.
 
 On Windows, install Visual Studio 2022 with the Desktop development with C++
 workload, then run:

@@ -67,6 +67,10 @@ QVector<CommandSnapshot> CommandRegistry::commandsFor(CommandSurface surface) co
     return result;
 }
 
+QStringList CommandRegistry::registeredIds() const {
+    return QStringList(order_.cbegin(), order_.cend());
+}
+
 bool CommandRegistry::invoke(const QString& id) {
     const auto entry = entries_.find(id);
     if (entry == entries_.end() || !entry->action->isEnabled()) {
@@ -159,6 +163,20 @@ bool CommandRegistry::setEnabled(const QString& id, bool enabled) {
         return true;
     }
     entry->action->setEnabled(enabled);
+    emit commandChanged(id);
+    return true;
+}
+
+bool CommandRegistry::setTitles(const QString& id, const QString& title,
+                                const QString& paletteTitle) {
+    const auto entry = entries_.find(id);
+    if (entry == entries_.end() || title.trimmed().isEmpty())
+        return false;
+    if (entry->spec.title == title && entry->spec.paletteTitle == paletteTitle)
+        return true;
+    entry->spec.title = title;
+    entry->spec.paletteTitle = paletteTitle;
+    entry->action->setText(title);
     emit commandChanged(id);
     return true;
 }

@@ -1,9 +1,10 @@
 include(FetchContent)
 
 FetchContent_Declare(scintilla_source
-    # SourceForge hosts the official release archive and provides a more reliable CI download
-    # endpoint than the project's small web server.
-    URL https://downloads.sourceforge.net/project/scintilla/scintilla/5.6.4/scintilla564.tgz
+    # Both endpoints serve the same upstream release archive.
+    URL
+        https://www.scintilla.org/scintilla564.tgz
+        https://downloads.sourceforge.net/project/scintilla/scintilla/5.6.4/scintilla564.tgz
     URL_HASH SHA256=c62e19449ed066867fde4edc6e3864f56d16f893c9f7582792fcf27dd733a48e
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )

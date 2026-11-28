@@ -12,6 +12,7 @@ class WorkbenchTitleBar final : public QWidget {
 
   public:
     WorkbenchTitleBar(QMenuBar* menuBar, QWidget* window);
+    ~WorkbenchTitleBar() override;
 
     [[nodiscard]] bool containsInteractivePoint(const QPoint& point) const;
     void setDarkTheme(bool dark);
@@ -20,8 +21,10 @@ class WorkbenchTitleBar final : public QWidget {
   signals:
     void togglePrimarySidebarRequested();
     void toggleBottomPanelRequested();
+    void toggleSecondarySidebarRequested();
 
   protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
     void mouseDoubleClickEvent(QMouseEvent* event) override;
@@ -36,6 +39,7 @@ class WorkbenchTitleBar final : public QWidget {
     QMenuBar* menuBar_{};
     QWidget* controls_{};
     QToolButton* maximize_{};
+    QToolButton* close_{};
 };
 
 } // namespace litecode::ui

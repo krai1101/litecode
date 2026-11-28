@@ -57,6 +57,12 @@ struct SyntaxPalette final {
     QColor markupItalic;
     QColor markupQuote;
     QColor markupList;
+    QColor diffInsertedLine;
+    QColor diffRemovedLine;
+    QColor diffInsertedText;
+    QColor diffRemovedText;
+    QColor diffPadding;
+    QColor debugStackFrame;
 };
 
 class SyntaxTheme final {

@@ -1,0 +1,12 @@
+@PACKAGE_INIT@
+include(CMakeFindDependencyMacro)
+find_dependency(Qt6 @Qt6Core_VERSION@ EXACT REQUIRED COMPONENTS Core)
+include("${CMAKE_CURRENT_LIST_DIR}/LiteCodeExtensionSDKTargets.cmake")
+set(LiteCodeExtensionSDK_API_VERSION 25)
+set(LiteCodeExtensionSDK_QT_VERSION "@Qt6Core_VERSION@")
+set(LiteCodeExtensionSDK_COMPILER_ID "@CMAKE_CXX_COMPILER_ID@")
+set(LiteCodeExtensionSDK_COMPILER_VERSION "@CMAKE_CXX_COMPILER_VERSION@")
+if(NOT CMAKE_CXX_COMPILER_ID STREQUAL LiteCodeExtensionSDK_COMPILER_ID)
+    message(FATAL_ERROR "LiteCode native extensions require the SDK compiler family: ${LiteCodeExtensionSDK_COMPILER_ID}")
+endif()
+check_required_components(LiteCodeExtensionSDK)

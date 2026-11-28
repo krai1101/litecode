@@ -13,6 +13,6 @@ namespace litecode::ui {
 [[nodiscard]] QIcon workbenchActivityIcon(const QString& normal, const QString& active);
 [[nodiscard]] QWidget* createWorkbenchDockHeader(QDockWidget* dock, const QString& title,
                                                  QLabel** titleLabel = nullptr,
-                                                 bool closable = true);
+                                                 bool closable = true, bool viewActions = false);
 
 } // namespace litecode::ui

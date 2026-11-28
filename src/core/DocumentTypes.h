@@ -115,6 +115,8 @@ struct TextRange final {
     TextPosition end;
 };
 
+enum class DocumentEditReason { Other, Undo, Redo };
+
 struct DocumentEdit final {
     DocumentId documentId;
     QString filePath;
@@ -123,6 +125,7 @@ struct DocumentEdit final {
     QByteArray insertedText;
     TextRange range;
     qint64 version{};
+    DocumentEditReason reason{DocumentEditReason::Other};
 };
 
 struct DocumentPathChange final {
@@ -139,4 +142,5 @@ Q_DECLARE_METATYPE(litecode::core::TextEncoding)
 Q_DECLARE_METATYPE(litecode::core::TextPosition)
 Q_DECLARE_METATYPE(litecode::core::TextRange)
 Q_DECLARE_METATYPE(litecode::core::DocumentEdit)
+Q_DECLARE_METATYPE(litecode::core::DocumentEditReason)
 Q_DECLARE_METATYPE(litecode::core::DocumentPathChange)
