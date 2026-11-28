@@ -7,6 +7,7 @@
 #include <QLockFile>
 #include <QMutexLocker>
 #include <QSaveFile>
+#include <QThread>
 #include <stdexcept>
 
 namespace litecode::extensions {
@@ -106,31 +107,49 @@ bool ConfigurationFile::update(const QString& key, const QJsonValue& value,
         propertyPath.append('[' + *languageId + ']');
     propertyPath.append(key);
     const auto updated = document.updateProperty(propertyPath, value);
-    QFile original(target);
-    QByteArray originalBytes;
-    if (original.exists()) {
+    const auto verifyOriginal = [&] {
+        QFile original(target);
+        if (!original.exists()) {
+            if (initiallyExists)
+                fail("Settings file was removed during the update: " + path_);
+            return;
+        }
+        if (!initiallyExists)
+            fail("Settings file was created by another writer during the update: " + path_);
         if (!original.open(QIODevice::ReadOnly))
             fail("Could not reread settings file " + path_);
-        originalBytes = original.readAll();
+        const auto bytes = original.readAll();
         if (original.error() != QFileDevice::NoError)
             fail("Could not reread settings file " + path_);
-        original.close();
-    } else if (initiallyExists) {
-        fail("Settings file was removed during the update: " + path_);
-    } else if (value.isUndefined())
+        if (bytes != document.source())
+            fail("Settings file changed during the update. Retry using its latest contents: " +
+                 path_);
+    };
+    if ((!initiallyExists && value.isUndefined()) ||
+        (initiallyExists && document.source() == updated)) {
+        verifyOriginal();
         return false;
-    if (initiallyExists && originalBytes != document.source())
-        fail("Settings file changed during the update. Retry using its latest contents: " + path_);
-    if (!initiallyExists && original.exists())
-        fail("Settings file was created by another writer during the update: " + path_);
-    if (originalBytes == updated)
-        return false;
-    QSaveFile output(target);
-    output.setDirectWriteFallback(false);
-    if (!output.open(QIODevice::WriteOnly) || output.write(updated) != updated.size() ||
-        !output.commit())
+    }
+    for (unsigned attempt = 0;; ++attempt) {
+        QSaveFile output(target);
+        output.setDirectWriteFallback(false);
+        if (!output.open(QIODevice::WriteOnly) || output.write(updated) != updated.size())
+            fail("Could not save configuration " + path_ + ": " + output.errorString());
+        verifyOriginal();
+        if (output.commit())
+            return true;
+#ifdef Q_OS_WIN
+        // An external reader can hold a short-lived handle that blocks replacement.
+        // Keep the writer lock and verify the source again before each retry.
+        if (output.error() == QFileDevice::RenameError && attempt < 3) {
+            QThread::msleep(20U << attempt);
+            continue;
+        }
+#else
+        Q_UNUSED(attempt);
+#endif
         fail("Could not save configuration " + path_ + ": " + output.errorString());
-    return true;
+    }
 }
 
 } // namespace litecode::extensions

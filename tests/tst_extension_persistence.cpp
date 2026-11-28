@@ -1,3 +1,4 @@
+#include "extensions/ConfigurationFile.h"
 #include "extensions/ConfigurationService.h"
 #include "extensions/ExtensionManager.h"
 #include <QDir>
@@ -9,6 +10,11 @@
 #include <QTemporaryDir>
 #include <QtTest>
 #include <algorithm>
+#ifdef Q_OS_WIN
+#include <chrono>
+#include <qt_windows.h>
+#include <thread>
+#endif
 
 using namespace litecode::extensions;
 class ExtensionPersistenceTests final : public QObject {
@@ -55,6 +61,25 @@ class ExtensionPersistenceTests final : public QObject {
         });
     }
   private slots:
+#ifdef Q_OS_WIN
+    void settingsUpdateRecoversFromBriefWindowsSharingConflict() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const auto path = directory.filePath("settings.json");
+        ConfigurationFile settings(path);
+        QVERIFY(settings.update("fixture.one", "old"));
+        const auto nativePath = QDir::toNativeSeparators(path).toStdWString();
+        const auto reader = CreateFileW(nativePath.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
+                                        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        QVERIFY(reader != INVALID_HANDLE_VALUE);
+        const std::jthread releaseReader([reader] {
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            CloseHandle(reader);
+        });
+        QVERIFY(settings.update("fixture.one", "new"));
+        QCOMPARE(settings.read().value("fixture.one").toString(), QString("new"));
+    }
+#endif
     void settingsUpdatesCrossHostsPersistAndRespectWriteCoordination() {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
