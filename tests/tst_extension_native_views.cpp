@@ -2482,7 +2482,9 @@ class NativeViewTests final : public QObject {
         ui::WorkbenchDocumentOpenService opens(editors, &window);
         opens.setContentProviders(&manager.contentProviders());
         ui::WorkbenchDiffCommand diffs(editors, &opens, &window);
+        int diffRequests = 0;
         manager.setDiffCommandHandler([&](const QString& owner, const QJsonArray& args) {
+            ++diffRequests;
             return diffs.execute(owner, args);
         });
         QVERIFY(manager.commands().contains("vscode.diff"));
@@ -2973,7 +2975,15 @@ class NativeViewTests final : public QObject {
             return id.isEmpty() ? nullptr : window.findChild<QAbstractButton*>(id + ".review");
         };
         QTRY_VERIFY(review() && review()->isVisible() && review()->isEnabled());
-        QTest::mouseClick(review(), Qt::LeftButton);
+        const auto reviewNotice = [&] {
+            auto* label = window.findChild<QLabel*>("codex.notice");
+            return label ? label->text() : QString{};
+        };
+        auto previousRequests = diffRequests;
+        // Activate the real widget without relying on where the CI desktop
+        // placed the scrollable conversation or clipped its test window.
+        review()->click();
+        QTRY_VERIFY2(diffRequests > previousRequests, qPrintable(reviewNotice()));
         QTRY_VERIFY(editors->findChild<ui::DiffEditorWidget*>());
         auto* diff = editors->findChild<ui::DiffEditorWidget*>();
         auto* diffBefore = diff->findChild<editor::ScintillaEditor*>("diffOriginal");
@@ -2991,7 +3001,9 @@ class NativeViewTests final : public QObject {
         // File links use the same route and tab identity, not a second chat surface.
         auto* fileReview = window.findChild<QAbstractButton*>(editedTurnId() + ".reviewFile.0");
         QVERIFY(fileReview);
-        QTest::mouseClick(fileReview, Qt::LeftButton);
+        previousRequests = diffRequests;
+        fileReview->click();
+        QTRY_VERIFY2(diffRequests > previousRequests, qPrintable(reviewNotice()));
         QTRY_COMPARE(editors->findChildren<ui::DiffEditorWidget*>().size(), 1);
         QCOMPARE(editors->findChild<ui::DiffEditorWidget*>(), diff);
         window.findChild<QPlainTextEdit*>("codex.prompt")->setPlainText("approval fixture");
